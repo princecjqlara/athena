@@ -522,26 +522,31 @@
     bottom: var(--spacing-xl);
     left: var(--spacing-xl);
     background: rgba(0, 0, 0, 0.85);
-    padding: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
     border-radius: var(--radius-md);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     color: var(--text-secondary);
-    max-width: 220px;
+    min-width: 200px;
+    max-width: 280px;
     max-height: 400px;
     overflow-y: auto;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .legendTitle {
     font-weight: 600;
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
     color: var(--text-primary);
+    font-size: 0.875rem;
 }
 
 .legendItem {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: 3px 0;
+    padding: 4px 0;
+    white-space: nowrap;
 }
 
 .legendDot {
