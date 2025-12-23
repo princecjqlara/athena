@@ -28,6 +28,7 @@ export function Sidebar() {
         <NavItem href="/upload" icon="upload" label="Upload Ad" />
         <NavItem href="/results" icon="chart" label="Add Results" />
         <NavItem href="/mindmap" icon="mindmap" label="Algorithm" />
+        <NavItem href="/pipeline" icon="pipeline" label="AI Pipeline" />
         <NavItem href="/videos" icon="video" label="My Ads" />
         <NavItem href="/settings" icon="settings" label="Settings" />
       </nav>
@@ -165,6 +166,18 @@ function NavItem({ href, icon, label }: { href: string; icon: string; label: str
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polygon points="23 7 16 12 23 17 23 7" />
         <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+      </svg>
+    ),
+    pipeline: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="5" cy="12" r="3" />
+        <circle cx="19" cy="12" r="3" />
+        <circle cx="12" cy="5" r="2" />
+        <circle cx="12" cy="19" r="2" />
+        <path d="M7.5 10.5L10 7" />
+        <path d="M14 7L16.5 10.5" />
+        <path d="M7.5 13.5L10 17" />
+        <path d="M14 17L16.5 13.5" />
       </svg>
     ),
     settings: (
