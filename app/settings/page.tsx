@@ -1,8 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 import UndoPanel from '@/components/UndoPanel';
+import FacebookLogin from '@/components/FacebookLogin';
+
+// Facebook App ID - set in environment variable
+const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
+
+interface AdAccount {
+    id: string;
+    name: string;
+    account_id: string;
+}
 
 export default function SettingsPage() {
     const [cloudinaryName, setCloudinaryName] = useState('');
@@ -16,6 +26,8 @@ export default function SettingsPage() {
     const [adAccountId, setAdAccountId] = useState('');
     const [marketingAccessToken, setMarketingAccessToken] = useState('');
     const [marketingConnectionStatus, setMarketingConnectionStatus] = useState<'untested' | 'testing' | 'connected' | 'failed'>('untested');
+    const [fbAdAccounts, setFbAdAccounts] = useState<AdAccount[]>([]);
+    const [showManualInput, setShowManualInput] = useState(false);
 
     // Meta Conversions API (CAPI) Settings
     const [pixelId, setPixelId] = useState('');
@@ -29,18 +41,26 @@ export default function SettingsPage() {
     });
 
     // Load saved API settings from localStorage
-    useState(() => {
+    useEffect(() => {
         if (typeof window !== 'undefined') {
             const savedAdAccount = localStorage.getItem('meta_ad_account_id');
             const savedMarketingToken = localStorage.getItem('meta_marketing_token');
             const savedPixelId = localStorage.getItem('meta_pixel_id');
             const savedCapiToken = localStorage.getItem('meta_capi_token');
+            const savedFbAdAccounts = localStorage.getItem('fb_ad_accounts');
             if (savedAdAccount) setAdAccountId(savedAdAccount);
             if (savedMarketingToken) setMarketingAccessToken(savedMarketingToken);
             if (savedPixelId) setPixelId(savedPixelId);
             if (savedCapiToken) setCapiAccessToken(savedCapiToken);
+            if (savedFbAdAccounts) {
+                try {
+                    setFbAdAccounts(JSON.parse(savedFbAdAccounts));
+                } catch (e) {
+                    console.error('Error parsing ad accounts:', e);
+                }
+            }
         }
-    });
+    }, []);
 
     const handleSaveConfig = async () => {
         setIsSaving(true);
@@ -166,6 +186,32 @@ export default function SettingsPage() {
         }
     };
 
+    // Handle Facebook OAuth success
+    const handleFacebookSuccess = (response: any) => {
+        console.log('Facebook login success:', response);
+        setMarketingAccessToken(response.accessToken);
+        setFbAdAccounts(response.adAccounts || []);
+
+        // Auto-select first ad account if available
+        if (response.adAccounts && response.adAccounts.length > 0) {
+            const firstAccount = response.adAccounts[0];
+            setAdAccountId(firstAccount.account_id);
+            localStorage.setItem('meta_ad_account_id', firstAccount.account_id);
+            localStorage.setItem('meta_marketing_token', response.accessToken);
+            setMarketingConnectionStatus('connected');
+        }
+
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+    };
+
+    // Handle ad account selection
+    const handleAdAccountSelect = (accountId: string) => {
+        setAdAccountId(accountId);
+        localStorage.setItem('meta_ad_account_id', accountId);
+        setMarketingConnectionStatus('connected');
+    };
+
     return (
         <div className={styles.page}>
             <header className={styles.header}>
@@ -192,7 +238,8 @@ export default function SettingsPage() {
                 {/* Meta Marketing API Settings */}
                 <div className={`glass-card ${styles.settingsCard}`} style={{
                     background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05))',
-                    border: '1px solid rgba(59, 130, 246, 0.2)'
+                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    gridColumn: '1 / -1'
                 }}>
                     <div className={styles.cardHeader}>
                         <div className={styles.cardIcon} style={{ background: 'linear-gradient(135deg, #1877F2, #42B72A)' }}>
@@ -217,57 +264,126 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    <div className={styles.formGrid}>
-                        <div className="form-group">
-                            <label className="form-label">Ad Account ID</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="e.g., 123456789012345"
-                                value={adAccountId}
-                                onChange={(e) => {
-                                    setAdAccountId(e.target.value);
-                                    setMarketingConnectionStatus('untested');
-                                }}
+                    {/* Facebook OAuth Login Button */}
+                    {FB_APP_ID ? (
+                        <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+                            <FacebookLogin
+                                appId={FB_APP_ID}
+                                onSuccess={handleFacebookSuccess}
+                                onError={(error) => console.error('FB Login Error:', error)}
                             />
-                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                Find in Ads Manager → Settings → Account ID
-                            </small>
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Access Token</label>
-                            <input
-                                type="password"
-                                className="form-input"
-                                placeholder="Your Meta Marketing API token"
-                                value={marketingAccessToken}
-                                onChange={(e) => {
-                                    setMarketingAccessToken(e.target.value);
-                                    setMarketingConnectionStatus('untested');
-                                }}
-                            />
-                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                Generate at developers.facebook.com → Tools → Access Token
-                            </small>
-                        </div>
-                    </div>
 
-                    <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
-                        <button
-                            className="btn btn-primary"
-                            onClick={handleTestMarketingConnection}
-                            disabled={marketingConnectionStatus === 'testing' || !adAccountId || !marketingAccessToken}
-                        >
-                            {marketingConnectionStatus === 'testing' ? '🔄 Testing...' : '🔗 Test Connection'}
-                        </button>
-                        <button
-                            className="btn btn-secondary"
-                            onClick={handleSaveMarketingSettings}
-                            disabled={!adAccountId || !marketingAccessToken}
-                        >
-                            💾 Save Settings
-                        </button>
-                    </div>
+                            {/* Ad Account Selector */}
+                            {fbAdAccounts.length > 0 && (
+                                <div style={{ marginTop: 'var(--spacing-md)' }}>
+                                    <label className="form-label">Select Ad Account</label>
+                                    <select
+                                        className="form-input"
+                                        value={adAccountId}
+                                        onChange={(e) => handleAdAccountSelect(e.target.value)}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <option value="">Choose an ad account...</option>
+                                        {fbAdAccounts.map((account) => (
+                                            <option key={account.id} value={account.account_id}>
+                                                {account.name} ({account.account_id})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div style={{
+                                marginTop: 'var(--spacing-md)',
+                                textAlign: 'center',
+                                color: 'var(--text-muted)',
+                                fontSize: '0.875rem'
+                            }}>
+                                <span style={{ opacity: 0.7 }}>— or —</span>
+                                <button
+                                    onClick={() => setShowManualInput(!showManualInput)}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--primary)',
+                                        cursor: 'pointer',
+                                        marginLeft: '8px',
+                                        textDecoration: 'underline'
+                                    }}
+                                >
+                                    {showManualInput ? 'Hide manual input' : 'Enter manually'}
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{
+                            padding: 'var(--spacing-md)',
+                            background: 'rgba(251, 191, 36, 0.1)',
+                            borderRadius: 'var(--radius-md)',
+                            marginBottom: 'var(--spacing-md)',
+                            fontSize: '0.875rem',
+                            color: 'var(--text-secondary)'
+                        }}>
+                            ⚠️ To enable Facebook login, add <code>NEXT_PUBLIC_FACEBOOK_APP_ID</code> to your environment variables.
+                        </div>
+                    )}
+
+                    {/* Manual Input Fields */}
+                    {(showManualInput || !FB_APP_ID) && (
+                        <div className={styles.formGrid}>
+                            <div className="form-group">
+                                <label className="form-label">Ad Account ID</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="e.g., 123456789012345"
+                                    value={adAccountId}
+                                    onChange={(e) => {
+                                        setAdAccountId(e.target.value);
+                                        setMarketingConnectionStatus('untested');
+                                    }}
+                                />
+                                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                    Find in Ads Manager → Settings → Account ID
+                                </small>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Access Token</label>
+                                <input
+                                    type="password"
+                                    className="form-input"
+                                    placeholder="Your Meta Marketing API token"
+                                    value={marketingAccessToken}
+                                    onChange={(e) => {
+                                        setMarketingAccessToken(e.target.value);
+                                        setMarketingConnectionStatus('untested');
+                                    }}
+                                />
+                                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                    Generate at developers.facebook.com → Tools → Access Token
+                                </small>
+                            </div>
+                        </div>
+                    )}
+
+                    {(showManualInput || !FB_APP_ID) && (
+                        <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleTestMarketingConnection}
+                                disabled={marketingConnectionStatus === 'testing' || !adAccountId || !marketingAccessToken}
+                            >
+                                {marketingConnectionStatus === 'testing' ? '🔄 Testing...' : '🔗 Test Connection'}
+                            </button>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={handleSaveMarketingSettings}
+                                disabled={!adAccountId || !marketingAccessToken}
+                            >
+                                💾 Save Settings
+                            </button>
+                        </div>
+                    )}
 
                     {marketingConnectionStatus === 'connected' && (
                         <div style={{

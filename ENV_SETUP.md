@@ -23,6 +23,14 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
+## Meta/Facebook Configuration
+Get these from https://developers.facebook.com
+
+```
+NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
+```
+
+
 ## Setup Instructions
 
 1. Create a `.env.local` file in the root of the project
