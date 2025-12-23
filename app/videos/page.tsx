@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 
-interface Video {
+interface Ad {
     id: string;
     name: string;
     thumbnail: string;
@@ -11,6 +11,7 @@ interface Video {
     platform: string;
     hook_type: string;
     status: 'active' | 'completed' | 'draft';
+    mediaType?: 'video' | 'photo';
     ctr?: number;
     roas?: number;
     successScore?: number;
@@ -18,25 +19,25 @@ interface Video {
     spend?: number;
 }
 
-export default function VideosPage() {
-    const [videos, setVideos] = useState<Video[]>([]);
+export default function AdsPage() {
+    const [ads, setAds] = useState<Ad[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'draft'>('all');
     const [sortBy, setSortBy] = useState<'date' | 'score' | 'ctr' | 'roas'>('date');
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
-        // Load videos from database (empty for new users)
+        // Load ads from database (empty for new users)
         // TODO: Replace with actual Supabase queries
         setTimeout(() => {
-            setVideos([]);
+            setAds([]);
             setIsLoading(false);
         }, 300);
     }, []);
 
-    const filteredVideos = videos
-        .filter(v => filter === 'all' || v.status === filter)
-        .filter(v => v.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    const filteredAds = ads
+        .filter(a => filter === 'all' || a.status === filter)
+        .filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => {
             switch (sortBy) {
                 case 'score':
@@ -51,11 +52,11 @@ export default function VideosPage() {
         });
 
     const stats = {
-        total: videos.length,
-        active: videos.filter(v => v.status === 'active').length,
-        completed: videos.filter(v => v.status === 'completed').length,
-        avgScore: videos.length > 0
-            ? Math.round(videos.reduce((sum, v) => sum + (v.successScore || 0), 0) / videos.length)
+        total: ads.length,
+        active: ads.filter(a => a.status === 'active').length,
+        completed: ads.filter(a => a.status === 'completed').length,
+        avgScore: ads.length > 0
+            ? Math.round(ads.reduce((sum, a) => sum + (a.successScore || 0), 0) / ads.length)
             : 0,
     };
 
@@ -63,8 +64,8 @@ export default function VideosPage() {
         <div className={styles.page}>
             <header className={styles.header}>
                 <div>
-                    <h1 className={styles.title}>My Videos</h1>
-                    <p className={styles.subtitle}>Manage and analyze all your uploaded videos</p>
+                    <h1 className={styles.title}>My Ads</h1>
+                    <p className={styles.subtitle}>Manage and analyze all your uploaded ads (videos & photos)</p>
                 </div>
                 <a href="/upload" className="btn btn-primary">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -78,7 +79,7 @@ export default function VideosPage() {
             <div className={styles.statsBar}>
                 <div className={styles.statItem}>
                     <span className={styles.statValue}>{stats.total}</span>
-                    <span className={styles.statLabel}>Total Videos</span>
+                    <span className={styles.statLabel}>Total Ads</span>
                 </div>
                 <div className={styles.statDivider}></div>
                 <div className={styles.statItem}>
@@ -140,48 +141,56 @@ export default function VideosPage() {
                 </div>
             </div>
 
-            {/* Videos Grid */}
+            {/* Ads Grid */}
             {isLoading ? (
                 <div className={styles.videoGrid}>
                     {[1, 2, 3, 4, 5, 6].map(i => (
                         <div key={i} className={`skeleton ${styles.videoSkeleton}`}></div>
                     ))}
                 </div>
-            ) : filteredVideos.length === 0 ? (
+            ) : filteredAds.length === 0 ? (
                 <div className={styles.emptyState}>
                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
                         <polygon points="23 7 16 12 23 17 23 7" />
                         <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                     </svg>
-                    <h3>No videos found</h3>
+                    <h3>No ads found</h3>
                     <p>
                         {searchQuery
                             ? 'Try adjusting your search or filters'
-                            : 'Upload your first video to get started'}
+                            : 'Upload your first ad to get started'}
                     </p>
                     {!searchQuery && (
-                        <a href="/upload" className="btn btn-primary">Upload Video</a>
+                        <a href="/upload" className="btn btn-primary">Upload Ad</a>
                     )}
                 </div>
             ) : (
                 <div className={styles.videoGrid}>
-                    {filteredVideos.map(video => (
-                        <div key={video.id} className={`glass-card ${styles.videoCard}`}>
+                    {filteredAds.map(ad => (
+                        <div key={ad.id} className={`glass-card ${styles.videoCard}`}>
                             <div className={styles.videoThumbnail}>
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polygon points="5 3 19 12 5 21 5 3" />
-                                </svg>
-                                <div className={`${styles.statusBadge} ${styles[video.status]}`}>
-                                    {video.status}
+                                {ad.mediaType === 'photo' ? (
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                        <circle cx="8.5" cy="8.5" r="1.5" />
+                                        <polyline points="21 15 16 10 5 21" />
+                                    </svg>
+                                ) : (
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <polygon points="5 3 19 12 5 21 5 3" />
+                                    </svg>
+                                )}
+                                <div className={`${styles.statusBadge} ${styles[ad.status]}`}>
+                                    {ad.status}
                                 </div>
                             </div>
 
                             <div className={styles.videoContent}>
-                                <h3 className={styles.videoName}>{video.name}</h3>
+                                <h3 className={styles.videoName}>{ad.name}</h3>
 
                                 <div className={styles.videoMeta}>
-                                    <span className="tag tag-primary">{video.platform}</span>
-                                    <span className="tag">{video.hook_type}</span>
+                                    <span className="tag tag-primary">{ad.platform}</span>
+                                    <span className="tag">{ad.hook_type}</span>
                                 </div>
 
                                 <div className={styles.videoDate}>
@@ -191,30 +200,30 @@ export default function VideosPage() {
                                         <line x1="8" y1="2" x2="8" y2="6" />
                                         <line x1="3" y1="10" x2="21" y2="10" />
                                     </svg>
-                                    {video.uploadDate}
+                                    {ad.uploadDate}
                                 </div>
 
-                                {video.status !== 'draft' && (
+                                {ad.status !== 'draft' && (
                                     <div className={styles.videoStats}>
                                         <div className={styles.videoStat}>
                                             <span className={styles.videoStatLabel}>CTR</span>
-                                            <span className={styles.videoStatValue}>{video.ctr}%</span>
+                                            <span className={styles.videoStatValue}>{ad.ctr}%</span>
                                         </div>
                                         <div className={styles.videoStat}>
                                             <span className={styles.videoStatLabel}>ROAS</span>
-                                            <span className={styles.videoStatValue}>{video.roas}x</span>
+                                            <span className={styles.videoStatValue}>{ad.roas}x</span>
                                         </div>
                                         <div className={styles.videoStat}>
                                             <span className={styles.videoStatLabel}>Score</span>
-                                            <span className={`${styles.videoStatValue} ${styles.score}`}>{video.successScore}%</span>
+                                            <span className={`${styles.videoStatValue} ${styles.score}`}>{ad.successScore}%</span>
                                         </div>
                                     </div>
                                 )}
 
-                                {video.status === 'draft' && (
+                                {ad.status === 'draft' && (
                                     <div className={styles.draftActions}>
                                         <span className={styles.predictedScore}>
-                                            Predicted: <strong>{video.successScore}%</strong>
+                                            Predicted: <strong>{ad.successScore}%</strong>
                                         </span>
                                     </div>
                                 )}
@@ -233,7 +242,7 @@ export default function VideosPage() {
                                         <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
                                     </svg>
                                 </button>
-                                {video.status !== 'draft' && (
+                                {ad.status !== 'draft' && (
                                     <a href="/analytics" className="btn btn-ghost btn-icon" title="Add Results">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                             <line x1="12" y1="5" x2="12" y2="19" />
