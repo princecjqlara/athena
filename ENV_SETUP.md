@@ -28,7 +28,21 @@ Get these from https://developers.facebook.com
 
 ```
 NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
+FACEBOOK_WEBHOOK_VERIFY_TOKEN=your-secret-verify-token
 ```
+
+### Webhook Setup
+Your webhook callback URL is:
+```
+https://athena-official.vercel.app/api/webhook/facebook
+```
+
+Supported webhook events:
+- **Leadgen** - Receive leads from Lead Ads
+- **Messages** - Receive Messenger/Instagram DMs
+- **Feed** - Page post updates
+- **Conversations** - Conversation updates
+
 
 
 ## Setup Instructions
