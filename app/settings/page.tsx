@@ -419,7 +419,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className={styles.formGrid}>
-                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                        <div className="form-group">
                             <label className="form-label">Dataset ID</label>
                             <input
                                 type="text"
@@ -435,20 +435,41 @@ export default function SettingsPage() {
                                 Find in Events Manager → Data Sources → Your Offline Dataset
                             </small>
                         </div>
-                    </div>
-
-                    {!marketingAccessToken && (
-                        <div style={{
-                            padding: 'var(--spacing-md)',
-                            background: 'rgba(251, 191, 36, 0.1)',
-                            borderRadius: 'var(--radius-md)',
-                            marginTop: 'var(--spacing-md)',
-                            fontSize: '0.875rem',
-                            color: 'var(--text-secondary)'
-                        }}>
-                            ⚠️ Connect to Facebook first (above) to enable CAPI. The same token is used.
+                        <div className="form-group">
+                            <label className="form-label">CAPI Access Token</label>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="password"
+                                    className="form-input"
+                                    placeholder={marketingAccessToken ? '••••••••••••••••••••' : 'Connect to Facebook first'}
+                                    value={marketingAccessToken ? '••••••••' + marketingAccessToken.slice(-8) : ''}
+                                    readOnly
+                                    style={{
+                                        background: marketingAccessToken ? 'rgba(16, 185, 129, 0.1)' : 'rgba(251, 191, 36, 0.1)',
+                                        cursor: 'not-allowed'
+                                    }}
+                                />
+                                {marketingAccessToken && (
+                                    <span style={{
+                                        position: 'absolute',
+                                        right: '12px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        color: 'var(--success)',
+                                        fontSize: '0.875rem'
+                                    }}>
+                                        ✓ From Facebook
+                                    </span>
+                                )}
+                            </div>
+                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                {marketingAccessToken
+                                    ? 'Using token from Facebook login (same as Marketing API)'
+                                    : '⚠️ Connect to Facebook above to get access token'
+                                }
+                            </small>
                         </div>
-                    )}
+                    </div>
 
                     <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
                         <button
