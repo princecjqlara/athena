@@ -22,6 +22,8 @@ interface Lead {
     lastActivity: string;
     source: string;
     notes?: string;
+    conversionValue?: number;
+    convertedAt?: string;
 }
 
 interface Pipeline {
@@ -40,8 +42,11 @@ export default function PipelineDetailPage() {
     const [pipeline, setPipeline] = useState<Pipeline | null>(null);
     const [leads, setLeads] = useState<Lead[]>([]);
     const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+    const [showConversionModal, setShowConversionModal] = useState(false);
+    const [conversionValue, setConversionValue] = useState('');
     const [newLead, setNewLead] = useState({ name: '', email: '', phone: '', source: 'Manual' });
     const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+    const [pendingGoalStageId, setPendingGoalStageId] = useState<string | null>(null);
 
     useEffect(() => {
         // Load pipeline from localStorage
@@ -122,21 +127,57 @@ export default function PipelineDetailPage() {
     const handleDrop = (stageId: string) => {
         if (!draggedLead) return;
 
+        // Check if moving to goal stage - prompt for conversion value
+        const stage = pipeline?.stages.find(s => s.id === stageId);
+        if (stage?.isGoal) {
+            setPendingGoalStageId(stageId);
+            setShowConversionModal(true);
+            return;
+        }
+
+        // Normal stage move
+        moveLead(draggedLead.id, stageId);
+    };
+
+    const moveLead = (leadId: string, stageId: string, convValue?: number) => {
         const updatedLeads = leads.map(lead =>
-            lead.id === draggedLead.id
-                ? { ...lead, stageId, lastActivity: new Date().toISOString() }
+            lead.id === leadId
+                ? {
+                    ...lead,
+                    stageId,
+                    lastActivity: new Date().toISOString(),
+                    ...(convValue !== undefined && {
+                        conversionValue: convValue,
+                        convertedAt: new Date().toISOString()
+                    })
+                }
                 : lead
         );
 
         saveLeads(updatedLeads);
         setDraggedLead(null);
+    };
 
-        // Check if moved to goal stage - this would trigger CAPI
-        const stage = pipeline?.stages.find(s => s.id === stageId);
-        if (stage?.isGoal) {
-            console.log('🎯 Lead reached goal! Would send CAPI event:', draggedLead);
-            // TODO: Send conversion event to Facebook CAPI
-        }
+    const handleConversionSubmit = () => {
+        if (!draggedLead || !pendingGoalStageId) return;
+
+        const value = parseFloat(conversionValue) || 0;
+        moveLead(draggedLead.id, pendingGoalStageId, value);
+
+        console.log('🎯 Lead converted with value:', value, draggedLead);
+        // TODO: Send conversion event to Facebook CAPI with value
+
+        setShowConversionModal(false);
+        setConversionValue('');
+        setPendingGoalStageId(null);
+    };
+
+    const handleSkipConversion = () => {
+        if (!draggedLead || !pendingGoalStageId) return;
+        moveLead(draggedLead.id, pendingGoalStageId, 0);
+        setShowConversionModal(false);
+        setConversionValue('');
+        setPendingGoalStageId(null);
     };
 
     const handleDeleteLead = (leadId: string) => {
@@ -198,6 +239,12 @@ export default function PipelineDetailPage() {
                             </span>
                             <span className={styles.statLabel}>Converted</span>
                         </div>
+                        <div className={styles.statItem}>
+                            <span className={styles.statValue} style={{ color: 'var(--success)' }}>
+                                ${leads.reduce((sum, l) => sum + (l.conversionValue || 0), 0).toLocaleString()}
+                            </span>
+                            <span className={styles.statLabel}>Revenue</span>
+                        </div>
                     </div>
                     <button className="btn btn-primary" onClick={() => setShowAddLeadModal(true)}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -255,6 +302,19 @@ export default function PipelineDetailPage() {
                                     )}
                                     {lead.phone && (
                                         <div className={styles.leadContact}>📱 {lead.phone}</div>
+                                    )}
+                                    {lead.conversionValue !== undefined && lead.conversionValue > 0 && (
+                                        <div style={{
+                                            marginTop: '4px',
+                                            padding: '4px 8px',
+                                            background: 'rgba(16, 185, 129, 0.2)',
+                                            borderRadius: '4px',
+                                            fontSize: '0.875rem',
+                                            fontWeight: 600,
+                                            color: 'var(--success)'
+                                        }}>
+                                            💰 ${lead.conversionValue.toLocaleString()}
+                                        </div>
                                     )}
                                     <div className={styles.leadMeta}>
                                         <span className={styles.leadSource}>{lead.source}</span>
@@ -345,6 +405,76 @@ export default function PipelineDetailPage() {
                                 disabled={!newLead.name}
                             >
                                 Add Lead
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Conversion Value Modal */}
+            {showConversionModal && draggedLead && (
+                <div className={styles.modalOverlay} onClick={() => {
+                    setShowConversionModal(false);
+                    setDraggedLead(null);
+                    setPendingGoalStageId(null);
+                }}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader} style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1))' }}>
+                            <h2>🎯 Lead Converted!</h2>
+                            <button className={styles.closeBtn} onClick={() => {
+                                setShowConversionModal(false);
+                                setDraggedLead(null);
+                                setPendingGoalStageId(null);
+                            }}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className={styles.modalBody}>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
+                                <strong>{draggedLead.name}</strong> has reached <strong>{pipeline?.goal}</strong>
+                            </p>
+
+                            <div className="form-group">
+                                <label className="form-label">Conversion Value (Revenue)</label>
+                                <div style={{ position: 'relative' }}>
+                                    <span style={{
+                                        position: 'absolute',
+                                        left: '12px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        color: 'var(--text-muted)',
+                                        fontSize: '1.25rem'
+                                    }}>$</span>
+                                    <input
+                                        type="number"
+                                        className="form-input"
+                                        placeholder="0.00"
+                                        value={conversionValue}
+                                        onChange={e => setConversionValue(e.target.value)}
+                                        style={{ paddingLeft: '32px', fontSize: '1.25rem' }}
+                                        autoFocus
+                                    />
+                                </div>
+                                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                    Enter the revenue from this conversion for ROAS calculation
+                                </small>
+                            </div>
+                        </div>
+
+                        <div className={styles.modalFooter}>
+                            <button className="btn btn-secondary" onClick={handleSkipConversion}>
+                                Skip (No Value)
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleConversionSubmit}
+                                style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                            >
+                                💰 Save Conversion
                             </button>
                         </div>
                     </div>
