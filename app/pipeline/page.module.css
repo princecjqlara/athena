@@ -1,7 +1,8 @@
 .page {
+    margin-left: var(--sidebar-collapsed-width, 72px);
     padding: var(--spacing-lg);
     max-width: 1400px;
-    margin: 0 auto;
+    transition: margin-left 0.2s ease;
 }
 
 .header {

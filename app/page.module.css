@@ -1,7 +1,8 @@
 .dashboard {
-  margin-left: 260px;
+  margin-left: var(--sidebar-collapsed-width, 72px);
   padding: var(--spacing-xl);
   min-height: 100vh;
+  transition: margin-left 0.2s ease;
 }
 
 .header {
