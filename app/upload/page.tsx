@@ -243,7 +243,7 @@ export default function UploadPage() {
 
             // Call Facebook Graph API to get ad insights
             const response = await fetch(
-                `https://graph.facebook.com/v18.0/${adId}/insights?fields=impressions,clicks,ctr,actions,cost_per_action_type,ad_name&access_token=${savedToken}`
+                `https://graph.facebook.com/v24.0/${adId}/insights?fields=impressions,clicks,ctr,actions,cost_per_action_type,ad_name&access_token=${savedToken}`
             );
 
             const data = await response.json();
