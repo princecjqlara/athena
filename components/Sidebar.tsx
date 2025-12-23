@@ -44,6 +44,7 @@ export function Sidebar() {
       <nav className="sidebar-nav">
         <NavItem href="/" icon="dashboard" label="Dashboard" collapsed={isCollapsed} />
         <NavItem href="/upload" icon="upload" label="Upload Ad" collapsed={isCollapsed} />
+        <NavItem href="/import" icon="download" label="Import from FB" collapsed={isCollapsed} />
         <NavItem href="/results" icon="chart" label="Add Results" collapsed={isCollapsed} />
         <NavItem href="/mindmap" icon="mindmap" label="Algorithm" collapsed={isCollapsed} />
         <NavItem href="/pipeline" icon="pipeline" label="AI Pipeline" collapsed={isCollapsed} />
@@ -226,6 +227,13 @@ function NavItem({ href, icon, label, collapsed }: { href: string; icon: string;
         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
         <polyline points="17 8 12 3 7 8" />
         <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+    ),
+    download: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
       </svg>
     ),
     chart: (
