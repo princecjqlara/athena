@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import styles from './page.module.css';
 import { ExtractedAdData } from '@/types';
+import { DEFAULT_CATEGORIES, ExtendedAdInsights } from '@/types/extended-ad';
 
 // Prediction result type
 interface PredictionResult {
@@ -40,6 +41,16 @@ export default function UploadPage() {
     const [primaryText, setPrimaryText] = useState('');
     const [headline, setHeadline] = useState('');
 
+    // Custom Categories state
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+    const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+    const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
+    const [scriptChunks, setScriptChunks] = useState<Array<{ type: string, content: string }>>([]);
+
+    // Extended Facebook Insights
+    const [extendedInsights, setExtendedInsights] = useState<ExtendedAdInsights | null>(null);
+    const [fetchingInsights, setFetchingInsights] = useState(false);
+
     const [adInsights, setAdInsights] = useState<{
         impressions?: number;
         clicks?: number;
@@ -47,7 +58,7 @@ export default function UploadPage() {
         conversions?: number;
         costPerResult?: number;
         adName?: string;
-        adFormat?: string;  // VIDEO, IMAGE, CAROUSEL, etc.
+        adFormat?: string;
         primaryText?: string;
         headline?: string;
     } | null>(null);
@@ -212,6 +223,11 @@ export default function UploadPage() {
             primaryText: primaryText,
             headline: headline,
             adFormat: adInsights?.adFormat || mediaType?.toUpperCase() || 'UNKNOWN',
+            // Custom Categories & Traits
+            categories: selectedCategories,
+            subcategories: selectedSubcategories,
+            traits: selectedTraits,
+            scriptChunks: scriptChunks,
             // Save the AI prediction score with the ad
             predictedScore: prediction?.globalScore,
             predictionDetails: prediction ? {
@@ -224,6 +240,7 @@ export default function UploadPage() {
             facebookAdId: adId || null,
             autoSyncResults: autoSyncResults,
             adInsights: adInsights,
+            extendedInsights: extendedInsights,
             hasResults: adInsights ? true : false,
             successScore: adInsights?.ctr ? Math.min(100, Math.round(adInsights.ctr * 10)) : undefined,
             createdAt: new Date().toISOString(),
@@ -337,6 +354,11 @@ export default function UploadPage() {
         setAutoSyncResults(false);
         setPrimaryText('');
         setHeadline('');
+        setSelectedCategories([]);
+        setSelectedSubcategories([]);
+        setSelectedTraits([]);
+        setScriptChunks([]);
+        setExtendedInsights(null);
     };
 
     return (
@@ -963,6 +985,138 @@ CTA: "Link in bio to get 20% off"`}
                                 </label>
                             )}
                         </div>
+
+                        {/* Categories & Traits Section */}
+                        <div className={`glass-card`} style={{
+                            marginTop: 'var(--spacing-lg)',
+                            padding: 'var(--spacing-lg)',
+                            background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05))',
+                            border: '1px solid rgba(34, 197, 94, 0.2)'
+                        }}>
+                            <h3 style={{ fontSize: '1rem', marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                <span>🏷️</span> Categories & Traits (For AI Learning)
+                            </h3>
+                            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-md)' }}>
+                                Tag your ad to help the AI learn what works
+                            </p>
+
+                            {/* Categories */}
+                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                <label className="form-label">Categories</label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+                                    {DEFAULT_CATEGORIES.categories.map(cat => (
+                                        <button
+                                            key={cat}
+                                            type="button"
+                                            onClick={() => setSelectedCategories(prev =>
+                                                prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+                                            )}
+                                            style={{
+                                                padding: '4px 10px',
+                                                fontSize: '0.75rem',
+                                                borderRadius: 'var(--radius-full)',
+                                                border: selectedCategories.includes(cat) ? '1px solid var(--primary)' : '1px solid var(--border-primary)',
+                                                background: selectedCategories.includes(cat) ? 'var(--primary)' : 'transparent',
+                                                color: selectedCategories.includes(cat) ? 'white' : 'var(--text-secondary)',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {cat}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Traits */}
+                            <div className="form-group">
+                                <label className="form-label">Traits / Style</label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+                                    {DEFAULT_CATEGORIES.traits.map(trait => (
+                                        <button
+                                            key={trait}
+                                            type="button"
+                                            onClick={() => setSelectedTraits(prev =>
+                                                prev.includes(trait) ? prev.filter(t => t !== trait) : [...prev, trait]
+                                            )}
+                                            style={{
+                                                padding: '4px 10px',
+                                                fontSize: '0.75rem',
+                                                borderRadius: 'var(--radius-full)',
+                                                border: selectedTraits.includes(trait) ? '1px solid var(--accent)' : '1px solid var(--border-primary)',
+                                                background: selectedTraits.includes(trait) ? 'var(--accent)' : 'transparent',
+                                                color: selectedTraits.includes(trait) ? 'white' : 'var(--text-secondary)',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {trait}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Extended Insights Section (only show if fetched) */}
+                        {extendedInsights && (
+                            <div className={`glass-card`} style={{
+                                marginTop: 'var(--spacing-lg)',
+                                padding: 'var(--spacing-lg)',
+                                background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05))',
+                                border: '1px solid rgba(249, 115, 22, 0.2)'
+                            }}>
+                                <h3 style={{ fontSize: '1rem', marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                    <span>📊</span> Detailed Facebook Insights
+                                </h3>
+
+                                {/* Demographics */}
+                                <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                                    <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>👥 Demographics</h4>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 'var(--spacing-sm)', fontSize: '0.75rem' }}>
+                                        <div>
+                                            <span style={{ color: 'var(--text-muted)' }}>Male</span>
+                                            <div style={{ fontWeight: 600 }}>{extendedInsights.demographics.gender.male.percent}%</div>
+                                        </div>
+                                        <div>
+                                            <span style={{ color: 'var(--text-muted)' }}>Female</span>
+                                            <div style={{ fontWeight: 600 }}>{extendedInsights.demographics.gender.female.percent}%</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Placements */}
+                                <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                                    <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>📍 Placements</h4>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+                                        {Object.entries(extendedInsights.distribution.placements).map(([placement, percent]) => (
+                                            <span key={placement} className="tag" style={{ fontSize: '0.7rem' }}>
+                                                {placement}: {percent}%
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Devices */}
+                                <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                                    <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>📱 Devices</h4>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+                                        {Object.entries(extendedInsights.distribution.devices).map(([device, percent]) => (
+                                            <span key={device} className="tag" style={{ fontSize: '0.7rem' }}>
+                                                {device}: {percent}%
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Time Analysis */}
+                                <div>
+                                    <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>⏰ Best Time</h4>
+                                    <div style={{ fontSize: '0.8125rem' }}>
+                                        Most active: <strong>{extendedInsights.timeAnalysis.mostActiveHour}:00</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         <div className={styles.previewActions}>
                             <button className="btn btn-secondary" onClick={() => setStep('document')}>
