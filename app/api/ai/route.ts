@@ -1,0 +1,632 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { action, data } = body;
+
+    const apiKey = process.env.NVIDIA_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'NVIDIA API key not configured', fallback: true },
+        { status: 200 }
+      );
+    }
+
+    let prompt = '';
+    let systemMessage = '';
+
+    switch (action) {
+      case 'predict':
+        systemMessage = `You are an expert AI advertising analyst specializing in video ad performance prediction. 
+        Analyze ad characteristics and predict success rates based on industry data and patterns.
+        Always respond with valid JSON in the exact format requested.`;
+        prompt = buildPredictionPrompt(data);
+        break;
+
+      case 'analyze-patterns':
+        systemMessage = 'You are an expert advertising analyst. Analyze video ad data and identify winning patterns. Respond only with valid JSON.';
+        prompt = buildPatternPrompt(data);
+        break;
+
+      case 'recommendations':
+        systemMessage = 'You are an expert video advertising consultant. Provide specific, actionable recommendations. Respond only with a JSON array of strings.';
+        prompt = buildRecommendationsPrompt(data);
+        break;
+
+      case 'parse-content':
+        systemMessage = `You are an expert ad analyst. Extract all ad attributes from user descriptions.
+        Always respond with valid JSON containing all identified attributes.
+        Be thorough - extract every detail mentioned and infer reasonable defaults for missing fields.`;
+        prompt = buildContentParsingPrompt(data.rawText);
+        break;
+
+      case 'parse-results':
+        systemMessage = `You are an expert ad performance analyst. Extract all metrics from performance descriptions.
+        Calculate CTR, ROAS, and success scores. Always respond with valid JSON.`;
+        prompt = buildResultsParsingPrompt(data.rawText);
+        break;
+
+      case 'analyze-mindmap':
+        systemMessage = `You are an expert data analyst specializing in ad performance patterns.
+        Analyze all ads and generate a categorized mind map structure showing patterns and correlations.
+        Identify which trait combinations lead to success.`;
+        prompt = buildMindMapPrompt(data.ads);
+        break;
+
+      case 'discover-features':
+        systemMessage = `You are an expert at finding hidden patterns in successful ads.
+        Analyze this ad that performed unexpectedly well (or poorly) and discover NEW patterns or features
+        that weren't explicitly tracked. Look for subtle elements that might have contributed to success.
+        Be creative - look for color patterns, timing patterns, word choices, visual compositions, etc.`;
+        prompt = buildFeatureDiscoveryPrompt(data.adContent, data.adResults, data.reason);
+        break;
+
+      case 'chat':
+        systemMessage = `You are Athena AI, an expert advertising strategist and analyst assistant. 
+        You have access to the user's complete ad database and can help them:
+        - Analyze what's working and what's not
+        - Recommend what type of creatives to make next
+        - Explain performance patterns
+        - Answer questions about their ads
+        
+        Be conversational, helpful, and provide specific, actionable insights.
+        Reference their actual data when possible.
+        Keep responses concise but valuable.`;
+        prompt = buildChatPrompt(data.message, data.context, data.history);
+        return await handleChatResponse(prompt, systemMessage, apiKey);
+
+      default:
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    }
+
+    const response = await fetch(NVIDIA_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 1024,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('NVIDIA API error:', errorText);
+      return NextResponse.json(
+        { error: 'AI service error', fallback: true },
+        { status: 200 }
+      );
+    }
+
+    const result = await response.json();
+    const content = result.choices[0]?.message?.content;
+
+    if (!content) {
+      return NextResponse.json(
+        { error: 'Empty AI response', fallback: true },
+        { status: 200 }
+      );
+    }
+
+    // Extract JSON from response
+    const jsonMatch = content.match(/[\[{][\s\S]*[\]}]/);
+    if (!jsonMatch) {
+      return NextResponse.json(
+        { error: 'Invalid AI response format', fallback: true },
+        { status: 200 }
+      );
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return NextResponse.json({ success: true, data: parsed });
+
+  } catch (error) {
+    console.error('AI API error:', error);
+    return NextResponse.json(
+      { error: 'AI service error', fallback: true },
+      { status: 200 }
+    );
+  }
+}
+
+function buildPredictionPrompt(data: {
+  hookType: string;
+  contentCategory: string;
+  editingStyle: string;
+  platform: string;
+  features: {
+    hasSubtitles: boolean;
+    hasTextOverlays: boolean;
+    isUGC: boolean;
+    hasVoiceover: boolean;
+  };
+}): string {
+  return `Analyze this video ad configuration and predict its success probability:
+
+Video Configuration:
+- Hook Type: ${data.hookType}
+- Content Category: ${data.contentCategory}
+- Editing Style: ${data.editingStyle}
+- Target Platform: ${data.platform}
+- Has Subtitles: ${data.features.hasSubtitles}
+- Has Text Overlays: ${data.features.hasTextOverlays}
+- UGC Style: ${data.features.isUGC}
+- Has Voiceover: ${data.features.hasVoiceover}
+
+Return a JSON object with exactly this structure:
+{
+  "successProbability": <number 0-100>,
+  "confidence": <number 0-100>,
+  "keyFactors": [
+    {"name": "<factor name>", "impact": "<positive|negative|neutral>", "weight": <0-1>}
+  ],
+  "recommendations": ["<recommendation 1>", "<recommendation 2>", ...],
+  "reasoning": "<brief explanation of the prediction>"
+}`;
+}
+
+function buildPatternPrompt(videos: Array<{
+  hookType: string;
+  ctr: number;
+  roas: number;
+  successScore: number;
+}>): string {
+  return `Analyze these video ad performance data and identify winning patterns:
+
+${JSON.stringify(videos, null, 2)}
+
+Return a JSON object with this exact structure:
+{
+  "patterns": [
+    {
+      "pattern": "Pattern description",
+      "successRate": 85,
+      "frequency": 5,
+      "description": "Why this pattern works"
+    }
+  ],
+  "insights": ["Key insight 1", "Key insight 2"]
+}`;
+}
+
+function buildRecommendationsPrompt(data: {
+  config: { hookType: string; platform: string; features: Record<string, boolean> };
+  history: Array<{ hookType: string; ctr: number }>;
+}): string {
+  return `Based on this planned video configuration and historical data, provide specific recommendations:
+
+Planned Video:
+${JSON.stringify(data.config, null, 2)}
+
+Historical Performance:
+${JSON.stringify(data.history?.slice(0, 5) || [], null, 2)}
+
+Return a JSON array of 4-5 specific, actionable recommendations.`;
+}
+
+function buildContentParsingPrompt(rawText: string): string {
+  return `You are an expert ad analyst. Extract ALL attributes from this ad description and identify MISSING DATA that would improve analysis.
+
+"${rawText}"
+
+EXTRACT ALL OF THESE METRICS (use null if not mentioned, infer when possible):
+
+BASIC INFO:
+- title, description, mediaType (video/photo/carousel), aspectRatio, duration, adFormat, industryVertical
+
+CREATIVE INTELLIGENCE:
+- hookType, hookText, hookVelocity (instant/gradual/delayed), hookKeywords (attention-grabbing words)
+- contentCategory, editingStyle
+- patternType (problem_solution/social_proof/fomo/authority/storytelling/comparison/demonstration)
+
+SENTIMENT ANALYSIS:
+- overallSentiment (positive/negative/neutral/mixed)
+- emotionalTone (inspiring/urgent/calm/exciting/serious/humorous)
+
+VISUAL ANALYSIS:
+- facePresence, numberOfFaces, facialEmotion (happy/neutral/surprised/serious/excited)
+- hasTextOverlays, textOverlayRatio (minimal/moderate/heavy), textReadability
+- colorScheme, colorTemperature (warm/cool/neutral)
+- brandVisualTiming (early/middle/end/throughout), safeZoneAdherence
+- visualAudioMismatch, hasSubtitles, subtitleStyle
+
+AUDIO ANALYSIS:
+- musicType, bpm (slow/medium/fast/variable)
+- hasVoiceover, voiceoverStyle (professional/casual/energetic/calm)
+- silenceDetection (intentional silence?), audioPeakTiming (hook/middle/cta/throughout)
+
+SCRIPT & COPY:
+- script, painPointAddressing, painPoints[], cta, ctaText, ctaStrength (weak/moderate/strong)
+- headlines[], readabilityScore (simple/moderate/complex)
+
+PERFORMANCE PREDICTORS:
+- retentionCurveSlope (steep_drop/gradual_decline/flat/hook_spike)
+- preFlightScore (0-100 optimization score), preFlightNotes[]
+- conceptDrift (has creative deviated from proven patterns?)
+
+ADVANCED VISUAL ANALYTICS:
+- saliencyMapScore (0-100 - how well key elements draw attention)
+- sceneVelocity (static/slow/moderate/fast/chaotic - pace of scene changes)
+- textToBackgroundContrast (poor/adequate/good/excellent)
+- shotComposition (rule_of_thirds/centered/symmetrical/dynamic/close_up/wide/mixed)
+- semanticCongruence (do visuals match the message?)
+- moodMatching (does audio mood match visual mood?)
+
+BRAND CONSISTENCY:
+- logoConsistency (absent/subtle/prominent/intrusive)
+- logoTiming (intro/throughout/outro/none)
+- brandColorUsage (none/accent/dominant)
+
+VOICE & AUDIO AUTHORITY:
+- voiceAuthorityScore (0-100 - confidence/authority of voiceover)
+- voiceGender (male/female/neutral/multiple/none)
+- voiceAge (young/middle/mature/varied)
+- speechPace (slow/moderate/fast/varied)
+
+ENGAGEMENT TRIGGERS:
+- curiosityGap (creates desire to know more?)
+- socialProofElements[] (testimonials, reviews, numbers)
+- urgencyTriggers[] (limited time, scarcity)
+- trustSignals[] (guarantees, certifications)
+
+TALENT:
+- numberOfActors, talentType, isUGCStyle
+
+AI-DISCOVERED INSIGHTS:
+- Look for ANY other patterns, traits, or insights not covered above
+- Add your own discovered metrics with name, value, importance (low/medium/high), and description
+- Be creative and thorough - discover what makes this ad unique!
+
+IMPORTANT: Identify what's MISSING for better analysis!
+
+Return JSON:
+{
+  "title": "Brief title",
+  "description": "One sentence",
+  "mediaType": "video|photo|carousel",
+  "aspectRatio": "9:16|1:1|4:5|16:9|other",
+  "duration": null,
+  "durationCategory": "under_15s|15_30s|30_60s|over_60s|null",
+  "adFormat": "static|video|carousel|story",
+  "platform": "<platform>",
+  "placement": "<placement>",
+  "industryVertical": "e.g. beauty, tech, fitness",
+  "hookType": "<hook_type>",
+  "hookText": "The hook text",
+  "hookVelocity": "instant|gradual|delayed",
+  "hookKeywords": ["attention", "grabbing", "words"],
+  "contentCategory": "<category>",
+  "editingStyle": "<style>",
+  "patternType": "<pattern>",
+  "overallSentiment": "positive|negative|neutral|mixed",
+  "emotionalTone": "<tone>",
+  "facePresence": true|false,
+  "numberOfFaces": 1,
+  "facialEmotion": "<emotion>",
+  "hasTextOverlays": true|false,
+  "textOverlayRatio": "minimal|moderate|heavy",
+  "textReadability": "easy|moderate|difficult",
+  "colorScheme": "<color>",
+  "colorTemperature": "warm|cool|neutral",
+  "brandVisualTiming": "early|middle|end|throughout",
+  "safeZoneAdherence": true|false,
+  "visualAudioMismatch": false,
+  "visualStyle": [],
+  "hasSubtitles": true|false,
+  "subtitleStyle": "default|animated|highlighted|minimal",
+  "musicType": "<music>",
+  "bpm": "slow|medium|fast|variable",
+  "hasVoiceover": true|false,
+  "voiceoverStyle": "professional|casual|energetic|calm",
+  "silenceDetection": false,
+  "audioPeakTiming": "hook|middle|cta|throughout",
+  "audioDescription": "",
+  "script": "Full script if provided",
+  "painPointAddressing": true|false,
+  "painPoints": ["pain point 1"],
+  "cta": "<cta_type>",
+  "ctaText": "CTA text",
+  "ctaStrength": "weak|moderate|strong",
+  "headlines": [],
+  "readabilityScore": "simple|moderate|complex",
+  "retentionCurveSlope": "steep_drop|gradual_decline|flat|hook_spike",
+  "preFlightScore": 75,
+  "preFlightNotes": ["Strong hook", "Missing subtitles"],
+  "conceptDrift": false,
+  "saliencyMapScore": 75,
+  "sceneVelocity": "static|slow|moderate|fast|chaotic",
+  "textToBackgroundContrast": "poor|adequate|good|excellent",
+  "shotComposition": "rule_of_thirds|centered|symmetrical|dynamic|close_up|wide|mixed",
+  "semanticCongruence": true,
+  "moodMatching": true,
+  "logoConsistency": "absent|subtle|prominent|intrusive",
+  "logoTiming": "intro|throughout|outro|none",
+  "brandColorUsage": "none|accent|dominant",
+  "voiceAuthorityScore": 70,
+  "voiceGender": "male|female|neutral|multiple|none",
+  "voiceAge": "young|middle|mature|varied",
+  "speechPace": "slow|moderate|fast|varied",
+  "curiosityGap": true,
+  "socialProofElements": ["testimonials", "reviews", "statistics"],
+  "urgencyTriggers": ["limited time", "scarcity"],
+  "trustSignals": ["guarantee", "certification"],
+  "numberOfActors": 1,
+  "talentType": "ugc_creator|influencer|model|none|multiple",
+  "isUGCStyle": true|false,
+  "customTraits": ["any other notable traits"],
+  "aiDiscoveredMetrics": [{"name": "unique_metric_name", "value": "value", "importance": "high", "description": "Why this matters"}],
+  "aiInsights": ["Unique AI observations about this ad not covered by standard metrics"],
+  "missingDataFields": ["List fields user should provide for better analysis"],
+  "suggestions": ["Specific suggestions for user to improve their data"],
+  "extractionConfidence": <0-100>
+}`;
+}
+
+
+function buildResultsParsingPrompt(rawText: string): string {
+  return `Extract all performance metrics from this results description:
+
+"${rawText}"
+
+Calculate:
+- CTR = clicks / impressions * 100
+- ROAS = revenue / spend
+- Success score (0-100): based on CTR (>4% is excellent), ROAS (>3 is excellent), engagement
+
+Return JSON:
+{
+  "platform": "<platform>",
+  "startDate": "YYYY-MM-DD or null",
+  "endDate": "YYYY-MM-DD or null",
+  "launchDay": "monday|tuesday|...|sunday|null",
+  "launchTime": "early_morning|morning|afternoon|evening|night|null",
+  "adSpend": <number>,
+  "impressions": <number>,
+  "reach": <number or null>,
+  "clicks": <number>,
+  "ctr": <percentage>,
+  "conversions": <number or null>,
+  "conversionRate": <percentage or null>,
+  "revenue": <number or null>,
+  "roas": <number or null>,
+  "likes": <number or null>,
+  "comments": <number or null>,
+  "shares": <number or null>,
+  "saves": <number or null>,
+  "notes": "summary of observations",
+  "bestPerformingDay": "if mentioned",
+  "bestPerformingTime": "if mentioned",
+  "audienceInsights": [],
+  "successScore": <0-100>,
+  "extractionConfidence": <0-100>
+}`;
+}
+
+interface AdForMindMap {
+  id: string;
+  extractedContent: {
+    mediaType: string;
+    aspectRatio: string;
+    platform: string;
+    placement: string;
+    hookType: string;
+    contentCategory: string;
+    editingStyle: string;
+    colorScheme: string;
+    musicType: string;
+    hasSubtitles: boolean;
+    isUGCStyle: boolean;
+    customTraits: string[];
+  };
+  extractedResults?: {
+    successScore: number;
+    ctr: number;
+    roas: number;
+  };
+}
+
+function buildMindMapPrompt(ads: AdForMindMap[]): string {
+  return `Analyze these ${ads.length} ads and generate a mind map structure showing patterns and correlations:
+
+${JSON.stringify(ads, null, 2)}
+
+Group traits by category and identify:
+1. Which traits appear most frequently
+2. Which trait combinations lead to high success scores
+3. Correlations between traits
+
+Return JSON:
+{
+  "categories": [
+    {
+      "id": "hook_type",
+      "label": "🎣 Hook Types",
+      "traits": [
+        {
+          "id": "curiosity",
+          "label": "Curiosity",
+          "frequency": 5,
+          "avgSuccessScore": 85,
+          "adIds": ["ad1", "ad2"]
+        }
+      ]
+    }
+  ],
+  "patterns": [
+    {
+      "traits": ["ugc", "curiosity", "tiktok"],
+      "frequency": 3,
+      "avgSuccessRate": 90,
+      "description": "UGC + Curiosity on TikTok performs exceptionally well"
+    }
+  ],
+  "correlations": [
+    {
+      "trait1": "subtitles",
+      "trait2": "high_ctr",
+      "strength": 0.85,
+      "insight": "Ads with subtitles have 85% higher CTR"
+    }
+  ]
+}`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildFeatureDiscoveryPrompt(adContent: any, adResults: any, reason: string): string {
+  return `Analyze this ad that had a ${reason === 'surprise_success' ? 'SURPRISE SUCCESS' : 'SURPRISE FAILURE'}.
+
+AD CONTENT:
+${JSON.stringify(adContent, null, 2)}
+
+AD RESULTS:
+${JSON.stringify(adResults, null, 2)}
+
+Your task: Discover NEW FEATURES or PATTERNS that might explain why this ad performed ${reason === 'surprise_success' ? 'better' : 'worse'} than expected.
+
+Look for subtle patterns like:
+- Specific colors used (e.g., "Neon Magenta in first 2 seconds")
+- Timing patterns (e.g., "CTA appears at exactly 0:07")
+- Word patterns (e.g., "Uses the word 'free' in captions")
+- Visual compositions (e.g., "Face in upper-right quadrant")
+- Audio patterns (e.g., "Bass drop at hook point")
+- Emotional patterns (e.g., "Contrast between serious opening and humorous middle")
+
+Return JSON with discovered features:
+{
+  "discoveredFeatures": [
+    {
+      "name": "feature_name_in_snake_case",
+      "description": "What the AI discovered",
+      "type": "visual|audio|script|timing|engagement|other",
+      "criteria": "How to detect this feature in other ads",
+      "correlation": 75,
+      "exampleValue": "specific example from this ad"
+    }
+  ],
+  "insights": [
+    "Natural language insights about why this ad worked/failed"
+  ],
+  "recommendedWeightChanges": [
+    {
+      "feature": "existing_feature_name",
+      "direction": "increase|decrease",
+      "reason": "why adjust this weight"
+    }
+  ]
+}`;
+}
+
+// Chat helper functions
+interface ChatContext {
+  totalAds: number;
+  platforms: Record<string, number>;
+  hookTypes: Record<string, number>;
+  avgPredictedScore: number;
+  avgActualScore: number;
+  adsWithResults: number;
+  topTraits: string[];
+  recentAds: Array<{
+    title: string;
+    platform: string;
+    hookType: string;
+    predicted: number;
+    actual: number;
+  }>;
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+function buildChatPrompt(
+  message: string,
+  context: ChatContext,
+  history: ChatMessage[]
+): string {
+  const historyText = history
+    .map(m => `${m.role === 'user' ? 'User' : 'Athena'}: ${m.content}`)
+    .join('\n');
+
+  return `USER'S AD DATA CONTEXT:
+- Total Ads: ${context.totalAds}
+- Ads with Results: ${context.adsWithResults}
+- Average Predicted Score: ${context.avgPredictedScore}%
+- Average Actual Score: ${context.avgActualScore}%
+
+Platform Breakdown:
+${Object.entries(context.platforms).map(([p, c]) => `- ${p}: ${c} ads`).join('\n')}
+
+Hook Type Breakdown:
+${Object.entries(context.hookTypes).map(([h, c]) => `- ${h}: ${c} ads`).join('\n')}
+
+Recent Ads:
+${context.recentAds.map(a => `- "${a.title || 'Untitled'}" (${a.platform || 'unknown'}) - Predicted: ${a.predicted || 'N/A'}%, Actual: ${a.actual || 'N/A'}%`).join('\n')}
+
+CONVERSATION HISTORY:
+${historyText}
+
+USER'S MESSAGE:
+${message}
+
+Respond helpfully based on their data. Be specific and reference their actual numbers when relevant. Keep response under 200 words.`;
+}
+
+async function handleChatResponse(
+  prompt: string,
+  systemMessage: string,
+  apiKey: string
+): Promise<NextResponse> {
+  try {
+    const response = await fetch(NVIDIA_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 512,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('NVIDIA API error:', errorText);
+      return NextResponse.json({
+        success: true,
+        data: { response: "I'm having trouble connecting right now. Please try again!" }
+      });
+    }
+
+    const result = await response.json();
+    const content = result.choices[0]?.message?.content;
+
+    return NextResponse.json({
+      success: true,
+      data: { response: content || "I couldn't generate a response. Please try again." }
+    });
+  } catch (error) {
+    console.error('Chat error:', error);
+    return NextResponse.json({
+      success: true,
+      data: { response: "Sorry, I encountered an error. Please try again." }
+    });
+  }
+}
