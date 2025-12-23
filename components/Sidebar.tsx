@@ -1,8 +1,26 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+
 export function Sidebar() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Load collapsed state from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar_collapsed');
+    if (saved === 'true') setIsCollapsed(true);
+  }, []);
+
+  const toggleCollapsed = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem('sidebar_collapsed', String(newState));
+    // Dispatch event for main content to adjust
+    window.dispatchEvent(new CustomEvent('sidebar-toggle', { detail: { collapsed: newState } }));
+  };
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
         <div className="logo">
           <div className="logo-icon">
@@ -19,25 +37,36 @@ export function Sidebar() {
               </defs>
             </svg>
           </div>
-          <span className="logo-text">Athena</span>
+          {!isCollapsed && <span className="logo-text">Athena</span>}
         </div>
       </div>
 
       <nav className="sidebar-nav">
-        <NavItem href="/" icon="dashboard" label="Dashboard" />
-        <NavItem href="/upload" icon="upload" label="Upload Ad" />
-        <NavItem href="/results" icon="chart" label="Add Results" />
-        <NavItem href="/mindmap" icon="mindmap" label="Algorithm" />
-        <NavItem href="/pipeline" icon="pipeline" label="AI Pipeline" />
-        <NavItem href="/videos" icon="video" label="My Ads" />
-        <NavItem href="/settings" icon="settings" label="Settings" />
+        <NavItem href="/" icon="dashboard" label="Dashboard" collapsed={isCollapsed} />
+        <NavItem href="/upload" icon="upload" label="Upload Ad" collapsed={isCollapsed} />
+        <NavItem href="/results" icon="chart" label="Add Results" collapsed={isCollapsed} />
+        <NavItem href="/mindmap" icon="mindmap" label="Algorithm" collapsed={isCollapsed} />
+        <NavItem href="/pipeline" icon="pipeline" label="AI Pipeline" collapsed={isCollapsed} />
+        <NavItem href="/videos" icon="video" label="My Ads" collapsed={isCollapsed} />
+        <NavItem href="/settings" icon="settings" label="Settings" collapsed={isCollapsed} />
       </nav>
 
       <div className="sidebar-footer">
-        <div className="ml-status">
-          <div className="status-dot"></div>
-          <span>ML Model Active</span>
-        </div>
+        {!isCollapsed && (
+          <div className="ml-status">
+            <div className="status-dot"></div>
+            <span>ML Model Active</span>
+          </div>
+        )}
+        <button className="collapse-btn" onClick={toggleCollapsed} title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            {isCollapsed ? (
+              <polyline points="9 18 15 12 9 6" />
+            ) : (
+              <polyline points="15 18 9 12 15 6" />
+            )}
+          </svg>
+        </button>
       </div>
 
       <style jsx>{`
@@ -53,11 +82,22 @@ export function Sidebar() {
           display: flex;
           flex-direction: column;
           z-index: 100;
+          transition: width 0.2s ease;
+        }
+        
+        .sidebar.collapsed {
+          width: 72px;
         }
         
         .sidebar-header {
           padding: var(--spacing-lg);
           border-bottom: 1px solid var(--border-primary);
+        }
+        
+        .collapsed .sidebar-header {
+          padding: var(--spacing-md);
+          display: flex;
+          justify-content: center;
         }
         
         .logo {
@@ -74,6 +114,7 @@ export function Sidebar() {
           justify-content: center;
           background: var(--bg-tertiary);
           border-radius: var(--radius-lg);
+          flex-shrink: 0;
         }
         
         .logo-text {
@@ -93,9 +134,22 @@ export function Sidebar() {
           gap: var(--spacing-xs);
         }
         
+        .collapsed .sidebar-nav {
+          padding: var(--spacing-sm);
+          align-items: center;
+        }
+        
         .sidebar-footer {
           padding: var(--spacing-lg);
           border-top: 1px solid var(--border-primary);
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-md);
+        }
+        
+        .collapsed .sidebar-footer {
+          padding: var(--spacing-md);
+          align-items: center;
         }
         
         .ml-status {
@@ -113,12 +167,38 @@ export function Sidebar() {
           border-radius: 50%;
           animation: pulse 2s infinite;
         }
+        
+        .collapse-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          padding: var(--spacing-sm);
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: var(--radius-md);
+          color: var(--text-muted);
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .collapse-btn:hover {
+          background: rgba(255, 255, 255, 0.08);
+          color: var(--text-primary);
+        }
+        
+        .collapsed .collapse-btn {
+          width: 40px;
+          height: 40px;
+          padding: 0;
+        }
       `}</style>
     </aside>
   );
 }
 
-function NavItem({ href, icon, label }: { href: string; icon: string; label: string }) {
+
+function NavItem({ href, icon, label, collapsed }: { href: string; icon: string; label: string; collapsed?: boolean }) {
   const icons: Record<string, React.ReactNode> = {
     dashboard: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -189,9 +269,9 @@ function NavItem({ href, icon, label }: { href: string; icon: string; label: str
   };
 
   return (
-    <a href={href} className="nav-item">
+    <a href={href} className={`nav-item ${collapsed ? 'collapsed' : ''}`} title={collapsed ? label : undefined}>
       <span className="nav-icon">{icons[icon]}</span>
-      <span className="nav-label">{label}</span>
+      {!collapsed && <span className="nav-label">{label}</span>}
 
       <style jsx>{`
         .nav-item {
@@ -205,6 +285,13 @@ function NavItem({ href, icon, label }: { href: string; icon: string; label: str
           text-decoration: none;
         }
         
+        .nav-item.collapsed {
+          justify-content: center;
+          padding: var(--spacing-sm);
+          width: 48px;
+          height: 48px;
+        }
+        
         .nav-item:hover {
           background: var(--bg-tertiary);
           color: var(--text-primary);
@@ -214,11 +301,13 @@ function NavItem({ href, icon, label }: { href: string; icon: string; label: str
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
         }
         
         .nav-label {
           font-size: 0.875rem;
           font-weight: 500;
+          white-space: nowrap;
         }
       `}</style>
     </a>
