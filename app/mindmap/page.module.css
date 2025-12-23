@@ -1,5 +1,7 @@
 .page {
     padding: var(--spacing-xl);
+    padding-left: calc(72px + var(--spacing-xl));
+    /* Account for collapsed sidebar */
     min-height: 100vh;
 }
 
