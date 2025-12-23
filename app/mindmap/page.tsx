@@ -375,17 +375,27 @@ export default function MindMapPage() {
     const [editPredictedScore, setEditPredictedScore] = useState('');
     const [editActualScore, setEditActualScore] = useState('');
 
+    // Legend state
+    const [legendCollapsed, setLegendCollapsed] = useState(false);
+    const [customTraitGroups, setCustomTraitGroups] = useState<Array<{ name: string, color: string, traits: string[] }>>([]);
+
     const containerRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
     const lastMouse = useRef({ x: 0, y: 0 });
 
-    // Load ads from localStorage
+    // Load ads and custom trait groups from localStorage
     useEffect(() => {
         const stored = localStorage.getItem('ads');
         if (stored) {
             const parsed = JSON.parse(stored);
             setAds(parsed);
             generateNodes(parsed);
+        }
+
+        // Load custom trait groups
+        const storedGroups = localStorage.getItem('custom_trait_groups');
+        if (storedGroups) {
+            setCustomTraitGroups(JSON.parse(storedGroups));
         }
     }, []);
 
@@ -1876,18 +1886,93 @@ export default function MindMapPage() {
                 </div>
             )}
 
-            {/* Parent Group Legend */}
-            <div className={styles.legend}>
-                <div className={styles.legendTitle}>Trait Groups</div>
-                {Object.entries(PARENT_GROUP_COLORS).map(([group, color]) => (
-                    <div key={group} className={styles.legendItem}>
-                        <span
-                            className={styles.legendDot}
-                            style={{ background: color }}
-                        />
-                        {group}
-                    </div>
-                ))}
+            {/* Parent Group Legend - Collapsible */}
+            <div className={styles.legend} style={{
+                width: legendCollapsed ? 'auto' : '220px',
+                padding: legendCollapsed ? 'var(--spacing-sm)' : 'var(--spacing-lg)'
+            }}>
+                <div
+                    className={styles.legendTitle}
+                    onClick={() => setLegendCollapsed(!legendCollapsed)}
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}
+                >
+                    {legendCollapsed ? '📊' : 'Trait Groups'}
+                    <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>
+                        {legendCollapsed ? '▶' : '◀'}
+                    </span>
+                </div>
+
+                {!legendCollapsed && (
+                    <>
+                        {/* Predefined trait groups */}
+                        {Object.entries(PARENT_GROUP_COLORS).map(([group, color]) => (
+                            <div key={group} className={styles.legendItem}>
+                                <span
+                                    className={styles.legendDot}
+                                    style={{ background: color }}
+                                />
+                                {group}
+                            </div>
+                        ))}
+
+                        {/* AI Generated Custom Groups */}
+                        {customTraitGroups.length > 0 && (
+                            <>
+                                <div style={{
+                                    marginTop: 'var(--spacing-md)',
+                                    paddingTop: 'var(--spacing-sm)',
+                                    borderTop: '1px solid rgba(255,255,255,0.1)',
+                                    fontSize: '0.75rem',
+                                    color: 'var(--text-muted)',
+                                    marginBottom: '4px'
+                                }}>
+                                    🤖 AI Generated
+                                </div>
+                                {customTraitGroups.map((group, idx) => (
+                                    <div key={idx} className={styles.legendItem}>
+                                        <span
+                                            className={styles.legendDot}
+                                            style={{ background: group.color }}
+                                        />
+                                        {group.name}
+                                    </div>
+                                ))}
+                            </>
+                        )}
+
+                        {/* Add Custom Trait Button */}
+                        <button
+                            onClick={() => {
+                                const name = prompt('Enter custom trait group name:');
+                                if (name) {
+                                    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+                                    const newGroup = {
+                                        name: `✨ ${name}`,
+                                        color: colors[customTraitGroups.length % colors.length],
+                                        traits: []
+                                    };
+                                    setCustomTraitGroups([...customTraitGroups, newGroup]);
+                                    // Save to localStorage
+                                    localStorage.setItem('custom_trait_groups', JSON.stringify([...customTraitGroups, newGroup]));
+                                }
+                            }}
+                            style={{
+                                marginTop: 'var(--spacing-md)',
+                                width: '100%',
+                                padding: '6px 8px',
+                                fontSize: '0.75rem',
+                                background: 'rgba(99, 102, 241, 0.1)',
+                                border: '1px dashed rgba(99, 102, 241, 0.3)',
+                                borderRadius: 'var(--radius-sm)',
+                                color: 'var(--accent-primary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            + Add Custom Group
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     );
