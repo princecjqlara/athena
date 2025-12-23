@@ -520,7 +520,8 @@
 .legend {
     position: fixed;
     bottom: var(--spacing-xl);
-    left: var(--spacing-xl);
+    left: 90px;
+    /* Account for collapsed sidebar width */
     background: rgba(0, 0, 0, 0.9);
     padding: var(--spacing-lg);
     border-radius: var(--radius-lg);
