@@ -521,17 +521,17 @@
     position: fixed;
     bottom: var(--spacing-xl);
     left: var(--spacing-xl);
-    background: rgba(0, 0, 0, 0.85);
-    padding: var(--spacing-md) var(--spacing-lg);
-    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.9);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
     font-size: 0.8125rem;
     color: var(--text-secondary);
-    min-width: 200px;
-    max-width: 280px;
+    width: 220px;
     max-height: 400px;
     overflow-y: auto;
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 40;
 }
 
 .legendTitle {
