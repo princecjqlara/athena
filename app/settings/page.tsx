@@ -12,11 +12,14 @@ export default function SettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
 
-    // Meta CAPI Settings
+    // Meta Marketing API Settings
     const [adAccountId, setAdAccountId] = useState('');
+    const [marketingAccessToken, setMarketingAccessToken] = useState('');
+    const [marketingConnectionStatus, setMarketingConnectionStatus] = useState<'untested' | 'testing' | 'connected' | 'failed'>('untested');
+
+    // Meta Conversions API (CAPI) Settings
+    const [pixelId, setPixelId] = useState('');
     const [capiAccessToken, setCapiAccessToken] = useState('');
-    const [metaPixelId, setMetaPixelId] = useState('');
-    const [facebookAppId, setFacebookAppId] = useState('');
     const [capiConnectionStatus, setCapiConnectionStatus] = useState<'untested' | 'testing' | 'connected' | 'failed'>('untested');
 
     const [modelStats, setModelStats] = useState({
@@ -25,17 +28,17 @@ export default function SettingsPage() {
         lastTrained: '-',
     });
 
-    // Load saved CAPI settings from localStorage
+    // Load saved API settings from localStorage
     useState(() => {
         if (typeof window !== 'undefined') {
             const savedAdAccount = localStorage.getItem('meta_ad_account_id');
-            const savedToken = localStorage.getItem('meta_capi_token');
+            const savedMarketingToken = localStorage.getItem('meta_marketing_token');
             const savedPixelId = localStorage.getItem('meta_pixel_id');
-            const savedFacebookAppId = localStorage.getItem('facebook_app_id');
+            const savedCapiToken = localStorage.getItem('meta_capi_token');
             if (savedAdAccount) setAdAccountId(savedAdAccount);
-            if (savedToken) setCapiAccessToken(savedToken);
-            if (savedPixelId) setMetaPixelId(savedPixelId);
-            if (savedFacebookAppId) setFacebookAppId(savedFacebookAppId);
+            if (savedMarketingToken) setMarketingAccessToken(savedMarketingToken);
+            if (savedPixelId) setPixelId(savedPixelId);
+            if (savedCapiToken) setCapiAccessToken(savedCapiToken);
         }
     });
 
@@ -88,29 +91,64 @@ export default function SettingsPage() {
         }
     };
 
+    // Save Marketing API settings
+    const handleSaveMarketingSettings = () => {
+        localStorage.setItem('meta_ad_account_id', adAccountId);
+        localStorage.setItem('meta_marketing_token', marketingAccessToken);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+    };
+
+    // Test Marketing API connection
+    const handleTestMarketingConnection = async () => {
+        if (!adAccountId || !marketingAccessToken) {
+            alert('Please enter both Ad Account ID and Access Token');
+            return;
+        }
+
+        setMarketingConnectionStatus('testing');
+
+        try {
+            const response = await fetch(
+                `https://graph.facebook.com/v24.0/act_${adAccountId}?fields=name,account_status&access_token=${marketingAccessToken}`
+            );
+
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('Marketing API Error:', data.error);
+                setMarketingConnectionStatus('failed');
+            } else {
+                setMarketingConnectionStatus('connected');
+                handleSaveMarketingSettings();
+            }
+        } catch (error) {
+            console.error('Marketing API connection error:', error);
+            setMarketingConnectionStatus('failed');
+        }
+    };
+
     // Save CAPI settings
     const handleSaveCapiSettings = () => {
-        localStorage.setItem('meta_ad_account_id', adAccountId);
+        localStorage.setItem('meta_pixel_id', pixelId);
         localStorage.setItem('meta_capi_token', capiAccessToken);
-        localStorage.setItem('meta_pixel_id', metaPixelId);
-        localStorage.setItem('facebook_app_id', facebookAppId);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
     };
 
     // Test CAPI connection
     const handleTestCapiConnection = async () => {
-        if (!adAccountId || !capiAccessToken) {
-            alert('Please enter both Ad Account ID and Access Token');
+        if (!pixelId || !capiAccessToken) {
+            alert('Please enter both Pixel ID and CAPI Access Token');
             return;
         }
 
         setCapiConnectionStatus('testing');
 
         try {
-            // Test connection by fetching ad account info
+            // Test connection by fetching pixel info
             const response = await fetch(
-                `https://graph.facebook.com/v24.0/act_${adAccountId}?fields=name,account_status&access_token=${capiAccessToken}`
+                `https://graph.facebook.com/v24.0/${pixelId}?fields=name,id&access_token=${capiAccessToken}`
             );
 
             const data = await response.json();
@@ -120,7 +158,6 @@ export default function SettingsPage() {
                 setCapiConnectionStatus('failed');
             } else {
                 setCapiConnectionStatus('connected');
-                // Save on successful connection
                 handleSaveCapiSettings();
             }
         } catch (error) {
@@ -152,7 +189,7 @@ export default function SettingsPage() {
                     <UndoPanel />
                 </div>
 
-                {/* Meta Conversions API Settings */}
+                {/* Meta Marketing API Settings */}
                 <div className={`glass-card ${styles.settingsCard}`} style={{
                     background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05))',
                     border: '1px solid rgba(59, 130, 246, 0.2)'
@@ -164,8 +201,101 @@ export default function SettingsPage() {
                             </svg>
                         </div>
                         <div>
-                            <h3>Meta Conversions API</h3>
+                            <h3>Meta Marketing API</h3>
                             <p>Connect to fetch ad results automatically</p>
+                        </div>
+                        <div style={{ marginLeft: 'auto' }}>
+                            {marketingConnectionStatus === 'connected' && (
+                                <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)' }}></span>
+                                    Connected
+                                </span>
+                            )}
+                            {marketingConnectionStatus === 'failed' && (
+                                <span style={{ color: 'var(--error)' }}>❌ Connection Failed</span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className={styles.formGrid}>
+                        <div className="form-group">
+                            <label className="form-label">Ad Account ID</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                placeholder="e.g., 123456789012345"
+                                value={adAccountId}
+                                onChange={(e) => {
+                                    setAdAccountId(e.target.value);
+                                    setMarketingConnectionStatus('untested');
+                                }}
+                            />
+                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                Find in Ads Manager → Settings → Account ID
+                            </small>
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Access Token</label>
+                            <input
+                                type="password"
+                                className="form-input"
+                                placeholder="Your Meta Marketing API token"
+                                value={marketingAccessToken}
+                                onChange={(e) => {
+                                    setMarketingAccessToken(e.target.value);
+                                    setMarketingConnectionStatus('untested');
+                                }}
+                            />
+                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                Generate at developers.facebook.com → Tools → Access Token
+                            </small>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
+                        <button
+                            className="btn btn-primary"
+                            onClick={handleTestMarketingConnection}
+                            disabled={marketingConnectionStatus === 'testing' || !adAccountId || !marketingAccessToken}
+                        >
+                            {marketingConnectionStatus === 'testing' ? '🔄 Testing...' : '🔗 Test Connection'}
+                        </button>
+                        <button
+                            className="btn btn-secondary"
+                            onClick={handleSaveMarketingSettings}
+                            disabled={!adAccountId || !marketingAccessToken}
+                        >
+                            💾 Save Settings
+                        </button>
+                    </div>
+
+                    {marketingConnectionStatus === 'connected' && (
+                        <div style={{
+                            marginTop: 'var(--spacing-md)',
+                            padding: 'var(--spacing-md)',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '0.875rem'
+                        }}>
+                            ✅ Connected! Ad results will auto-fetch when you enter an Ad ID during upload.
+                        </div>
+                    )}
+                </div>
+
+                {/* Meta Conversions API (CAPI) Settings */}
+                <div className={`glass-card ${styles.settingsCard}`} style={{
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(139, 92, 246, 0.05))',
+                    border: '1px solid rgba(139, 92, 246, 0.2)'
+                }}>
+                    <div className={styles.cardHeader}>
+                        <div className={styles.cardIcon} style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899)' }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3>Conversions API (CAPI)</h3>
+                            <p>Send conversion events & receive webhooks</p>
                         </div>
                         <div style={{ marginLeft: 'auto' }}>
                             {capiConnectionStatus === 'connected' && (
@@ -182,27 +312,27 @@ export default function SettingsPage() {
 
                     <div className={styles.formGrid}>
                         <div className="form-group">
-                            <label className="form-label">Ad Account ID</label>
+                            <label className="form-label">Pixel ID</label>
                             <input
                                 type="text"
                                 className="form-input"
-                                placeholder="e.g., 123456789012345"
-                                value={adAccountId}
+                                placeholder="e.g., 1234567890123456"
+                                value={pixelId}
                                 onChange={(e) => {
-                                    setAdAccountId(e.target.value);
+                                    setPixelId(e.target.value);
                                     setCapiConnectionStatus('untested');
                                 }}
                             />
                             <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                Find in Ads Manager → Settings → Account ID
+                                Find in Events Manager → Data Sources → Your Pixel
                             </small>
                         </div>
                         <div className="form-group">
-                            <label className="form-label">Access Token</label>
+                            <label className="form-label">CAPI Access Token</label>
                             <input
                                 type="password"
                                 className="form-input"
-                                placeholder="Your Meta access token"
+                                placeholder="Your Conversions API access token"
                                 value={capiAccessToken}
                                 onChange={(e) => {
                                     setCapiAccessToken(e.target.value);
@@ -210,33 +340,7 @@ export default function SettingsPage() {
                                 }}
                             />
                             <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                Generate at developers.facebook.com → Tools → Access Token
-                            </small>
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Meta Pixel ID</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="e.g., 1234567890123456"
-                                value={metaPixelId}
-                                onChange={(e) => setMetaPixelId(e.target.value)}
-                            />
-                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                Find in Events Manager → Data Sources → Pixel ID
-                            </small>
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Facebook App ID</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="e.g., 123456789012345"
-                                value={facebookAppId}
-                                onChange={(e) => setFacebookAppId(e.target.value)}
-                            />
-                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                Find at developers.facebook.com → Your App → App ID
+                                Generate in Events Manager → Settings → Generate Access Token
                             </small>
                         </div>
                     </div>
@@ -245,14 +349,14 @@ export default function SettingsPage() {
                         <button
                             className="btn btn-primary"
                             onClick={handleTestCapiConnection}
-                            disabled={capiConnectionStatus === 'testing' || !adAccountId || !capiAccessToken}
+                            disabled={capiConnectionStatus === 'testing' || !pixelId || !capiAccessToken}
                         >
                             {capiConnectionStatus === 'testing' ? '🔄 Testing...' : '🔗 Test Connection'}
                         </button>
                         <button
                             className="btn btn-secondary"
                             onClick={handleSaveCapiSettings}
-                            disabled={!adAccountId || !capiAccessToken}
+                            disabled={!pixelId || !capiAccessToken}
                         >
                             💾 Save Settings
                         </button>
@@ -266,7 +370,7 @@ export default function SettingsPage() {
                             borderRadius: 'var(--radius-md)',
                             fontSize: '0.875rem'
                         }}>
-                            ✅ Connection successful! Ad results will now auto-fetch when you enter an Ad ID during upload.
+                            ✅ CAPI Connected! You can now send conversion events and receive webhook data.
                         </div>
                     )}
                 </div>
