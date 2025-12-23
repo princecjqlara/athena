@@ -526,9 +526,9 @@ export default function SettingsPage() {
                             <div className="progress-fill" style={{ width: `${Math.min(modelStats.dataPoints * 2, 100)}%` }}></div>
                         </div>
                         <p className={styles.progressHint}>
-                            {modelStats.dataPoints < 50
-                                ? `Add ${50 - modelStats.dataPoints} more videos for optimal predictions`
-                                : 'Model is well-trained!'}
+                            {modelStats.dataPoints === 0
+                                ? 'Start adding videos to train the AI model'
+                                : `${modelStats.dataPoints} videos analyzed - model continuously improving!`}
                         </p>
                     </div>
 
