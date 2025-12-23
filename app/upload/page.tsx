@@ -35,6 +35,11 @@ export default function UploadPage() {
     const [adId, setAdId] = useState('');
     const [autoSyncResults, setAutoSyncResults] = useState(false);
     const [adIdVerified, setAdIdVerified] = useState<boolean | null>(null);
+
+    // Ad Copy state - Primary Text & Headline
+    const [primaryText, setPrimaryText] = useState('');
+    const [headline, setHeadline] = useState('');
+
     const [adInsights, setAdInsights] = useState<{
         impressions?: number;
         clicks?: number;
@@ -42,6 +47,9 @@ export default function UploadPage() {
         conversions?: number;
         costPerResult?: number;
         adName?: string;
+        adFormat?: string;  // VIDEO, IMAGE, CAROUSEL, etc.
+        primaryText?: string;
+        headline?: string;
     } | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -200,6 +208,10 @@ export default function UploadPage() {
             mediaType: mediaType,
             contentDocument: contentDocument,
             extractedContent: extractedData,
+            // Ad Copy
+            primaryText: primaryText,
+            headline: headline,
+            adFormat: adInsights?.adFormat || mediaType?.toUpperCase() || 'UNKNOWN',
             // Save the AI prediction score with the ad
             predictedScore: prediction?.globalScore,
             predictionDetails: prediction ? {
@@ -224,7 +236,7 @@ export default function UploadPage() {
         setStep('saved');
     };
 
-    // Verify Ad ID with Facebook API (simulated for now)
+    // Verify Ad ID with Facebook API and fetch creative data
     const handleVerifyAdId = async () => {
         if (!adId.trim()) return;
 
@@ -232,8 +244,8 @@ export default function UploadPage() {
         setAdIdVerified(null);
 
         try {
-            // Get saved CAPI credentials from localStorage
-            const savedToken = localStorage.getItem('meta_capi_token');
+            // Get saved Marketing token from localStorage
+            const savedToken = localStorage.getItem('meta_marketing_token');
 
             if (!savedToken) {
                 alert('Please configure your Meta API credentials in Settings first.');
@@ -241,19 +253,24 @@ export default function UploadPage() {
                 return;
             }
 
-            // Call Facebook Graph API to get ad insights
-            const response = await fetch(
-                `https://graph.facebook.com/v24.0/${adId}/insights?fields=impressions,clicks,ctr,actions,cost_per_action_type,ad_name&access_token=${savedToken}`
-            );
+            // Fetch both insights and creative data in parallel
+            const [insightsResponse, creativeResponse] = await Promise.all([
+                // Get ad insights
+                fetch(`https://graph.facebook.com/v24.0/${adId}/insights?fields=impressions,clicks,ctr,actions,cost_per_action_type,ad_name&access_token=${savedToken}`),
+                // Get ad creative data (format, primary text, headline)
+                fetch(`https://graph.facebook.com/v24.0/${adId}?fields=name,creative{effective_object_story_spec,object_type,thumbnail_url}&access_token=${savedToken}`)
+            ]);
 
-            const data = await response.json();
+            const insightsData = await insightsResponse.json();
+            const creativeData = await creativeResponse.json();
 
-            if (data.error) {
-                console.error('Meta API Error:', data.error);
+            if (insightsData.error && creativeData.error) {
+                console.error('Meta API Error:', insightsData.error);
                 setAdIdVerified(false);
                 setAdInsights(null);
-            } else if (data.data && data.data.length > 0) {
-                const insights = data.data[0];
+            } else {
+                // Parse insights
+                const insights = insightsData.data?.[0] || {};
 
                 // Extract conversions from actions array
                 const conversions = insights.actions?.find((a: { action_type: string }) =>
@@ -265,26 +282,36 @@ export default function UploadPage() {
                     a.action_type === 'lead' || a.action_type === 'purchase'
                 )?.value || 0;
 
+                // Parse creative data
+                const creative = creativeData.creative || {};
+                const objectStory = creative.effective_object_story_spec || {};
+                const linkData = objectStory.link_data || {};
+                const videoData = objectStory.video_data || {};
+
+                // Determine ad format
+                let adFormat = creative.object_type || 'UNKNOWN';
+                if (adFormat === 'SHARE') adFormat = linkData.image_hash ? 'IMAGE' : 'VIDEO';
+
+                // Extract primary text and headline
+                const extractedPrimaryText = linkData.message || videoData.message || '';
+                const extractedHeadline = linkData.name || linkData.title || videoData.title || '';
+
                 setAdIdVerified(true);
                 setAdInsights({
-                    adName: insights.ad_name || `Ad ${adId.slice(-4)}`,
+                    adName: creativeData.name || insights.ad_name || `Ad ${adId.slice(-4)}`,
                     impressions: parseInt(insights.impressions) || 0,
                     clicks: parseInt(insights.clicks) || 0,
                     ctr: parseFloat(insights.ctr) || 0,
                     conversions: parseInt(conversions),
-                    costPerResult: parseFloat(costPerResult)
+                    costPerResult: parseFloat(costPerResult),
+                    adFormat: adFormat,
+                    primaryText: extractedPrimaryText,
+                    headline: extractedHeadline
                 });
-            } else {
-                // No data available yet for this ad
-                setAdIdVerified(true);
-                setAdInsights({
-                    adName: `Ad ${adId.slice(-4)}`,
-                    impressions: 0,
-                    clicks: 0,
-                    ctr: 0,
-                    conversions: 0,
-                    costPerResult: 0
-                });
+
+                // Auto-fill primary text and headline if empty
+                if (!primaryText && extractedPrimaryText) setPrimaryText(extractedPrimaryText);
+                if (!headline && extractedHeadline) setHeadline(extractedHeadline);
             }
         } catch (error) {
             console.error('Ad verification error:', error);
@@ -308,6 +335,8 @@ export default function UploadPage() {
         setAdIdVerified(null);
         setAdInsights(null);
         setAutoSyncResults(false);
+        setPrimaryText('');
+        setHeadline('');
     };
 
     return (
@@ -755,6 +784,73 @@ CTA: "Link in bio to get 20% off"`}
                                 <div className={`${styles.extractedSection} ${styles.fullWidth}`}>
                                     <h4>📝 Script</h4>
                                     <p className={styles.scriptText}>{extractedData.script}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Ad Copy Section - Primary Text & Headline */}
+                        <div className={`glass-card`} style={{
+                            marginTop: 'var(--spacing-lg)',
+                            padding: 'var(--spacing-lg)',
+                            background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(168, 85, 247, 0.05))',
+                            border: '1px solid rgba(168, 85, 247, 0.2)'
+                        }}>
+                            <h3 style={{ fontSize: '1rem', marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                <span>✍️</span> Ad Copy (Optional)
+                            </h3>
+                            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-md)' }}>
+                                Enter the primary text and headline used in your Facebook ad
+                            </p>
+
+                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                <label className="form-label">Primary Text</label>
+                                <textarea
+                                    placeholder="The main ad copy that appears above the media..."
+                                    value={primaryText}
+                                    onChange={(e) => setPrimaryText(e.target.value)}
+                                    rows={3}
+                                    style={{
+                                        width: '100%',
+                                        padding: 'var(--spacing-sm) var(--spacing-md)',
+                                        background: 'var(--bg-tertiary)',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: 'var(--radius-md)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '0.875rem',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Headline</label>
+                                <input
+                                    type="text"
+                                    placeholder="The headline that appears below the media..."
+                                    value={headline}
+                                    onChange={(e) => setHeadline(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: 'var(--spacing-sm) var(--spacing-md)',
+                                        background: 'var(--bg-tertiary)',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: 'var(--radius-md)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '0.875rem'
+                                    }}
+                                />
+                            </div>
+
+                            {adInsights?.adFormat && (
+                                <div style={{
+                                    marginTop: 'var(--spacing-md)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 'var(--spacing-sm)',
+                                    fontSize: '0.8125rem'
+                                }}>
+                                    <span style={{ color: 'var(--text-muted)' }}>Ad Format:</span>
+                                    <span className="badge badge-primary">{adInsights.adFormat}</span>
                                 </div>
                             )}
                         </div>

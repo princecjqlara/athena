@@ -206,6 +206,61 @@ export default function PipelineDetailPage() {
             } else {
                 console.log('⚠️ CAPI not configured - skipping event send');
             }
+
+            // === AUTO-UPDATE AD RESULTS & AI ALGORITHM ===
+            // Update the ad's conversion stats in localStorage
+            const savedAds = JSON.parse(localStorage.getItem('ads') || '[]');
+            const leadSource = draggedLead.source; // e.g., "Facebook Ad: 123456789"
+
+            // Find the ad that generated this lead (by source or Facebook Ad ID)
+            const adIndex = savedAds.findIndex((ad: { facebookAdId?: string; id: string }) =>
+                leadSource?.includes(ad.facebookAdId || '') || leadSource?.includes(ad.id)
+            );
+
+            if (adIndex !== -1) {
+                // Update the ad's conversion count and total value
+                savedAds[adIndex].conversions = (savedAds[adIndex].conversions || 0) + 1;
+                savedAds[adIndex].totalConversionValue = (savedAds[adIndex].totalConversionValue || 0) + value;
+                savedAds[adIndex].lastConversionAt = new Date().toISOString();
+                savedAds[adIndex].updatedAt = new Date().toISOString();
+
+                // Calculate actual success score based on conversions
+                if (savedAds[adIndex].adInsights?.impressions) {
+                    const conversionRate = (savedAds[adIndex].conversions / savedAds[adIndex].adInsights.impressions) * 100;
+                    savedAds[adIndex].actualSuccessScore = Math.min(100, Math.round(conversionRate * 1000));
+                }
+
+                localStorage.setItem('ads', JSON.stringify(savedAds));
+                console.log('📊 Ad results updated:', savedAds[adIndex]);
+            }
+
+            // Feed conversion data to AI algorithm for learning
+            const modelStats = JSON.parse(localStorage.getItem('ai_model_stats') || '{"dataPoints": 0, "patterns": []}');
+            modelStats.dataPoints += 1;
+            modelStats.lastTrainingAt = new Date().toISOString();
+
+            // Store conversion pattern for learning
+            const conversionPattern = {
+                timestamp: new Date().toISOString(),
+                pipelineId: params.id,
+                pipelineGoal: pipeline?.goal,
+                conversionValue: value,
+                leadSource: draggedLead.source,
+                stagesVisited: draggedLead.stageId,
+                // Track what ad characteristics led to conversion
+                adId: adIndex !== -1 ? savedAds[adIndex].id : null,
+                adFeatures: adIndex !== -1 ? savedAds[adIndex].extractedContent : null
+            };
+
+            const conversionHistory = JSON.parse(localStorage.getItem('conversion_history') || '[]');
+            conversionHistory.push(conversionPattern);
+            // Keep last 1000 conversions for training
+            if (conversionHistory.length > 1000) conversionHistory.shift();
+            localStorage.setItem('conversion_history', JSON.stringify(conversionHistory));
+
+            localStorage.setItem('ai_model_stats', JSON.stringify(modelStats));
+            console.log('🤖 AI algorithm updated with conversion data');
+
         } catch (error) {
             console.error('CAPI send error:', error);
         } finally {
