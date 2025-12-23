@@ -24,6 +24,7 @@ interface Lead {
     notes?: string;
     conversionValue?: number;
     convertedAt?: string;
+    facebookLeadId?: string;  // From Facebook webhook for CAPI matching
 }
 
 interface Pipeline {
@@ -44,6 +45,7 @@ export default function PipelineDetailPage() {
     const [showAddLeadModal, setShowAddLeadModal] = useState(false);
     const [showConversionModal, setShowConversionModal] = useState(false);
     const [conversionValue, setConversionValue] = useState('');
+    const [sendingCapi, setSendingCapi] = useState(false);
     const [newLead, setNewLead] = useState({ name: '', email: '', phone: '', source: 'Manual' });
     const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
     const [pendingGoalStageId, setPendingGoalStageId] = useState<string | null>(null);
@@ -158,14 +160,50 @@ export default function PipelineDetailPage() {
         setDraggedLead(null);
     };
 
-    const handleConversionSubmit = () => {
+    const handleConversionSubmit = async () => {
         if (!draggedLead || !pendingGoalStageId) return;
 
         const value = parseFloat(conversionValue) || 0;
         moveLead(draggedLead.id, pendingGoalStageId, value);
 
-        console.log('🎯 Lead converted with value:', value, draggedLead);
-        // TODO: Send conversion event to Facebook CAPI with value
+        // Send to Facebook CAPI
+        setSendingCapi(true);
+        try {
+            const datasetId = localStorage.getItem('meta_dataset_id');
+            const capiToken = localStorage.getItem('meta_capi_token');
+
+            if (datasetId && capiToken) {
+                const response = await fetch('/api/capi/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        datasetId,
+                        accessToken: capiToken,
+                        eventName: pipeline?.goal || 'Purchase',
+                        leadId: draggedLead.facebookLeadId,
+                        email: draggedLead.email,
+                        phone: draggedLead.phone,
+                        firstName: draggedLead.name.split(' ')[0],
+                        lastName: draggedLead.name.split(' ').slice(1).join(' '),
+                        value: value,
+                        currency: 'USD'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    console.log('✅ CAPI event sent:', result);
+                } else {
+                    console.error('❌ CAPI error:', result.error);
+                }
+            } else {
+                console.log('⚠️ CAPI not configured - skipping event send');
+            }
+        } catch (error) {
+            console.error('CAPI send error:', error);
+        } finally {
+            setSendingCapi(false);
+        }
 
         setShowConversionModal(false);
         setConversionValue('');
@@ -466,15 +504,16 @@ export default function PipelineDetailPage() {
                         </div>
 
                         <div className={styles.modalFooter}>
-                            <button className="btn btn-secondary" onClick={handleSkipConversion}>
+                            <button className="btn btn-secondary" onClick={handleSkipConversion} disabled={sendingCapi}>
                                 Skip (No Value)
                             </button>
                             <button
                                 className="btn btn-primary"
                                 onClick={handleConversionSubmit}
                                 style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                                disabled={sendingCapi}
                             >
-                                💰 Save Conversion
+                                {sendingCapi ? '📡 Sending to Facebook...' : '💰 Save & Send to Facebook'}
                             </button>
                         </div>
                     </div>
