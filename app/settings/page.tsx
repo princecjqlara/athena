@@ -27,6 +27,7 @@ export default function SettingsPage() {
 
     // Meta Conversions API (CAPI) Settings
     const [datasetId, setDatasetId] = useState('');
+    const [capiAccessToken, setCapiAccessToken] = useState('');
     const [capiConnectionStatus, setCapiConnectionStatus] = useState<'untested' | 'testing' | 'connected' | 'failed'>('untested');
 
     const [modelStats, setModelStats] = useState({
@@ -41,10 +42,12 @@ export default function SettingsPage() {
             const savedAdAccount = localStorage.getItem('meta_ad_account_id');
             const savedMarketingToken = localStorage.getItem('meta_marketing_token');
             const savedDatasetId = localStorage.getItem('meta_dataset_id');
+            const savedCapiToken = localStorage.getItem('meta_capi_token');
             const savedFbAdAccounts = localStorage.getItem('fb_ad_accounts');
             if (savedAdAccount) setAdAccountId(savedAdAccount);
             if (savedMarketingToken) setMarketingAccessToken(savedMarketingToken);
             if (savedDatasetId) setDatasetId(savedDatasetId);
+            if (savedCapiToken) setCapiAccessToken(savedCapiToken);
             if (savedFbAdAccounts) {
                 try {
                     setFbAdAccounts(JSON.parse(savedFbAdAccounts));
@@ -144,14 +147,15 @@ export default function SettingsPage() {
     // Save CAPI settings
     const handleSaveCapiSettings = () => {
         localStorage.setItem('meta_dataset_id', datasetId);
+        localStorage.setItem('meta_capi_token', capiAccessToken);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
     };
 
     // Test CAPI connection
     const handleTestCapiConnection = async () => {
-        if (!datasetId || !marketingAccessToken) {
-            alert('Please enter Dataset ID and connect to Facebook first');
+        if (!datasetId || !capiAccessToken) {
+            alert('Please enter both Dataset ID and CAPI Access Token');
             return;
         }
 
@@ -160,7 +164,7 @@ export default function SettingsPage() {
         try {
             // Test connection by fetching dataset info
             const response = await fetch(
-                `https://graph.facebook.com/v24.0/${datasetId}?fields=name,id&access_token=${marketingAccessToken}`
+                `https://graph.facebook.com/v24.0/${datasetId}?fields=name,id&access_token=${capiAccessToken}`
             );
 
             const data = await response.json();
@@ -437,36 +441,18 @@ export default function SettingsPage() {
                         </div>
                         <div className="form-group">
                             <label className="form-label">CAPI Access Token</label>
-                            <div style={{ position: 'relative' }}>
-                                <input
-                                    type="password"
-                                    className="form-input"
-                                    placeholder={marketingAccessToken ? '••••••••••••••••••••' : 'Connect to Facebook first'}
-                                    value={marketingAccessToken ? '••••••••' + marketingAccessToken.slice(-8) : ''}
-                                    readOnly
-                                    style={{
-                                        background: marketingAccessToken ? 'rgba(16, 185, 129, 0.1)' : 'rgba(251, 191, 36, 0.1)',
-                                        cursor: 'not-allowed'
-                                    }}
-                                />
-                                {marketingAccessToken && (
-                                    <span style={{
-                                        position: 'absolute',
-                                        right: '12px',
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        color: 'var(--success)',
-                                        fontSize: '0.875rem'
-                                    }}>
-                                        ✓ From Facebook
-                                    </span>
-                                )}
-                            </div>
+                            <input
+                                type="password"
+                                className="form-input"
+                                placeholder="Generate in Events Manager → Settings"
+                                value={capiAccessToken}
+                                onChange={(e) => {
+                                    setCapiAccessToken(e.target.value);
+                                    setCapiConnectionStatus('untested');
+                                }}
+                            />
                             <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                {marketingAccessToken
-                                    ? 'Using token from Facebook login (same as Marketing API)'
-                                    : '⚠️ Connect to Facebook above to get access token'
-                                }
+                                Generate in Events Manager → Settings → Generate Access Token
                             </small>
                         </div>
                     </div>
@@ -475,14 +461,14 @@ export default function SettingsPage() {
                         <button
                             className="btn btn-primary"
                             onClick={handleTestCapiConnection}
-                            disabled={capiConnectionStatus === 'testing' || !datasetId || !marketingAccessToken}
+                            disabled={capiConnectionStatus === 'testing' || !datasetId || !capiAccessToken}
                         >
                             {capiConnectionStatus === 'testing' ? '🔄 Testing...' : '🔗 Test Connection'}
                         </button>
                         <button
                             className="btn btn-secondary"
                             onClick={handleSaveCapiSettings}
-                            disabled={!datasetId}
+                            disabled={!datasetId || !capiAccessToken}
                         >
                             💾 Save Settings
                         </button>
