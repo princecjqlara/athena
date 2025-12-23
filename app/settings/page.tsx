@@ -15,10 +15,6 @@ interface AdAccount {
 }
 
 export default function SettingsPage() {
-    const [cloudinaryName, setCloudinaryName] = useState('');
-    const [cloudinaryPreset, setCloudinaryPreset] = useState('');
-    const [supabaseUrl, setSupabaseUrl] = useState('');
-    const [supabaseKey, setSupabaseKey] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
 
@@ -489,112 +485,6 @@ export default function SettingsPage() {
                             ✅ CAPI Connected! You can now send conversion events and receive webhook data.
                         </div>
                     )}
-                </div>
-
-                {/* Cloudinary Settings */}
-                <div className={`glass-card ${styles.settingsCard}`}>
-                    <div className={styles.cardHeader}>
-                        <div className={styles.cardIcon}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M17.5 19H9a7 7 0 117-7h1.5a4.5 4.5 0 110 9z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3>Cloudinary</h3>
-                            <p>Video storage configuration</p>
-                        </div>
-                    </div>
-
-                    <div className={styles.formGrid}>
-                        <div className="form-group">
-                            <label className="form-label">Cloud Name</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="your-cloud-name"
-                                value={cloudinaryName}
-                                onChange={(e) => setCloudinaryName(e.target.value)}
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Upload Preset</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="ads_algorithm"
-                                value={cloudinaryPreset}
-                                onChange={(e) => setCloudinaryPreset(e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    <a
-                        href="https://cloudinary.com/console"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.helpLink}
-                    >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
-                            <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                        Get your Cloudinary credentials
-                    </a>
-                </div>
-
-                {/* Supabase Settings */}
-                <div className={`glass-card ${styles.settingsCard}`}>
-                    <div className={styles.cardHeader}>
-                        <div className={styles.cardIcon}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <ellipse cx="12" cy="5" rx="9" ry="3" />
-                                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3>Supabase</h3>
-                            <p>Database configuration</p>
-                        </div>
-                    </div>
-
-                    <div className={styles.formGrid}>
-                        <div className="form-group">
-                            <label className="form-label">Project URL</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="https://your-project.supabase.co"
-                                value={supabaseUrl}
-                                onChange={(e) => setSupabaseUrl(e.target.value)}
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Anon Key</label>
-                            <input
-                                type="password"
-                                className="form-input"
-                                placeholder="your-anon-key"
-                                value={supabaseKey}
-                                onChange={(e) => setSupabaseKey(e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    <a
-                        href="https://supabase.com/dashboard"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.helpLink}
-                    >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
-                            <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                        Get your Supabase credentials
-                    </a>
                 </div>
 
                 {/* AI Model Settings */}
