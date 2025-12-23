@@ -48,7 +48,7 @@ export function Sidebar() {
         <NavItem href="/results" icon="chart" label="Add Results" collapsed={isCollapsed} />
         <NavItem href="/mindmap" icon="mindmap" label="Algorithm" collapsed={isCollapsed} />
         <NavItem href="/pipeline" icon="pipeline" label="AI Pipeline" collapsed={isCollapsed} />
-        <NavItem href="/videos" icon="video" label="My Ads" collapsed={isCollapsed} />
+        <NavItem href="/videos" icon="ads" label="My Ads" collapsed={isCollapsed} />
         <NavItem href="/settings" icon="settings" label="Settings" collapsed={isCollapsed} />
       </nav>
 
@@ -252,8 +252,15 @@ function NavItem({ href, icon, label, collapsed }: { href: string; icon: string;
     ),
     video: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="23 7 16 12 23 17 23 7" />
-        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+        <path d="M19 10c0 4.418-3.582 8-8 8H5l-3 3V5a2 2 0 0 1 2-2h7c4.418 0 8 3.582 8 8z" />
+        <circle cx="13" cy="10" r="1" fill="currentColor" />
+        <circle cx="9" cy="10" r="1" fill="currentColor" />
+        <path d="M21 15l-3-3m0 0l-3 3m3-3v9" />
+      </svg>
+    ),
+    ads: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a9 9 0 0 1 18 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3" />
       </svg>
     ),
     pipeline: (
