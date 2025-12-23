@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
             datasetId,
             accessToken,
             eventName,
+            eventTime,
             leadId,
             email,
             phone,
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
         // Send the event
         const result = await sendCAPIEvent(datasetId, accessToken, {
             eventName,
+            eventTime,  // Unix timestamp (optional - defaults to now)
             leadId,
             email,
             phone,

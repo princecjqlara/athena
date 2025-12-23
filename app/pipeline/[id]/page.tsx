@@ -45,6 +45,7 @@ export default function PipelineDetailPage() {
     const [showAddLeadModal, setShowAddLeadModal] = useState(false);
     const [showConversionModal, setShowConversionModal] = useState(false);
     const [conversionValue, setConversionValue] = useState('');
+    const [conversionDate, setConversionDate] = useState('');  // Empty = NOW, or ISO date string
     const [sendingCapi, setSendingCapi] = useState(false);
     const [newLead, setNewLead] = useState({ name: '', email: '', phone: '', source: 'Manual' });
     const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
@@ -173,6 +174,11 @@ export default function PipelineDetailPage() {
             const capiToken = localStorage.getItem('meta_capi_token');
 
             if (datasetId && capiToken) {
+                // Calculate event_time - use conversion date if provided, otherwise NOW
+                const eventTime = conversionDate
+                    ? Math.floor(new Date(conversionDate).getTime() / 1000)
+                    : Math.floor(Date.now() / 1000);
+
                 const response = await fetch('/api/capi/send', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -180,6 +186,7 @@ export default function PipelineDetailPage() {
                         datasetId,
                         accessToken: capiToken,
                         eventName: pipeline?.goal || 'Purchase',
+                        eventTime: eventTime,
                         leadId: draggedLead.facebookLeadId,
                         email: draggedLead.email,
                         phone: draggedLead.phone,
@@ -207,6 +214,7 @@ export default function PipelineDetailPage() {
 
         setShowConversionModal(false);
         setConversionValue('');
+        setConversionDate('');
         setPendingGoalStageId(null);
     };
 
@@ -499,6 +507,19 @@ export default function PipelineDetailPage() {
                                 </div>
                                 <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
                                     Enter the revenue from this conversion for ROAS calculation
+                                </small>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Conversion Date (optional)</label>
+                                <input
+                                    type="datetime-local"
+                                    className="form-input"
+                                    value={conversionDate}
+                                    onChange={e => setConversionDate(e.target.value)}
+                                    max={new Date().toISOString().slice(0, 16)}
+                                />
+                                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                    Leave empty for NOW, or select past date for backdated conversions
                                 </small>
                             </div>
                         </div>
