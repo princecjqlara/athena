@@ -26,8 +26,7 @@ export default function SettingsPage() {
     const [showManualInput, setShowManualInput] = useState(false);
 
     // Meta Conversions API (CAPI) Settings
-    const [pixelId, setPixelId] = useState('');
-    const [capiAccessToken, setCapiAccessToken] = useState('');
+    const [datasetId, setDatasetId] = useState('');
     const [capiConnectionStatus, setCapiConnectionStatus] = useState<'untested' | 'testing' | 'connected' | 'failed'>('untested');
 
     const [modelStats, setModelStats] = useState({
@@ -41,13 +40,11 @@ export default function SettingsPage() {
         if (typeof window !== 'undefined') {
             const savedAdAccount = localStorage.getItem('meta_ad_account_id');
             const savedMarketingToken = localStorage.getItem('meta_marketing_token');
-            const savedPixelId = localStorage.getItem('meta_pixel_id');
-            const savedCapiToken = localStorage.getItem('meta_capi_token');
+            const savedDatasetId = localStorage.getItem('meta_dataset_id');
             const savedFbAdAccounts = localStorage.getItem('fb_ad_accounts');
             if (savedAdAccount) setAdAccountId(savedAdAccount);
             if (savedMarketingToken) setMarketingAccessToken(savedMarketingToken);
-            if (savedPixelId) setPixelId(savedPixelId);
-            if (savedCapiToken) setCapiAccessToken(savedCapiToken);
+            if (savedDatasetId) setDatasetId(savedDatasetId);
             if (savedFbAdAccounts) {
                 try {
                     setFbAdAccounts(JSON.parse(savedFbAdAccounts));
@@ -146,25 +143,24 @@ export default function SettingsPage() {
 
     // Save CAPI settings
     const handleSaveCapiSettings = () => {
-        localStorage.setItem('meta_pixel_id', pixelId);
-        localStorage.setItem('meta_capi_token', capiAccessToken);
+        localStorage.setItem('meta_dataset_id', datasetId);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
     };
 
     // Test CAPI connection
     const handleTestCapiConnection = async () => {
-        if (!pixelId || !capiAccessToken) {
-            alert('Please enter both Pixel ID and CAPI Access Token');
+        if (!datasetId || !marketingAccessToken) {
+            alert('Please enter Dataset ID and connect to Facebook first');
             return;
         }
 
         setCapiConnectionStatus('testing');
 
         try {
-            // Test connection by fetching pixel info
+            // Test connection by fetching dataset info
             const response = await fetch(
-                `https://graph.facebook.com/v24.0/${pixelId}?fields=name,id&access_token=${capiAccessToken}`
+                `https://graph.facebook.com/v24.0/${datasetId}?fields=name,id&access_token=${marketingAccessToken}`
             );
 
             const data = await response.json();
@@ -423,52 +419,49 @@ export default function SettingsPage() {
                     </div>
 
                     <div className={styles.formGrid}>
-                        <div className="form-group">
-                            <label className="form-label">Pixel ID</label>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                            <label className="form-label">Dataset ID</label>
                             <input
                                 type="text"
                                 className="form-input"
                                 placeholder="e.g., 1234567890123456"
-                                value={pixelId}
+                                value={datasetId}
                                 onChange={(e) => {
-                                    setPixelId(e.target.value);
+                                    setDatasetId(e.target.value);
                                     setCapiConnectionStatus('untested');
                                 }}
                             />
                             <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                Find in Events Manager → Data Sources → Your Pixel
-                            </small>
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">CAPI Access Token</label>
-                            <input
-                                type="password"
-                                className="form-input"
-                                placeholder="Your Conversions API access token"
-                                value={capiAccessToken}
-                                onChange={(e) => {
-                                    setCapiAccessToken(e.target.value);
-                                    setCapiConnectionStatus('untested');
-                                }}
-                            />
-                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                Generate in Events Manager → Settings → Generate Access Token
+                                Find in Events Manager → Data Sources → Your Offline Dataset
                             </small>
                         </div>
                     </div>
+
+                    {!marketingAccessToken && (
+                        <div style={{
+                            padding: 'var(--spacing-md)',
+                            background: 'rgba(251, 191, 36, 0.1)',
+                            borderRadius: 'var(--radius-md)',
+                            marginTop: 'var(--spacing-md)',
+                            fontSize: '0.875rem',
+                            color: 'var(--text-secondary)'
+                        }}>
+                            ⚠️ Connect to Facebook first (above) to enable CAPI. The same token is used.
+                        </div>
+                    )}
 
                     <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
                         <button
                             className="btn btn-primary"
                             onClick={handleTestCapiConnection}
-                            disabled={capiConnectionStatus === 'testing' || !pixelId || !capiAccessToken}
+                            disabled={capiConnectionStatus === 'testing' || !datasetId || !marketingAccessToken}
                         >
                             {capiConnectionStatus === 'testing' ? '🔄 Testing...' : '🔗 Test Connection'}
                         </button>
                         <button
                             className="btn btn-secondary"
                             onClick={handleSaveCapiSettings}
-                            disabled={!pixelId || !capiAccessToken}
+                            disabled={!datasetId}
                         >
                             💾 Save Settings
                         </button>
