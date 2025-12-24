@@ -4,6 +4,10 @@ import { contactsStore, findOrCreateContact, adLinksStore } from '@/lib/contacts
 // Webhook Verify Token - set this in environment variables
 const VERIFY_TOKEN = process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN || 'TEST_TOKEN';
 const PAGE_ACCESS_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+const USER_ACCESS_TOKEN = process.env.META_MARKETING_TOKEN;
+
+// Cache for page access tokens (fetched dynamically)
+let cachedPageTokens: Map<string, string> = new Map();
 
 // Types for webhook events
 interface WebhookEntry {
@@ -136,15 +140,51 @@ export async function POST(request: NextRequest) {
     }
 }
 
+// Get page access token - try cached, then fetch dynamically, then fallback to env
+async function getPageAccessToken(pageId: string): Promise<string | null> {
+    // 1. Check env variable first
+    if (PAGE_ACCESS_TOKEN) {
+        return PAGE_ACCESS_TOKEN;
+    }
+
+    // 2. Check cache
+    if (cachedPageTokens.has(pageId)) {
+        return cachedPageTokens.get(pageId)!;
+    }
+
+    // 3. Try to fetch page token using user's access token
+    if (USER_ACCESS_TOKEN) {
+        try {
+            console.log('[Webhook] Fetching page token dynamically...');
+            const url = `https://graph.facebook.com/v24.0/${pageId}?fields=access_token&access_token=${USER_ACCESS_TOKEN}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.access_token) {
+                cachedPageTokens.set(pageId, data.access_token);
+                console.log('[Webhook] Got page token for', pageId);
+                return data.access_token;
+            }
+        } catch (error) {
+            console.error('[Webhook] Failed to fetch page token:', error);
+        }
+    }
+
+    return null;
+}
+
 // Fetch user profile from Facebook Graph API
-async function fetchUserProfile(psid: string): Promise<FacebookUserProfile | null> {
-    if (!PAGE_ACCESS_TOKEN) {
-        console.log('[Webhook] No PAGE_ACCESS_TOKEN, skipping profile fetch');
+async function fetchUserProfile(psid: string, pageId?: string): Promise<FacebookUserProfile | null> {
+    // Get page token (automatically or from env)
+    const accessToken = pageId ? await getPageAccessToken(pageId) : PAGE_ACCESS_TOKEN;
+
+    if (!accessToken) {
+        console.log('[Webhook] No access token available, skipping profile fetch');
         return null;
     }
 
     try {
-        const url = `https://graph.facebook.com/v24.0/${psid}?fields=first_name,last_name,name,profile_pic&access_token=${PAGE_ACCESS_TOKEN}`;
+        const url = `https://graph.facebook.com/v24.0/${psid}?fields=first_name,last_name,name,profile_pic&access_token=${accessToken}`;
         const response = await fetch(url);
 
         if (!response.ok) {
@@ -153,7 +193,7 @@ async function fetchUserProfile(psid: string): Promise<FacebookUserProfile | nul
         }
 
         const profile = await response.json();
-        console.log('[Webhook] Fetched user profile:', profile);
+        console.log('[Webhook] Fetched user profile:', profile.name || profile.first_name);
         return profile;
     } catch (error) {
         console.error('[Webhook] Error fetching profile:', error);
@@ -218,8 +258,8 @@ async function handleMessagingEvent(pageId: string, event: MessagingEvent) {
     if (!contact) {
         isNewContact = true;
 
-        // Try to fetch user profile from Facebook
-        const profile = await fetchUserProfile(senderId);
+        // Try to fetch user profile from Facebook (now auto-gets page token)
+        const profile = await fetchUserProfile(senderId, pageId);
         const userName = profile?.name || profile?.first_name || `Messenger User ${senderId.slice(-6)}`;
 
         // Find pipeline linked to this ad (if referral exists)
