@@ -166,7 +166,10 @@ export async function GET(request: NextRequest) {
                     // Determine primary result and cost per result
                     let primaryResult = 0;
                     let costPerResult = 0;
-                    let resultType = 'link_clicks';
+                    let resultType = 'none';
+
+                    // Debug: log available actions
+                    console.log(`[Ad ${ad.id}] Actions summary: leads=${leads}, purchases=${purchases}, messages=${onFacebookMessages}, linkClicks=${linkClicks}`);
 
                     if (leads > 0) {
                         primaryResult = leads;
@@ -186,21 +189,30 @@ export async function GET(request: NextRequest) {
                         resultType = 'link_clicks';
                     }
 
-                    // Fetch demographics breakdown (age + gender)
-                    let demographics: { age?: string; gender?: string; value: number }[] = [];
+                    // If no results, ensure costPerResult is 0
+                    if (primaryResult === 0) {
+                        costPerResult = 0;
+                    }
+
+                    console.log(`[Ad ${ad.id}] Result: type=${resultType}, count=${primaryResult}, costPerResult=${costPerResult}`);
+
+                    // Fetch demographics breakdown (age + gender) - must fetch impressions/reach, not actions
+                    let demographics: { age?: string; gender?: string; impressions: number }[] = [];
                     try {
-                        const demoUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=actions&breakdowns=age,gender&date_preset=${datePreset}&access_token=${accessToken}`;
+                        const demoUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,reach&breakdowns=age,gender&date_preset=${datePreset}&access_token=${accessToken}`;
                         const demoResponse = await fetch(demoUrl);
                         const demoData = await demoResponse.json();
-                        if (demoData.data) {
-                            demographics = demoData.data.map((d: { age: string; gender: string; impressions?: string }) => ({
+                        console.log(`[Ad ${ad.id}] Demographics raw response:`, JSON.stringify(demoData.data?.slice(0, 3) || []));
+                        if (demoData.data && Array.isArray(demoData.data)) {
+                            demographics = demoData.data.map((d: { age?: string; gender?: string; impressions?: string; reach?: string }) => ({
                                 age: d.age,
                                 gender: d.gender,
-                                impressions: parseInt(d.impressions || '0')
+                                impressions: parseInt(d.impressions || '0'),
+                                reach: parseInt(d.reach || '0')
                             }));
                         }
                     } catch (e) {
-                        console.log('Demographics not available');
+                        console.log('Demographics fetch error:', e);
                     }
 
                     // Fetch placement breakdown
