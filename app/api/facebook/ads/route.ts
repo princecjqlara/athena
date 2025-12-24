@@ -63,8 +63,8 @@ export async function GET(request: NextRequest) {
                 };
             }) => {
                 try {
-                    // Fetch lifetime insights for this ad
-                    const insightsUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,reach,clicks,ctr,cpc,cpm,spend,actions,cost_per_action_type,frequency&date_preset=lifetime&access_token=${accessToken}`;
+                    // Fetch insights for this ad - use 'maximum' for all-time data
+                    const insightsUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,reach,clicks,ctr,cpc,cpm,spend,actions,cost_per_action_type,frequency&date_preset=maximum&access_token=${accessToken}`;
                     const insightsResponse = await fetch(insightsUrl);
                     const insightsData = await insightsResponse.json();
 
