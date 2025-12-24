@@ -370,6 +370,16 @@ export async function GET(request: NextRequest) {
 
                             // ROAS
                             purchaseRoas: parseFloat(insights.purchase_roas?.[0]?.value) || 0,
+
+                            // Raw data for debugging - all actions Facebook returned
+                            rawActions: actions.map((a: { action_type: string; value: string }) => ({
+                                type: a.action_type,
+                                value: parseInt(a.value) || 0
+                            })),
+                            rawCostPerAction: costPerAction.map((a: { action_type: string; value: string }) => ({
+                                type: a.action_type,
+                                cost: parseFloat(a.value) || 0
+                            })),
                         },
                         // Breakdowns
                         demographics,

@@ -74,6 +74,9 @@ interface FacebookMetrics {
     // Ad Recall
     estimatedAdRecallers?: number;
     estimatedAdRecallRate?: number;
+    // Raw Facebook data for debugging
+    rawActions?: { type: string; value: number }[];
+    rawCostPerAction?: { type: string; cost: number }[];
 }
 
 interface FacebookAd {
@@ -916,6 +919,44 @@ export default function ImportPage() {
                                                         )}
                                                     </div>
                                                 </details>
+
+                                                {/* Raw Facebook Actions - Show ALL data */}
+                                                {(ad.metrics.rawActions?.length ?? 0) > 0 && (
+                                                    <details style={{ marginTop: '8px' }}>
+                                                        <summary style={{ cursor: 'pointer', color: '#f59e0b', fontSize: '0.6875rem', marginBottom: '6px' }}>
+                                                            🔍 All Facebook Actions ({ad.metrics.rawActions?.length} types)
+                                                        </summary>
+                                                        <div style={{
+                                                            display: 'grid',
+                                                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                                            gap: '4px',
+                                                            padding: '8px',
+                                                            background: '#1a1a2e',
+                                                            borderRadius: '8px',
+                                                            marginTop: '4px',
+                                                            fontSize: '0.625rem'
+                                                        }}>
+                                                            {ad.metrics.rawActions?.map((action, idx) => {
+                                                                const costData = ad.metrics?.rawCostPerAction?.find(c => c.type === action.type);
+                                                                return (
+                                                                    <div key={idx} style={{
+                                                                        background: '#2a2a3e',
+                                                                        padding: '4px 8px',
+                                                                        borderRadius: '4px',
+                                                                        display: 'flex',
+                                                                        justifyContent: 'space-between'
+                                                                    }}>
+                                                                        <span style={{ color: '#888' }}>{action.type.replace(/_/g, ' ')}</span>
+                                                                        <span>
+                                                                            <strong>{action.value}</strong>
+                                                                            {costData && <span style={{ color: '#22c55e', marginLeft: '4px' }}>₱{costData.cost.toFixed(2)}</span>}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </details>
+                                                )}
 
                                                 {/* Breakdowns - simplified */}
                                                 {((ad.byPlatform?.length ?? 0) > 0 || (ad.byDevice?.length ?? 0) > 0) && (
