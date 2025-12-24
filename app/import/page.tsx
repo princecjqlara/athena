@@ -306,8 +306,42 @@ export default function ImportPage() {
         setError(null);
 
         try {
+            // First, check if we need to exchange for a long-lived token
+            let tokenToUse = accessToken;
+
+            // Check token validity
+            const tokenCheckResponse = await fetch(`/api/facebook/exchange-token?token=${accessToken}`);
+            const tokenCheck = await tokenCheckResponse.json();
+
+            // If token is valid but short-lived, exchange it
+            if (tokenCheck.success && tokenCheck.isValid && !tokenCheck.isLongLived) {
+                console.log('Token is short-lived, exchanging for long-lived token...');
+                const exchangeResponse = await fetch('/api/facebook/exchange-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shortLivedToken: accessToken })
+                });
+                const exchangeData = await exchangeResponse.json();
+
+                if (exchangeData.success && exchangeData.accessToken) {
+                    console.log('Token exchanged successfully! Expires:', exchangeData.expiresAt);
+                    tokenToUse = exchangeData.accessToken;
+                    // Save the new long-lived token
+                    setAccessToken(tokenToUse);
+                    localStorage.setItem('meta_marketing_token', tokenToUse);
+                } else {
+                    console.warn('Token exchange failed:', exchangeData.error);
+                    // Continue with original token
+                }
+            } else if (!tokenCheck.isValid) {
+                // Token is completely invalid
+                setError('Access token is invalid or expired. Please get a new token from Facebook.');
+                setIsLoading(false);
+                return;
+            }
+
             const response = await fetch(
-                `/api/facebook/ads?adAccountId=${adAccountId}&accessToken=${accessToken}&status=${statusFilter}&datePreset=${datePreset}`
+                `/api/facebook/ads?adAccountId=${adAccountId}&accessToken=${tokenToUse}&status=${statusFilter}&datePreset=${datePreset}`
             );
             const data = await response.json();
 
@@ -315,6 +349,7 @@ export default function ImportPage() {
                 setFacebookAds(data.data);
                 // Save credentials for future use
                 localStorage.setItem('meta_ad_account_id', adAccountId);
+                localStorage.setItem('meta_marketing_token', tokenToUse);
             } else {
                 setError(data.error || 'Failed to fetch ads');
             }
