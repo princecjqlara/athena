@@ -151,8 +151,13 @@ export async function GET(request: NextRequest) {
                     };
 
                     // Extract key action metrics
-                    const leads = getAction('lead');
-                    const purchases = getAction('purchase');
+                    // Leads can come from different sources - check all possible action types
+                    const leads = getAction('lead') ||
+                        getAction('onsite_conversion.lead_grouped') ||
+                        getAction('offsite_conversion.fb_pixel_lead') ||
+                        getAction('lead_form_complete') ||
+                        getAction('omni_complete_registration');
+                    const purchases = getAction('purchase') || getAction('offsite_conversion.fb_pixel_purchase');
                     const linkClicks = getAction('link_click');
                     const pageEngagement = getAction('page_engagement');
                     const postEngagement = getAction('post_engagement');
