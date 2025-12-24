@@ -701,6 +701,25 @@ export default function ImportPage() {
                                     </div>
                                 </div>
                             </div>
+                            <div style={{
+                                background: 'rgba(99, 102, 241, 0.15)',
+                                padding: '6px 12px',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid rgba(99, 102, 241, 0.3)',
+                                fontSize: '0.75rem',
+                                color: '#a5b4fc'
+                            }}>
+                                📅 {datePreset === 'today' ? 'Today' :
+                                    datePreset === 'yesterday' ? 'Yesterday' :
+                                        datePreset === 'last_7d' ? 'Last 7 Days' :
+                                            datePreset === 'last_14d' ? 'Last 14 Days' :
+                                                datePreset === 'last_30d' ? 'Last 30 Days' :
+                                                    datePreset === 'last_90d' ? 'Last 90 Days' :
+                                                        datePreset === 'this_month' ? 'This Month' :
+                                                            datePreset === 'last_month' ? 'Last Month' :
+                                                                datePreset === 'maximum' ? 'All Time' :
+                                                                    datePreset}
+                            </div>
                         </div>
                         <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
                             <button className="btn btn-ghost btn-sm" onClick={selectAllAds}>
