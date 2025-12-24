@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const adAccountId = searchParams.get('adAccountId') || process.env.META_AD_ACCOUNT_ID;
     const accessToken = searchParams.get('accessToken') || process.env.META_MARKETING_TOKEN;
     const status = searchParams.get('status') || 'all'; // 'active', 'paused', 'archived', 'all'
+    const datePreset = searchParams.get('datePreset') || 'last_30d'; // Facebook date presets
 
     if (!adAccountId || !accessToken) {
         return NextResponse.json(
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
                     ].join(',');
 
                     // Main insights call
-                    const insightsUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=${insightsFields}&date_preset=maximum&access_token=${accessToken}`;
+                    const insightsUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=${insightsFields}&date_preset=${datePreset}&access_token=${accessToken}`;
                     const insightsResponse = await fetch(insightsUrl);
                     const insightsData = await insightsResponse.json();
                     const insights = insightsData.data?.[0] || {};
@@ -183,7 +184,7 @@ export async function GET(request: NextRequest) {
                     // Fetch demographics breakdown (age + gender)
                     let demographics: { age?: string; gender?: string; value: number }[] = [];
                     try {
-                        const demoUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=actions&breakdowns=age,gender&date_preset=maximum&access_token=${accessToken}`;
+                        const demoUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=actions&breakdowns=age,gender&date_preset=${datePreset}&access_token=${accessToken}`;
                         const demoResponse = await fetch(demoUrl);
                         const demoData = await demoResponse.json();
                         if (demoData.data) {
@@ -200,7 +201,7 @@ export async function GET(request: NextRequest) {
                     // Fetch placement breakdown
                     let placements: { placement?: string; impressions: number; spend: number }[] = [];
                     try {
-                        const placementUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,spend&breakdowns=publisher_platform,platform_position&date_preset=maximum&access_token=${accessToken}`;
+                        const placementUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,spend&breakdowns=publisher_platform,platform_position&date_preset=${datePreset}&access_token=${accessToken}`;
                         const placementResponse = await fetch(placementUrl);
                         const placementData = await placementResponse.json();
                         if (placementData.data) {
@@ -218,7 +219,7 @@ export async function GET(request: NextRequest) {
                     // Fetch region/country breakdown
                     let regions: { country?: string; region?: string; impressions: number }[] = [];
                     try {
-                        const regionUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,spend&breakdowns=country&date_preset=maximum&access_token=${accessToken}`;
+                        const regionUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,spend&breakdowns=country&date_preset=${datePreset}&access_token=${accessToken}`;
                         const regionResponse = await fetch(regionUrl);
                         const regionData = await regionResponse.json();
                         if (regionData.data) {
@@ -235,7 +236,7 @@ export async function GET(request: NextRequest) {
                     // Fetch by impression device
                     let byDevice: { device: string; impressions: number; clicks: number; spend: number }[] = [];
                     try {
-                        const deviceUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,clicks,spend&breakdowns=impression_device&date_preset=maximum&access_token=${accessToken}`;
+                        const deviceUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,clicks,spend&breakdowns=impression_device&date_preset=${datePreset}&access_token=${accessToken}`;
                         const deviceResponse = await fetch(deviceUrl);
                         const deviceData = await deviceResponse.json();
                         if (deviceData.data) {
@@ -253,7 +254,7 @@ export async function GET(request: NextRequest) {
                     // Fetch by platform
                     let byPlatform: { platform: string; impressions: number; clicks: number; spend: number }[] = [];
                     try {
-                        const platformUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,clicks,spend&breakdowns=publisher_platform&date_preset=maximum&access_token=${accessToken}`;
+                        const platformUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,clicks,spend&breakdowns=publisher_platform&date_preset=${datePreset}&access_token=${accessToken}`;
                         const platformResponse = await fetch(platformUrl);
                         const platformData = await platformResponse.json();
                         if (platformData.data) {

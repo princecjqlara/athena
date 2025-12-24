@@ -114,6 +114,7 @@ export default function ImportPage() {
     const [adAccountId, setAdAccountId] = useState('');
     const [accessToken, setAccessToken] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'archived'>('all');
+    const [datePreset, setDatePreset] = useState<string>('last_30d');
 
     const [isLoading, setIsLoading] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -215,7 +216,7 @@ export default function ImportPage() {
 
         try {
             const response = await fetch(
-                `/api/facebook/ads?adAccountId=${adAccountId}&accessToken=${accessToken}&status=${statusFilter}`
+                `/api/facebook/ads?adAccountId=${adAccountId}&accessToken=${accessToken}&status=${statusFilter}&datePreset=${datePreset}`
             );
             const data = await response.json();
 
@@ -563,6 +564,25 @@ export default function ImportPage() {
                             <option value="active">Active Only</option>
                             <option value="paused">Paused Only</option>
                             <option value="archived">Archived Only</option>
+                        </select>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label">Date Range</label>
+                        <select
+                            className="form-select"
+                            value={datePreset}
+                            onChange={(e) => setDatePreset(e.target.value)}
+                        >
+                            <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
+                            <option value="this_week_sun_today">This Week</option>
+                            <option value="last_7d">Last 7 Days</option>
+                            <option value="last_14d">Last 14 Days</option>
+                            <option value="last_30d">Last 30 Days</option>
+                            <option value="last_90d">Last 90 Days</option>
+                            <option value="this_month">This Month</option>
+                            <option value="last_month">Last Month</option>
+                            <option value="maximum">All Time (Lifetime)</option>
                         </select>
                     </div>
                     <button
