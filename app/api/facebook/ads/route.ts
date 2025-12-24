@@ -103,10 +103,15 @@ export async function GET(request: NextRequest) {
                     const insightsData = await insightsResponse.json();
                     const insights = insightsData.data?.[0] || {};
 
-                    // Debug: Log raw CTR value from Facebook
-                    if (insights.ctr) {
-                        console.log(`[Ad ${ad.id}] Raw CTR from Facebook: ${insights.ctr}, Clicks: ${insights.clicks}, Impressions: ${insights.impressions}`);
-                    }
+                    // Debug: Log ALL raw metrics from Facebook to diagnose data accuracy
+                    console.log(`[Ad ${ad.id}] === RAW FACEBOOK DATA (${datePreset}) ===`);
+                    console.log(`  Impressions: ${insights.impressions || 'N/A'}`);
+                    console.log(`  Clicks: ${insights.clicks || 'N/A'}`);
+                    console.log(`  CTR: ${insights.ctr || 'N/A'}`);
+                    console.log(`  Spend: ${insights.spend || 'N/A'}`);
+                    console.log(`  Reach: ${insights.reach || 'N/A'}`);
+                    console.log(`  Actions count: ${insights.actions?.length || 0}`);
+                    console.log(`  Cost per action count: ${insights.cost_per_action_type?.length || 0}`);
 
                     // Extract all actions
                     const actions = insights.actions || [];
