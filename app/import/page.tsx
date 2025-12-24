@@ -161,6 +161,46 @@ export default function ImportPage() {
         } | null;
     }>>({});
 
+    // Leads State - stores fetched leads per ad
+    interface Lead {
+        id: string;
+        createdAt: string;
+        email: string | null;
+        phone: string | null;
+        fullName: string | null;
+        firstName: string | null;
+        lastName: string | null;
+        rawFields: Record<string, string>;
+    }
+    const [adLeads, setAdLeads] = useState<Record<string, { loading: boolean; leads: Lead[]; error: string | null }>>({});
+
+    // Function to fetch leads for an ad
+    const fetchLeadsForAd = async (adId: string) => {
+        setAdLeads(prev => ({ ...prev, [adId]: { loading: true, leads: [], error: null } }));
+
+        try {
+            const response = await fetch(`/api/facebook/leads?adId=${adId}&accessToken=${accessToken}`);
+            const data = await response.json();
+
+            if (data.success) {
+                setAdLeads(prev => ({
+                    ...prev,
+                    [adId]: { loading: false, leads: data.data || [], error: null }
+                }));
+            } else {
+                setAdLeads(prev => ({
+                    ...prev,
+                    [adId]: { loading: false, leads: [], error: data.error || 'Failed to fetch leads' }
+                }));
+            }
+        } catch (err) {
+            setAdLeads(prev => ({
+                ...prev,
+                [adId]: { loading: false, leads: [], error: 'Network error' }
+            }));
+        }
+    };
+
     // Function to analyze metrics with AI
     const analyzeWithAI = async (adId: string, adName: string, metrics: FacebookMetrics) => {
         setAiAnalysis(prev => ({ ...prev, [adId]: { loading: true, data: null } }));
@@ -965,6 +1005,24 @@ export default function ImportPage() {
                                                                 🎯 <strong>{ad.metrics.leads}</strong> leads
                                                             </span>
                                                         )}
+                                                        {/* Fetch Leads Button - shows when there are leads */}
+                                                        {((ad.metrics.leads ?? 0) > 0 || ad.metrics.resultType === 'leads') && (
+                                                            <button
+                                                                onClick={() => fetchLeadsForAd(ad.id)}
+                                                                disabled={adLeads[ad.id]?.loading}
+                                                                style={{
+                                                                    background: 'rgba(245, 158, 11, 0.2)',
+                                                                    border: '1px solid #f59e0b',
+                                                                    color: '#f59e0b',
+                                                                    padding: '3px 10px',
+                                                                    borderRadius: '6px',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '0.7rem'
+                                                                }}
+                                                            >
+                                                                {adLeads[ad.id]?.loading ? '⏳ Fetching...' : '📥 Fetch Leads'}
+                                                            </button>
+                                                        )}
                                                         {/* Only show separate purchases if resultType is NOT purchases */}
                                                         {(ad.metrics.purchases ?? 0) > 0 && ad.metrics.resultType !== 'purchases' && (
                                                             <span title="Completed purchases attributed to your ad" style={{ background: '#22c55e', color: '#000', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
@@ -975,6 +1033,49 @@ export default function ImportPage() {
                                                             <span title="Return on Ad Spend = Revenue / Ad Spend" style={{ background: '#22c55e', color: '#000', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
                                                                 📈 <strong>{ad.metrics.purchaseRoas?.toFixed(2)}x</strong> ROAS
                                                             </span>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Fetched Leads Display */}
+                                                {adLeads[ad.id] && (adLeads[ad.id].leads.length > 0 || adLeads[ad.id].error) && (
+                                                    <div style={{
+                                                        background: 'rgba(245, 158, 11, 0.1)',
+                                                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                        borderRadius: '8px',
+                                                        padding: '8px',
+                                                        marginTop: '8px'
+                                                    }}>
+                                                        {adLeads[ad.id].error ? (
+                                                            <div style={{ color: '#ef4444', fontSize: '0.75rem' }}>
+                                                                ❌ {adLeads[ad.id].error}
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px', color: '#f59e0b' }}>
+                                                                    📋 {adLeads[ad.id].leads.length} Lead{adLeads[ad.id].leads.length !== 1 ? 's' : ''} Found
+                                                                </div>
+                                                                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                                                    {adLeads[ad.id].leads.map((lead, idx) => (
+                                                                        <div key={lead.id || idx} style={{
+                                                                            background: 'var(--bg-secondary)',
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: '4px',
+                                                                            marginBottom: '4px',
+                                                                            fontSize: '0.7rem'
+                                                                        }}>
+                                                                            <div style={{ fontWeight: 600 }}>
+                                                                                {lead.fullName || lead.firstName || 'Unknown Name'}
+                                                                            </div>
+                                                                            {lead.email && <div>📧 {lead.email}</div>}
+                                                                            {lead.phone && <div>📱 {lead.phone}</div>}
+                                                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
+                                                                                {new Date(lead.createdAt).toLocaleDateString()}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </>
                                                         )}
                                                     </div>
                                                 )}
