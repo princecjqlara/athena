@@ -343,26 +343,13 @@ export async function GET(request: NextRequest) {
                             reach: parseInt(insights.reach) || 0,
                             clicks: parseInt(insights.clicks) || 0,
                             uniqueClicks: parseInt(insights.unique_clicks) || 0,
-                            // CTR validation: Calculate ourselves to ensure accuracy
+                            // CTR: Always calculate ourselves from clicks/impressions for accuracy
+                            // Facebook's "ctr" field is "CTR (all)" = all clicks / impressions
                             ctr: (() => {
-                                const fbCtr = parseFloat(insights.ctr) || 0;
                                 const impressions = parseInt(insights.impressions) || 0;
                                 const clicks = parseInt(insights.clicks) || 0;
-
-                                // Calculate CTR ourselves for validation
-                                const calculatedCtr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-
-                                // Use calculated CTR if:
-                                // 1. Facebook returns 0 but we have clicks and impressions
-                                // 2. Facebook returns unrealistic value (> 100%)
-                                // 3. There's a significant difference (> 0.5%) between FB and calculated
-                                if ((fbCtr === 0 && clicks > 0 && impressions > 0) ||
-                                    fbCtr > 100 ||
-                                    (Math.abs(fbCtr - calculatedCtr) > 0.5 && calculatedCtr > 0)) {
-                                    console.log(`[Ad] CTR override: FB=${fbCtr}, calculated=${calculatedCtr.toFixed(2)}`);
-                                    return calculatedCtr;
-                                }
-                                return fbCtr;
+                                // Calculate CTR ourselves
+                                return impressions > 0 ? (clicks / impressions) * 100 : 0;
                             })(),
                             uniqueCtr: parseFloat(insights.unique_ctr) || 0,
                             cpc: parseFloat(insights.cpc) || 0,
