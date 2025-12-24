@@ -24,18 +24,7 @@ export function Sidebar() {
       <div className="sidebar-header">
         <div className="logo">
           <div className="logo-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#gradient)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M2 17L12 22L22 17" stroke="url(#gradient)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M2 12L12 17L22 12" stroke="url(#gradient)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <defs>
-                <linearGradient id="gradient" x1="2" y1="2" x2="22" y2="22">
-                  <stop stopColor="#6366f1" />
-                  <stop offset="0.5" stopColor="#a855f7" />
-                  <stop offset="1" stopColor="#ec4899" />
-                </linearGradient>
-              </defs>
-            </svg>
+            <img src="/logo.png" alt="Athena" width="36" height="36" style={{ borderRadius: '6px' }} />
           </div>
           {!isCollapsed && <span className="logo-text">Athena</span>}
         </div>
