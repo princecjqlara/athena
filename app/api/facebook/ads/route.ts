@@ -103,6 +103,11 @@ export async function GET(request: NextRequest) {
                     const insightsData = await insightsResponse.json();
                     const insights = insightsData.data?.[0] || {};
 
+                    // Debug: Log raw CTR value from Facebook
+                    if (insights.ctr) {
+                        console.log(`[Ad ${ad.id}] Raw CTR from Facebook: ${insights.ctr}, Clicks: ${insights.clicks}, Impressions: ${insights.impressions}`);
+                    }
+
                     // Extract all actions
                     const actions = insights.actions || [];
                     const costPerAction = insights.cost_per_action_type || [];
@@ -297,7 +302,18 @@ export async function GET(request: NextRequest) {
                             reach: parseInt(insights.reach) || 0,
                             clicks: parseInt(insights.clicks) || 0,
                             uniqueClicks: parseInt(insights.unique_clicks) || 0,
-                            ctr: parseFloat(insights.ctr) || 0,
+                            // CTR validation: Facebook returns percentage, but verify it's reasonable
+                            // If > 100%, calculate manually from clicks/impressions
+                            ctr: (() => {
+                                const fbCtr = parseFloat(insights.ctr) || 0;
+                                const impressions = parseInt(insights.impressions) || 0;
+                                const clicks = parseInt(insights.clicks) || 0;
+                                // If CTR seems unrealistic (> 100%), calculate manually
+                                if (fbCtr > 100 && impressions > 0) {
+                                    return (clicks / impressions) * 100;
+                                }
+                                return fbCtr;
+                            })(),
                             uniqueCtr: parseFloat(insights.unique_ctr) || 0,
                             cpc: parseFloat(insights.cpc) || 0,
                             cpm: parseFloat(insights.cpm) || 0,
