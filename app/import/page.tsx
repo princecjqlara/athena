@@ -632,19 +632,115 @@ export default function ImportPage() {
                                         }}>
                                             {ad.metrics ? (
                                                 <>
+                                                    {/* Row 1: Core metrics */}
                                                     <span><strong>{ad.metrics.impressions.toLocaleString()}</strong> impressions</span>
+                                                    <span><strong>{(ad.metrics.reach ?? 0).toLocaleString()}</strong> reach</span>
                                                     <span><strong>{ad.metrics.clicks.toLocaleString()}</strong> clicks</span>
                                                     <span style={{ color: ad.metrics.ctr > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
                                                         <strong>{ad.metrics.ctr.toFixed(2)}%</strong> CTR
                                                     </span>
                                                     <span><strong>₱{ad.metrics.spend.toFixed(2)}</strong> spent</span>
-                                                    {(ad.metrics.leads ?? 0) > 0 && <span style={{ color: 'var(--primary)' }}><strong>{ad.metrics.leads}</strong> leads</span>}
-                                                    {(ad.metrics.purchases ?? 0) > 0 && <span style={{ color: 'var(--success)' }}><strong>{ad.metrics.purchases}</strong> purchases</span>}
+                                                    <span><strong>{(ad.metrics.frequency ?? 0).toFixed(2)}</strong> freq</span>
                                                 </>
                                             ) : (
                                                 <span style={{ color: 'var(--text-muted)' }}>No metrics available yet</span>
                                             )}
                                         </div>
+
+                                        {/* Row 2: Results & Conversions */}
+                                        {ad.metrics && (
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: 'var(--spacing-md)',
+                                                fontSize: '0.75rem',
+                                                flexWrap: 'wrap',
+                                                marginBottom: 'var(--spacing-sm)',
+                                                color: 'var(--text-secondary)'
+                                            }}>
+                                                {(ad.metrics.results ?? 0) > 0 && (
+                                                    <span style={{ color: 'var(--primary)' }}>
+                                                        <strong>{ad.metrics.results}</strong> {ad.metrics.resultType ?? 'results'}
+                                                        {(ad.metrics.costPerResult ?? 0) > 0 && ` • ₱${ad.metrics.costPerResult?.toFixed(2)} CPR`}
+                                                    </span>
+                                                )}
+                                                {(ad.metrics.messages ?? 0) > 0 && <span>💬 <strong>{ad.metrics.messages}</strong> messages</span>}
+                                                {(ad.metrics.leads ?? 0) > 0 && <span style={{ color: 'var(--primary)' }}>🎯 <strong>{ad.metrics.leads}</strong> leads</span>}
+                                                {(ad.metrics.purchases ?? 0) > 0 && <span style={{ color: 'var(--success)' }}>🛒 <strong>{ad.metrics.purchases}</strong> purchases</span>}
+                                                {(ad.metrics.landingPageViews ?? 0) > 0 && <span>📄 <strong>{ad.metrics.landingPageViews}</strong> LPV</span>}
+                                                {(ad.metrics.linkClicks ?? 0) > 0 && <span>🔗 <strong>{ad.metrics.linkClicks}</strong> link clicks</span>}
+                                            </div>
+                                        )}
+
+                                        {/* Row 3: Engagement & Video */}
+                                        {ad.metrics && (
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: 'var(--spacing-md)',
+                                                fontSize: '0.75rem',
+                                                flexWrap: 'wrap',
+                                                marginBottom: 'var(--spacing-sm)',
+                                                color: 'var(--text-secondary)'
+                                            }}>
+                                                {(ad.metrics.pageEngagement ?? 0) > 0 && <span>👍 <strong>{ad.metrics.pageEngagement}</strong> engagements</span>}
+                                                {(ad.metrics.postReactions ?? 0) > 0 && <span>❤️ <strong>{ad.metrics.postReactions}</strong> reactions</span>}
+                                                {(ad.metrics.postComments ?? 0) > 0 && <span>💬 <strong>{ad.metrics.postComments}</strong> comments</span>}
+                                                {(ad.metrics.postShares ?? 0) > 0 && <span>↗️ <strong>{ad.metrics.postShares}</strong> shares</span>}
+                                                {(ad.metrics.videoViews ?? 0) > 0 && <span>▶️ <strong>{ad.metrics.videoViews}</strong> video views</span>}
+                                                {(ad.metrics.videoThruPlays ?? 0) > 0 && <span>🎬 <strong>{ad.metrics.videoThruPlays}</strong> ThruPlays</span>}
+                                            </div>
+                                        )}
+
+                                        {/* Row 4: Quality & Rankings */}
+                                        {ad.metrics && (ad.metrics.qualityRanking || ad.metrics.purchaseRoas) && (
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: 'var(--spacing-md)',
+                                                fontSize: '0.6875rem',
+                                                flexWrap: 'wrap',
+                                                marginBottom: 'var(--spacing-sm)',
+                                                color: 'var(--text-muted)'
+                                            }}>
+                                                {ad.metrics.qualityRanking && ad.metrics.qualityRanking !== 'N/A' && (
+                                                    <span>Quality: <strong>{ad.metrics.qualityRanking}</strong></span>
+                                                )}
+                                                {ad.metrics.engagementRateRanking && ad.metrics.engagementRateRanking !== 'N/A' && (
+                                                    <span>Engagement: <strong>{ad.metrics.engagementRateRanking}</strong></span>
+                                                )}
+                                                {ad.metrics.conversionRateRanking && ad.metrics.conversionRateRanking !== 'N/A' && (
+                                                    <span>Conversion: <strong>{ad.metrics.conversionRateRanking}</strong></span>
+                                                )}
+                                                {(ad.metrics.purchaseRoas ?? 0) > 0 && (
+                                                    <span style={{ color: 'var(--success)' }}>ROAS: <strong>{ad.metrics.purchaseRoas?.toFixed(2)}x</strong></span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Breakdowns summary */}
+                                        {(ad.byDevice?.length > 0 || ad.byPlatform?.length > 0 || ad.demographics?.length > 0) && (
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: 'var(--spacing-sm)',
+                                                fontSize: '0.6875rem',
+                                                flexWrap: 'wrap',
+                                                marginBottom: 'var(--spacing-sm)'
+                                            }}>
+                                                {ad.byPlatform?.length > 0 && (
+                                                    <span style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                        📱 {ad.byPlatform.map((p: { platform: string }) => p.platform).join(', ')}
+                                                    </span>
+                                                )}
+                                                {ad.byDevice?.length > 0 && (
+                                                    <span style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                        💻 {ad.byDevice.map((d: { device: string }) => d.device).join(', ')}
+                                                    </span>
+                                                )}
+                                                {ad.regions?.length > 0 && (
+                                                    <span style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                        🌍 {ad.regions.slice(0, 3).map((r: { country: string }) => r.country).join(', ')}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
 
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                                             ID: {ad.id} • Created: {new Date(ad.createdAt).toLocaleDateString()}
