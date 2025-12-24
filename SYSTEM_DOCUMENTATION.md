@@ -1,233 +1,655 @@
-# AdVision AI (Athena) - System Documentation
+# AdVision AI (Athena) - Complete System Documentation
 
 > **AI-Powered Advertising Intelligence Platform**  
-> A comprehensive Next.js application for analyzing, predicting, and optimizing video ad performance using machine learning and AI.
+> A comprehensive Next.js application for analyzing, predicting, and optimizing video ad performance using machine learning and advanced AI.
 
 ---
 
 ## Table of Contents
 
 1. [System Overview](#system-overview)
-2. [Architecture](#architecture)
-3. [Technology Stack](#technology-stack)
-4. [Core Features](#core-features)
-5. [Database Schema](#database-schema)
-6. [API Reference](#api-reference)
-7. [Machine Learning System](#machine-learning-system)
-8. [Facebook Integration (CAPI)](#facebook-integration-capi)
-9. [Pages & Components](#pages--components)
-10. [Environment Setup](#environment-setup)
-11. [Development Guide](#development-guide)
+2. [High-Level Architecture](#high-level-architecture)
+3. [Technology Stack & Dependencies](#technology-stack--dependencies)
+4. [Core Application Flow](#core-application-flow)
+5. [Feature Deep Dive](#feature-deep-dive)
+6. [Database Schema & Data Models](#database-schema--data-models)
+7. [API Reference](#api-reference)
+8. [Machine Learning System](#machine-learning-system)
+9. [AI Integration (NVIDIA NIM)](#ai-integration-nvidia-nim)
+10. [Facebook CAPI Integration](#facebook-capi-integration)
+11. [Components Architecture](#components-architecture)
+12. [Type System](#type-system)
+13. [File Structure](#file-structure)
+14. [Environment Setup](#environment-setup)
+15. [Development Guide](#development-guide)
+16. [Deployment](#deployment)
 
 ---
 
 ## System Overview
 
-AdVision AI (codename: **Athena**) is an AI-powered marketing insights platform that helps advertisers:
+### What is AdVision AI (Athena)?
 
-- **Upload & Analyze** video/photo ad creatives with AI-extracted metadata
-- **Predict Success** using ML models trained on historical performance data
-- **Visualize Patterns** via a 2D/3D interactive mind map
-- **Track Performance** with comprehensive analytics and dashboards
-- **Integrate with Facebook** via CAPI for real-time conversion tracking
-- **Get AI Recommendations** through an intelligent chatbot assistant
+AdVision AI, codenamed **Athena**, is an AI-powered marketing insights platform designed to help advertisers make data-driven decisions about their video and photo ad creatives. The platform combines:
+
+- **AI-Powered Document Parsing**: Uses NVIDIA NIM API (LLaMA 3.1 70B) to extract 80+ metadata fields from natural language descriptions
+- **Self-Correcting ML System**: A client-side machine learning pipeline that learns from prediction errors
+- **Interactive Visualizations**: 2D/3D force-directed mind maps showing pattern correlations
+- **Facebook CAPI Integration**: Real-time conversion tracking with proper SHA-256 hashing
+
+### Key Capabilities
+
+| Capability | Description |
+|------------|-------------|
+| **Upload & Analyze** | Drag-and-drop media upload with AI metadata extraction |
+| **Predict Success** | ML-based success probability calculation (0-100%) |
+| **Visualize Patterns** | Interactive mind map showing trait correlations |
+| **Track Performance** | Input results and feed back to ML for continuous learning |
+| **Facebook Integration** | OAuth connection, CAPI event sending, webhook receiving |
+| **AI Chat Assistant** | Natural language interface for data analysis and recommendations |
 
 ---
 
-## Architecture
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CLIENT LAYER (Browser)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
+│  │  Dashboard   │ │   Upload     │ │   Predict    │ │   Analytics  │       │
+│  │   (/)        │ │  (/upload)   │ │  (/predict)  │ │ (/analytics) │       │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘       │
+│                                                                             │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
+│  │   Mindmap    │ │   Videos     │ │  Settings    │ │   Pipeline   │       │
+│  │ (/mindmap)   │ │  (/videos)   │ │ (/settings)  │ │ (/pipeline)  │       │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘       │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    COMPONENTS                                        │   │
+│  │  Sidebar.tsx │ ChatBot.tsx │ FacebookLogin.tsx │ UndoPanel.tsx      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │               CLIENT-SIDE ML SYSTEM (lib/ml/)                        │   │
+│  │                                                                       │   │
+│  │  ┌─────────────┐  ┌─────────────────┐  ┌──────────────────┐         │   │
+│  │  │   model.ts  │  │ weight-adjust.ts│  │ feedback-loop.ts │         │   │
+│  │  │ TensorFlow  │  │ Dynamic Weights │  │ Error Detection  │         │   │
+│  │  └─────────────┘  └─────────────────┘  └──────────────────┘         │   │
+│  │                                                                       │   │
+│  │  ┌─────────────┐  ┌─────────────────┐  ┌──────────────────┐         │   │
+│  │  │features.ts  │  │ exploration.ts  │  │ time-decay.ts    │         │   │
+│  │  │ Encoding    │  │ Epsilon-Greedy  │  │ Recency Weights  │         │   │
+│  │  └─────────────┘  └─────────────────┘  └──────────────────┘         │   │
+│  │                                                                       │   │
+│  │  ┌─────────────┐  ┌─────────────────┐  ┌──────────────────┐         │   │
+│  │  │ discovery.ts│  │ segmentation.ts │  │   history.ts     │         │   │
+│  │  │ New Patterns│  │ Audience Scores │  │   Undo/Redo      │         │   │
+│  │  └─────────────┘  └─────────────────┘  └──────────────────┘         │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│                        localStorage (ML State Persistence)                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          NEXT.JS API ROUTES                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  POST /api/ai                                                               │
+│  ├── action: 'predict'         → AI prediction generation                  │
+│  ├── action: 'parse-content'   → Extract 80+ ad metadata fields            │
+│  ├── action: 'parse-results'   → Extract performance metrics               │
+│  ├── action: 'analyze-mindmap' → Generate pattern correlations             │
+│  ├── action: 'discover-features'→ Find hidden patterns in surprise ads     │
+│  └── action: 'chat'            → Athena AI chatbot responses               │
+│                                                                             │
+│  POST /api/capi/send           → Send conversion events to Facebook        │
+│  GET  /api/capi/send           → Get available CAPI event types            │
+│                                                                             │
+│  GET/POST /api/webhook/facebook→ Receive Facebook webhook events           │
+│                                                                             │
+│  GET /api/categories           → Get trait categories for mindmap          │
+│  GET /api/facebook/...         → Facebook OAuth and ad account APIs        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         EXTERNAL SERVICES                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────────┐  │
+│  │   SUPABASE       │  │    CLOUDINARY    │  │     NVIDIA NIM API       │  │
+│  │                  │  │                  │  │                          │  │
+│  │  PostgreSQL DB   │  │  Video/Image     │  │  LLaMA 3.1 Nemotron      │  │
+│  │  - videos        │  │  CDN Storage     │  │  70B Instruct            │  │
+│  │  - video_metadata│  │  - Thumbnails    │  │                          │  │
+│  │  - ad_performance│  │  - Transcoding   │  │  Endpoint:               │  │
+│  │                  │  │                  │  │  integrate.api.nvidia.com│  │
+│  └──────────────────┘  └──────────────────┘  └──────────────────────────┘  │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                     FACEBOOK / META                                   │  │
+│  │                                                                       │  │
+│  │  Graph API v24.0                                                      │  │
+│  │  ├── OAuth Authentication                                             │  │
+│  │  ├── Page Management                                                  │  │
+│  │  ├── Ad Account Access                                                │  │
+│  │  └── Creative Fetching                                                │  │
+│  │                                                                       │  │
+│  │  Conversions API (CAPI)                                               │  │
+│  │  ├── Event Sending (Purchase, Lead, etc.)                             │  │
+│  │  ├── SHA-256 User Data Hashing                                        │  │
+│  │  └── Deduplication via event_id                                       │  │
+│  │                                                                       │  │
+│  │  Webhooks                                                              │  │
+│  │  ├── Leadgen events                                                   │  │
+│  │  ├── Messaging events                                                 │  │
+│  │  └── Page feed updates                                                │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+```
+User Input (natural language) 
+    → AI Parsing (NVIDIA NIM)
+    → Structured ExtractedAdData (80+ fields)
+    → ML Feature Extraction (17 features)
+    → Weighted Score Calculation
+    → Prediction with Confidence
+    
+User Inputs Results
+    → AI Results Parsing
+    → Compare Prediction vs Reality
+    → If Error > 50%: Trigger Weight Adjustment
+    → If Surprise Success: Trigger Feature Discovery
+    → Update ML Weights (localStorage)
+```
+
+---
+
+## Technology Stack & Dependencies
+
+### Core Framework
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| **Next.js** | 16.1.1 | React-based full-stack framework with App Router |
+| **React** | 19.2.3 | Component-based UI library |
+| **TypeScript** | ^5 | Type-safe JavaScript |
+
+### Dependencies (package.json)
+
+```json
+{
+  "dependencies": {
+    "@supabase/supabase-js": "^2.89.0",   // Database client
+    "@tensorflow/tfjs": "^4.22.0",         // Client-side neural network
+    "next": "16.1.1",                       // Framework
+    "next-cloudinary": "^6.17.5",           // Media upload
+    "react": "19.2.3",                      // UI
+    "react-dom": "19.2.3",                  // DOM bindings
+    "recharts": "^3.6.0",                   // Data visualization
+    "uuid": "^13.0.0"                       // Unique ID generation
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "typescript": "^5"
+  }
+}
+```
+
+### External Services
+
+| Service | Purpose | Authentication |
+|---------|---------|----------------|
+| **Supabase** | PostgreSQL database + real-time | anon key (public) |
+| **Cloudinary** | Video/image CDN with transformations | unsigned upload preset |
+| **NVIDIA NIM** | LLM API (LLaMA 3.1 70B) | Bearer API key |
+| **Facebook** | OAuth, Graph API, CAPI | OAuth + access tokens |
+
+### Styling
+
+- **CSS Modules**: Scoped component styles (`*.module.css`)
+- **Global CSS**: Design tokens and responsive system (`globals.css`)
+- **No CSS Framework**: Pure CSS for maximum control
+
+---
+
+## Core Application Flow
+
+### 1. Ad Upload Flow
+
+```
+┌─────────────────┐
+│   User visits   │
+│    /upload      │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐     ┌──────────────────┐
+│ Select Media    │────►│ Upload to        │
+│ (drag & drop)   │     │ Cloudinary       │
+└─────────────────┘     └────────┬─────────┘
+                                 │
+                                 ▼
+                        ┌──────────────────┐
+                        │ Returns:         │
+                        │ - secure_url     │
+                        │ - public_id      │
+                        │ - thumbnail_url  │
+                        └────────┬─────────┘
+                                 │
+         ┌───────────────────────┴───────────────────────┐
+         │                                               │
+         ▼                                               ▼
+┌─────────────────┐                             ┌─────────────────┐
+│ Option A:       │                             │ Option B:       │
+│ Describe ad in  │                             │ Enter Facebook  │
+│ natural language│                             │ Ad ID           │
+└────────┬────────┘                             └────────┬────────┘
+         │                                               │
+         ▼                                               ▼
+┌─────────────────┐                             ┌─────────────────┐
+│ POST /api/ai    │                             │ Fetch creative  │
+│ action:         │                             │ from Graph API  │
+│ 'parse-content' │                             │                 │
+└────────┬────────┘                             └────────┬────────┘
+         │                                               │
+         └───────────────────────┬───────────────────────┘
+                                 │
+                                 ▼
+                        ┌──────────────────┐
+                        │ ExtractedAdData  │
+                        │ (80+ fields)     │
+                        │                  │
+                        │ - hookType       │
+                        │ - platform       │
+                        │ - colorScheme    │
+                        │ - hasSubtitles   │
+                        │ - etc...         │
+                        └────────┬─────────┘
+                                 │
+                                 ▼
+                        ┌──────────────────┐
+                        │ Save to Supabase │
+                        │ - videos table   │
+                        │ - video_metadata │
+                        └──────────────────┘
+```
+
+### 2. Prediction Flow
+
+```
+┌─────────────────┐
+│   User visits   │
+│    /predict     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│ Select existing ad OR configure new ad  │
+│                                          │
+│ Configuration includes:                  │
+│ - Hook Type                              │
+│ - Platform                               │
+│ - Content Category                       │
+│ - Editing Style                          │
+│ - Features (subtitles, UGC, voiceover)   │
+└────────┬────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│           DUAL PREDICTION PATH           │
+├─────────────────┬───────────────────────┤
+│                 │                        │
+▼                 ▼                        │
+┌─────────────┐   ┌─────────────────────┐  │
+│ Client ML   │   │ NVIDIA AI API       │  │
+│ System      │   │                     │  │
+│             │   │ POST /api/ai        │  │
+│ features.ts │   │ action: 'predict'   │  │
+│     ↓       │   │                     │  │
+│ model.ts    │   │ Returns:            │  │
+│     ↓       │   │ - successProbability│  │
+│ weights.ts  │   │ - confidence        │  │
+│             │   │ - keyFactors[]      │  │
+│ Returns:    │   │ - recommendations[] │  │
+│ - score     │   │ - reasoning         │  │
+│ - factors   │   └─────────────────────┘  │
+└──────┬──────┘                            │
+       │                                   │
+       └──────────────┬────────────────────┘
+                      │
+                      ▼
+             ┌─────────────────┐
+             │ Combined Result │
+             │                 │
+             │ - Success %     │
+             │ - Confidence    │
+             │ - Key Factors   │
+             │ - Recommendations│
+             │ - Segment Scores│
+             │ - Wildcards     │
+             └─────────────────┘
+```
+
+### 3. Learning Loop (Self-Correction)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        FRONTEND (Next.js 16)                    │
-├─────────────────────────────────────────────────────────────────┤
-│  Pages                    │  Components                         │
-│  ├── Dashboard (/)        │  ├── Sidebar.tsx                   │
-│  ├── Upload (/upload)     │  ├── ChatBot.tsx (Athena AI)       │
-│  ├── Predict (/predict)   │  ├── FacebookLogin.tsx             │
-│  ├── Analytics            │  └── UndoPanel.tsx                 │
-│  ├── Mindmap (/mindmap)   │                                     │
-│  ├── Videos (/videos)     │                                     │
-│  ├── Settings (/settings) │                                     │
-│  └── Pipeline (/pipeline) │                                     │
-├─────────────────────────────────────────────────────────────────┤
-│                          API ROUTES                             │
-│  /api/ai        → NVIDIA LLM for predictions & chat             │
-│  /api/capi/send → Facebook Conversions API                      │
-│  /api/webhook   → Facebook webhook receiver                     │
-├─────────────────────────────────────────────────────────────────┤
-│                         LIBRARIES                               │
-│  lib/supabase.ts   → Database operations                        │
-│  lib/cloudinary.ts → Media upload/storage                       │
-│  lib/capi.ts       → Facebook CAPI utilities                    │
-│  lib/ai/           → NVIDIA AI integration                      │
-│  lib/ml/           → Self-correcting ML system                  │
-├─────────────────────────────────────────────────────────────────┤
-│                      EXTERNAL SERVICES                          │
-│  Supabase (PostgreSQL) │ Cloudinary (CDN) │ NVIDIA NIM (AI)    │
-│  Facebook Graph API    │ Meta CAPI        │                     │
+│                   PREDICTION RECORDED                            │
+│                                                                  │
+│  {                                                               │
+│    id: "pred-1703000000",                                        │
+│    adId: "ad-123",                                               │
+│    predictedScore: 75,                                           │
+│    weightsUsed: [...],                                           │
+│    predictedAt: "2024-12-20T10:00:00Z"                           │
+│  }                                                               │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             │ (Time passes, user runs ad)
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   USER INPUTS RESULTS                            │
+│                                                                  │
+│  "Spent $500, got 12000 impressions, 250 clicks, 4.1% CTR,      │
+│   18 conversions, made $1,200 revenue"                           │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              AI RESULTS PARSING (POST /api/ai)                   │
+│                                                                  │
+│  ExtractedResultsData:                                           │
+│  {                                                               │
+│    adSpend: 500,                                                 │
+│    impressions: 12000,                                           │
+│    clicks: 250,                                                  │
+│    ctr: 4.1,                                                     │
+│    conversions: 18,                                              │
+│    revenue: 1200,                                                │
+│    roas: 2.4,                                                    │
+│    successScore: 82   ← Calculated                               │
+│  }                                                               │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│             FEEDBACK LOOP ANALYSIS (feedback-loop.ts)            │
+│                                                                  │
+│  predicted: 75                                                   │
+│  actual: 82                                                      │
+│  delta: +7                                                       │
+│  deltaPercent: 9.3%                                              │
+│                                                                  │
+│  Analysis Result:                                                │
+│  - isHighError: false (< 50%)                                    │
+│  - isSurpriseSuccess: false (predicted wasn't < 50)              │
+│  - isSurpriseFailure: false                                      │
+│  - analysisType: 'accurate'                                      │
 └─────────────────────────────────────────────────────────────────┘
+                             │
+      ┌──────────────────────┴──────────────────────┐
+      │                                             │
+      ▼                                             ▼
+┌─────────────────┐                     ┌─────────────────────────┐
+│ If ACCURATE     │                     │ If HIGH ERROR (>50%)    │
+│                 │                     │                         │
+│ No weight       │                     │ 1. adjustWeightsForError│
+│ adjustment      │                     │    - Increase/decrease  │
+│ needed          │                     │      feature weights    │
+│                 │                     │    - Save to localStorage│
+└─────────────────┘                     │                         │
+                                        │ If SURPRISE SUCCESS     │
+                                        │ (predicted <50, actual >70):│
+                                        │                         │
+                                        │ 2. discoverFeaturesFromAd│
+                                        │    - Call AI to find    │
+                                        │      hidden patterns    │
+                                        │    - Add new features   │
+                                        │      to weight system   │
+                                        └─────────────────────────┘
 ```
 
 ---
 
-## Technology Stack
+## Feature Deep Dive
 
-| Category | Technology | Purpose |
-|----------|------------|---------|
-| **Framework** | Next.js 16.1.1 | React-based full-stack framework |
-| **Language** | TypeScript | Type-safe JavaScript |
-| **UI** | React 19 | Component-based UI |
-| **Styling** | CSS Modules | Scoped component styles |
-| **Charts** | Recharts | Data visualization |
-| **Database** | Supabase (PostgreSQL) | Cloud database & real-time |
-| **Media Storage** | Cloudinary | Video/image CDN |
-| **AI Backend** | NVIDIA NIM API | GPT-powered predictions |
-| **ML Framework** | TensorFlow.js | Client-side ML |
-| **Auth** | Facebook OAuth | Social login |
-| **Tracking** | Meta CAPI | Conversion events |
+### 1. AI Document Parsing
+
+The system extracts **80+ metadata fields** from natural language descriptions using NVIDIA's LLaMA 3.1 70B model.
+
+#### Extraction Categories
+
+| Category | Fields |
+|----------|--------|
+| **Basic Info** | title, description, mediaType, aspectRatio, duration |
+| **Creative Intelligence** | hookType, hookText, hookVelocity, hookKeywords, contentCategory, editingStyle, patternType |
+| **Sentiment Analysis** | overallSentiment, emotionalTone |
+| **Face & Emotion** | facePresence, numberOfFaces, facialEmotion |
+| **Text Analysis** | hasTextOverlays, textOverlayRatio, textReadability, readabilityScore |
+| **Visual Analysis** | colorScheme, colorTemperature, saliencyMapScore, sceneVelocity, shotComposition |
+| **Audio Analysis** | musicType, bpm, hasVoiceover, voiceoverStyle, audioPeakTiming |
+| **Script & Copy** | script, painPoints, cta, ctaText, ctaStrength, headlines |
+| **Brand Consistency** | logoConsistency, logoTiming, brandColorUsage |
+| **Voice Authority** | voiceAuthorityScore, voiceGender, voiceAge, speechPace |
+| **Engagement Triggers** | curiosityGap, socialProofElements, urgencyTriggers, trustSignals |
+| **AI Discovery** | aiDiscoveredMetrics, aiInsights, missingDataFields |
+
+#### Parsing Logic (document-parser.ts)
+
+```typescript
+// Client calls API
+const response = await fetch('/api/ai', {
+  method: 'POST',
+  body: JSON.stringify({
+    action: 'parse-content',
+    data: { rawText: userDescription }
+  })
+});
+
+// API sends to NVIDIA with structured prompt
+// Prompt includes exact JSON schema with 70+ fields
+// AI returns structured JSON
+
+// If AI fails, fallback to regex extraction
+function extractBasicContentData(text: string): ExtractedAdData {
+  // Use pattern matching for:
+  // - Media type detection (video/photo/carousel)
+  // - Platform detection (tiktok/instagram/etc)
+  // - Hook type identification
+  // - etc.
+}
+```
+
+### 2. Mind Map Visualization
+
+Interactive force-directed graph showing pattern correlations.
+
+#### Node Types
+
+| Type | Description | Sizing | Coloring |
+|------|-------------|--------|----------|
+| **Category** | Group nodes (Hook Types, Platforms, etc.) | Fixed large | Category color |
+| **Trait** | Individual values (curiosity, tiktok, etc.) | By frequency | By success rate |
+| **Ad** | Individual ad connections | Small | By success |
+
+#### Success Rate Color Scale
+
+```
+0-30%   → Red (#ef4444)
+30-50%  → Orange (#f97316)
+50-70%  → Yellow (#eab308)
+70-85%  → Light Green (#84cc16)
+85-100% → Green (#22c55e)
+```
+
+#### 2D vs 3D Mode
+
+- **2D Mode**: Canvas-based, force-directed simulation
+- **3D Mode**: Adds depth dimension, rotation controls
+
+### 3. Athena AI Chatbot
+
+Natural language interface with full data context access.
+
+#### Context Building (ChatBot.tsx)
+
+```typescript
+function getDataContext() {
+  // Gathers ALL user data for AI context:
+  return {
+    totalAds: ads.length,
+    platforms: { tiktok: 5, instagram: 3, ... },
+    hookTypes: { curiosity: 4, question: 2, ... },
+    avgPredictedScore: 68,
+    avgActualScore: 72,
+    adsWithResults: 15,
+    topTraits: ['ugc', 'subtitles', 'trending_audio'],
+    recentAds: [{ title, platform, hookType, predicted, actual }]
+  };
+}
+```
+
+#### Quick Prompts
+
+- "What type of creatives should I make next?"
+- "What's working best right now?"
+- "Analyze my top performing ads"
+- "Why did my last ad fail?"
 
 ---
 
-## Core Features
+## Database Schema & Data Models
 
-### 1. 📹 Video/Photo Upload & AI Analysis
-- Drag-and-drop media upload to Cloudinary
-- AI document parsing extracts 50+ metadata fields
-- Facebook Ad ID verification and creative fetching
-- Automatic thumbnail generation
+### Supabase Tables
 
-**Extracted Metadata Fields:**
-- Hook type, content category, editing style
-- Platform, placement, CTA type
-- Visual analysis (colors, faces, text overlays)
-- Audio analysis (BPM, voiceover style)
-- Sentiment and emotional tone
-- Brand consistency metrics
+#### Table: `videos`
 
-### 2. 🎯 AI-Powered Predictions
-- Success probability calculation (0-100%)
-- Confidence scoring based on data volume
-- Key factor analysis (positive/negative impacts)
-- Personalized recommendations
-- Audience segment performance predictions
-
-### 3. 🧠 Self-Correcting ML System
-Located in `lib/ml/`:
-
-| Module | Purpose |
-|--------|---------|
-| `index.ts` | Central ML pipeline orchestration |
-| `model.ts` | Core prediction model |
-| `features.ts` | Feature extraction & encoding |
-| `weight-adjustment.ts` | Dynamic weight updates based on errors |
-| `feedback-loop.ts` | Prediction vs reality comparison |
-| `feature-discovery.ts` | Automatic new pattern detection |
-| `time-decay.ts` | Recency weighting for fresh data |
-| `exploration.ts` | Epsilon-greedy wildcard recommendations |
-| `audience-segmentation.ts` | Segment-specific scoring |
-| `history.ts` | Undo/redo for data management |
-
-**Key ML Concepts:**
-- **Surprise Success/Failure Detection**: When predictions are significantly wrong
-- **Concept Drift Detection**: Tracks when patterns become stale
-- **Wildcard Recommendations**: Suggests unconventional combinations
-
-### 4. 🗺️ Interactive Mind Map
-- 2D/3D visualization toggle
-- Force-directed graph layout
-- Node sizing by frequency
-- Color coding by success rate
-- Click-to-filter by trait
-- Pattern co-occurrence visualization
-
-**30+ Category Types:**
-Platform, Hook, Category, Style, Color, Music, CTA, Face, Emotion, Trigger, Shot, Scene, Text, Audio, Brand, Logo, Talent, Custom, etc.
-
-### 5. 📊 Analytics Dashboard
-- Input performance results per video
-- Calculate CTR, ROAS, conversion rates
-- Track by platform, day, time slot
-- Feed data back to ML model
-
-### 6. 💬 Athena AI Chatbot
-- Natural language interface
-- Access to all application data
-- Creative recommendations
-- Performance analysis
-- Quick prompt suggestions
-
-### 7. 📡 Facebook CAPI Integration
-- OAuth-based Facebook page connection
-- Ad account selection
-- CAPI credentials configuration
-- Test connection validation
-- Event sending with SHA-256 hashing
-
----
-
-## Database Schema
-
-### Table: `videos`
 ```sql
 CREATE TABLE videos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  cloudinary_url TEXT NOT NULL,
-  cloudinary_public_id TEXT NOT NULL,
-  thumbnail_url TEXT,
-  duration_seconds INTEGER,
+  cloudinary_url TEXT NOT NULL,           -- Full CDN URL
+  cloudinary_public_id TEXT NOT NULL,     -- For deletion/transformation
+  thumbnail_url TEXT,                      -- Auto-generated thumbnail
+  duration_seconds INTEGER,               -- Video length
   created_at TIMESTAMP DEFAULT NOW()
 );
 ```
 
-### Table: `video_metadata`
+#### Table: `video_metadata`
+
 ```sql
 CREATE TABLE video_metadata (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  video_id UUID REFERENCES videos(id),
+  video_id UUID REFERENCES videos(id) ON DELETE CASCADE,
+  
+  -- Content Details
   script TEXT,
-  hook_type TEXT,
-  content_category TEXT,
-  editing_style TEXT,
-  color_scheme TEXT,
-  text_overlays BOOLEAN,
-  subtitles BOOLEAN,
-  character_codes TEXT[],
-  number_of_actors INTEGER,
-  influencer_used BOOLEAN,
-  ugc_style BOOLEAN,
-  music_type TEXT,
-  voiceover BOOLEAN,
-  custom_tags TEXT[],
+  hook_type TEXT NOT NULL,                -- curiosity, shock, question, etc.
+  content_category TEXT NOT NULL,         -- product_demo, ugc, testimonial, etc.
+  
+  -- Visual Elements
+  editing_style TEXT NOT NULL,            -- fast_cuts, cinematic, raw_authentic, etc.
+  color_scheme TEXT NOT NULL,             -- vibrant, muted, warm, cool, etc.
+  text_overlays BOOLEAN DEFAULT false,
+  subtitles BOOLEAN DEFAULT false,
+  
+  -- Characters
+  character_codes TEXT[],                 -- Actor identifiers
+  number_of_actors INTEGER DEFAULT 1,
+  influencer_used BOOLEAN DEFAULT false,
+  ugc_style BOOLEAN DEFAULT false,
+  
+  -- Audio
+  music_type TEXT NOT NULL,               -- trending, original, voiceover_only, etc.
+  voiceover BOOLEAN DEFAULT false,
+  
+  -- Custom
+  custom_tags TEXT[],                     -- User-defined tags
+  
   created_at TIMESTAMP DEFAULT NOW()
 );
 ```
 
-### Table: `ad_performance`
+#### Table: `ad_performance`
+
 ```sql
 CREATE TABLE ad_performance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  video_id UUID REFERENCES videos(id),
-  platform TEXT,
+  video_id UUID REFERENCES videos(id) ON DELETE CASCADE,
+  
+  -- Campaign Details
+  platform TEXT NOT NULL,                 -- facebook, instagram, tiktok, etc.
   launch_date DATE,
-  launch_day TEXT,
-  launch_time TEXT,
-  ad_spend DECIMAL(10,2),
-  impressions INTEGER,
-  reach INTEGER,
-  clicks INTEGER,
-  ctr DECIMAL(5,4),
-  conversions INTEGER,
-  conversion_rate DECIMAL(5,4),
-  revenue DECIMAL(10,2),
-  roas DECIMAL(6,2),
-  likes INTEGER,
-  comments INTEGER,
-  shares INTEGER,
-  saves INTEGER,
-  success_rating INTEGER,
+  launch_day TEXT,                        -- monday, tuesday, etc.
+  launch_time TEXT,                       -- morning, afternoon, evening, etc.
+  
+  -- Spend & Results
+  ad_spend DECIMAL(10,2) DEFAULT 0,
+  impressions INTEGER DEFAULT 0,
+  reach INTEGER DEFAULT 0,
+  clicks INTEGER DEFAULT 0,
+  ctr DECIMAL(5,4) DEFAULT 0,             -- Click-through rate
+  conversions INTEGER DEFAULT 0,
+  conversion_rate DECIMAL(5,4) DEFAULT 0,
+  revenue DECIMAL(10,2) DEFAULT 0,
+  roas DECIMAL(6,2) DEFAULT 0,            -- Return on ad spend
+  
+  -- Engagement
+  likes INTEGER DEFAULT 0,
+  comments INTEGER DEFAULT 0,
+  shares INTEGER DEFAULT 0,
+  saves INTEGER DEFAULT 0,
+  
+  -- User Assessment
+  success_rating INTEGER CHECK (success_rating BETWEEN 1 AND 10),
   notes TEXT,
+  
   created_at TIMESTAMP DEFAULT NOW()
 );
+```
+
+### Database Operations (lib/supabase.ts)
+
+```typescript
+export const db = {
+  // Videos
+  createVideo(data)         // Insert new video record
+  getVideos()               // Get all videos, newest first
+  getVideoById(id)          // Get single video
+  
+  // Metadata
+  createMetadata(data)      // Insert video metadata
+  getMetadataByVideoId(id)  // Get metadata for video
+  
+  // Performance
+  createPerformance(data)   // Insert performance data
+  getPerformanceByVideoId() // Get all performance for video
+  getAllPerformance()       // Get all with joins
+  
+  // Combined Queries
+  getFullVideoData(id)      // Video + metadata + performance
+  getAllFullVideoData()     // All videos with all data
+  
+  // Dashboard
+  getDashboardStats()       // Aggregated statistics
+};
 ```
 
 ---
@@ -235,28 +657,115 @@ CREATE TABLE ad_performance (
 ## API Reference
 
 ### POST `/api/ai`
-AI-powered document parsing and chat.
 
-**Request Body:**
-```json
+Central AI endpoint handling multiple actions.
+
+#### Request Format
+
+```typescript
 {
-  "action": "parse_document" | "chat",
+  "action": "predict" | "parse-content" | "parse-results" | 
+            "analyze-mindmap" | "discover-features" | "chat",
+  "data": { ... }  // Action-specific data
+}
+```
+
+#### Action: `predict`
+
+Generate AI prediction for ad configuration.
+
+```typescript
+// Request
+{
+  "action": "predict",
   "data": {
-    "content": "string",     // For parse_document
-    "message": "string",     // For chat
-    "context": {},           // Data context
-    "history": []            // Chat history
+    "hookType": "curiosity",
+    "contentCategory": "ugc",
+    "editingStyle": "raw_authentic",
+    "platform": "tiktok",
+    "features": {
+      "hasSubtitles": true,
+      "hasTextOverlays": true,
+      "isUGC": true,
+      "hasVoiceover": false
+    }
+  }
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "successProbability": 78,
+    "confidence": 72,
+    "keyFactors": [
+      { "name": "UGC Style", "impact": "positive", "weight": 0.9 },
+      { "name": "Trending Audio", "impact": "positive", "weight": 0.8 }
+    ],
+    "recommendations": [
+      "Add trending audio to boost engagement",
+      "Consider adding captions for accessibility"
+    ],
+    "reasoning": "UGC content on TikTok with curiosity hooks shows high engagement..."
   }
 }
 ```
 
-**Response:**
-```json
+#### Action: `parse-content`
+
+Extract structured metadata from natural language.
+
+```typescript
+// Request
+{
+  "action": "parse-content",
+  "data": {
+    "rawText": "TikTok ad for skincare, vertical video, UGC style with curiosity hook..."
+  }
+}
+
+// Response: ExtractedAdData with 80+ fields
+```
+
+#### Action: `parse-results`
+
+Extract performance metrics from results description.
+
+```typescript
+// Request
+{
+  "action": "parse-results",
+  "data": {
+    "rawText": "Spent $500, 10k impressions, 400 clicks, 4% CTR, 20 conversions..."
+  }
+}
+
+// Response: ExtractedResultsData
+```
+
+#### Action: `chat`
+
+Athena AI chatbot response.
+
+```typescript
+// Request
+{
+  "action": "chat",
+  "data": {
+    "message": "What's working best right now?",
+    "context": { /* full user data context */ },
+    "history": [
+      { "role": "user", "content": "Hi" },
+      { "role": "assistant", "content": "Hello! How can I help?" }
+    ]
+  }
+}
+
+// Response
 {
   "success": true,
   "data": {
-    "extracted": {},         // For parse_document
-    "response": "string"     // For chat
+    "response": "Based on your data, UGC content on TikTok is performing best..."
   }
 }
 ```
@@ -264,181 +773,971 @@ AI-powered document parsing and chat.
 ---
 
 ### POST `/api/capi/send`
-Send conversion events to Facebook CAPI.
 
-**Request Body:**
-```json
+Send conversion events to Facebook Conversions API.
+
+#### Request
+
+```typescript
 {
-  "datasetId": "string",
-  "accessToken": "string",
-  "eventName": "Purchase | Lead | CompleteRegistration | ...",
-  "eventId": "unique-conversion-id",  // REQUIRED: for deduplication
-  "eventTime": 1703000000,             // REQUIRED: Unix timestamp (UTC)
-  "leadId": "string",                  // Best for matching (100% match rate)
-  "email": "user@email.com",           // Will be hashed
-  "phone": "+1234567890",              // Will be hashed
-  "firstName": "John",                 // Optional, will be hashed
-  "lastName": "Doe",                   // Optional, will be hashed
-  "clientIpAddress": "192.168.1.1",    // Recommended: improves iOS matching
-  "clientUserAgent": "Mozilla/5.0...", // Recommended: improves matching
+  "datasetId": "123456789",           // REQUIRED: Facebook Dataset ID
+  "accessToken": "EAABcd...",         // REQUIRED: CAPI Access Token
+  "eventName": "Purchase",            // REQUIRED: Event type
+  "eventId": "conv-123-abc",          // REQUIRED: Unique deduplication ID
+  "eventTime": 1703000000,            // REQUIRED: Unix timestamp (seconds)
+  
+  // At least ONE identifier required
+  "leadId": "fb_lead_123",            // Best match rate (100%)
+  "email": "user@example.com",        // Will be SHA-256 hashed
+  "phone": "+1234567890",             // Will be SHA-256 hashed
+  
+  // Optional - improves matching
+  "firstName": "John",                // Will be hashed
+  "lastName": "Doe",                  // Will be hashed
+  "clientIpAddress": "192.168.1.1",   // Improves iOS matching
+  "clientUserAgent": "Mozilla/5.0..", // Improves matching
+  
+  // Optional - conversion value
   "value": 99.99,
   "currency": "USD"
 }
 ```
 
-> [!IMPORTANT]
-> **Required Fields:**
-> - `eventId` — Unique ID per conversion for deduplication (prevents double-counting from retries)
-> - `eventTime` — Unix timestamp (seconds) of when the action occurred (not when sent)
-> - At least one identifier: `leadId`, `email`, or `phone`
+#### Response
 
-**Available Event Names:**
-- `Purchase`, `Lead`, `CompleteRegistration`
-- `Subscribe`, `StartTrial`, `Schedule`, `Contact`
-- `SubmitApplication`, `InitiateCheckout`, `AddToCart`
-- `ViewContent`, `Search`, `Custom`
+```typescript
+// Success
+{
+  "success": true,
+  "message": "Conversion event sent successfully",
+  "events_received": 1,
+  "fbtrace_id": "ABC123..."
+}
+
+// Error
+{
+  "success": false,
+  "error": "Dataset ID is required"
+}
+```
+
+#### Available Event Names
+
+| Event | Description |
+|-------|-------------|
+| `Purchase` | Payment completed |
+| `Lead` | Lead captured |
+| `CompleteRegistration` | Form submitted |
+| `Subscribe` | User subscribed |
+| `StartTrial` | Trial started |
+| `Schedule` | Appointment booked |
+| `Contact` | User initiated contact |
+| `SubmitApplication` | Application submitted |
+| `InitiateCheckout` | Checkout started |
+| `AddToCart` | Item added to cart |
+| `ViewContent` | Content viewed |
+| `Search` | Search performed |
+| `Custom` | Custom event |
 
 ---
 
 ### GET/POST `/api/webhook/facebook`
-Facebook webhook endpoint for receiving lead and message data.
 
-**Webhook Events:**
-- Leadgen (Lead Ads)
-- Messages (Messenger/Instagram DMs)
-- Feed (Page post updates)
-- Conversations
+Receive Facebook webhook events.
+
+#### Verification (GET)
+
+```
+GET /api/webhook/facebook?hub.mode=subscribe&hub.verify_token=TOKEN&hub.challenge=CHALLENGE
+
+Response: CHALLENGE (if token matches)
+```
+
+#### Events (POST)
+
+```typescript
+// Leadgen Event
+{
+  "object": "page",
+  "entry": [{
+    "id": "PAGE_ID",
+    "time": 1703000000,
+    "changes": [{
+      "field": "leadgen",
+      "value": {
+        "leadgen_id": "LEAD_ID",
+        "page_id": "PAGE_ID"
+      }
+    }]
+  }]
+}
+```
 
 ---
 
 ## Machine Learning System
 
-### Prediction Pipeline
+### Architecture Overview
 
-```
-User Input → Feature Extraction → Weight Calculation → Score Generation
-                   ↓                     ↓
-            Discovered Features    Audience Segments
-                   ↓                     ↓
-            Global Weights ←──── Feedback Loop ←── Actual Results
-```
+The ML system is **entirely client-side**, running in the browser and persisting state to localStorage. This provides:
 
-### Feature Weightsystem
+- **Privacy**: User data never leaves their browser
+- **Speed**: No network latency for predictions
+- **Offline**: Works without internet after initial load
 
-Each feature has:
-- **Weight**: Numeric impact (-1 to +1)
-- **Confidence Level**: Based on sample size
-- **Trend**: Rising, falling, or stable
-- **Last Updated**: Timestamp for decay
+### System Modules
 
-### Time Decay Configuration
+#### 1. `index.ts` - Central Orchestrator
+
+Exports unified interface and orchestrates all ML modules.
+
 ```typescript
-{
-  thisWeek: 1.0,      // Full weight
-  lastMonth: 0.8,     // 80% weight
-  threeMonths: 0.5,   // 50% weight
-  sixMonths: 0.3,     // 30% weight
-  older: 0.1          // 10% weight
+// Main functions
+getMLSystemState()                    // Get full system state
+predictWithML(adData, targetSegment)  // Full prediction pipeline
+learnFromResults(ad, results)         // Learning pipeline
+getMLDashboard()                      // Stats for UI
+```
+
+#### 2. `model.ts` - Neural Network (TensorFlow.js)
+
+```typescript
+// Architecture: 3-layer neural network
+const model = tf.sequential();
+model.add(tf.layers.dense({ units: 32, activation: 'relu', inputShape: [17] }));
+model.add(tf.layers.dense({ units: 16, activation: 'relu' }));
+model.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
+
+// Training
+trainModel(epochs, onProgress)  // Train with accumulated data
+predict(metadata, campaign)     // Make prediction
+
+// Persistence
+saveModel()   // Save to IndexedDB
+loadModel()   // Load from IndexedDB
+```
+
+#### 3. `features.ts` - Feature Encoding
+
+Converts categorical features to numerical values.
+
+```typescript
+// Encoding maps with learned weights
+const hookTypeMap = {
+  curiosity: 0.9,      // High performing
+  shock: 0.85,
+  question: 0.8,
+  story: 0.75,
+  testimonial: 0.7,
+  other: 0.5           // Default
+};
+
+// 17 features extracted:
+// 1. Hook Type
+// 2. Editing Style
+// 3. Content Category
+// 4. Color Scheme
+// 5. Music Type
+// 6. Text Overlays (boolean → 0.8/0.3)
+// 7. Subtitles (boolean → 0.9/0.4)
+// 8. UGC Style (boolean → 0.95/0.5)
+// 9. Influencer Used
+// 10. Voiceover
+// 11. Number of Actors (normalized)
+// 12. Character Variety
+// 13. Tag Richness
+// 14. Script Length
+// 15. Platform
+// 16. Launch Day
+// 17. Launch Time
+```
+
+#### 4. `weight-adjustment.ts` - Dynamic Weights
+
+```typescript
+interface FeatureWeight {
+  feature: string;
+  category: string;
+  weight: number;           // -1 to +1
+  previousWeight?: number;
+  confidenceLevel: number;  // 0-100
+  sampleSize: number;
+  lastUpdated: string;
+  trend: 'rising' | 'falling' | 'stable';
+  trendStrength: number;
+}
+
+// Default weights
+const DEFAULT_WEIGHTS = [
+  { feature: 'curiosity', category: 'hook_type', weight: 0.8, ... },
+  { feature: 'ugc_style', category: 'visual', weight: 0.85, ... },
+  { feature: 'subtitles', category: 'visual', weight: 0.7, ... },
+  // ...20+ features
+];
+
+// Adjustment logic
+function adjustWeightsForError(prediction, adData, actualScore) {
+  // Calculate error direction
+  const delta = actualScore - prediction.predictedScore;
+  
+  // Adjust weights based on what was present
+  // If actual > predicted: increase weights for present features
+  // If actual < predicted: decrease weights for present features
+  
+  // Learning rate decreases with confidence
+  const learningRate = 0.1 * (1 - confidenceLevel / 100);
 }
 ```
 
-### Exploration (Epsilon-Greedy)
-- 10% of recommendations are "wildcards"
-- Helps discover unexpected winning patterns
-- Prevents local optimization traps
+#### 5. `feedback-loop.ts` - Error Detection
+
+```typescript
+interface PredictionRecord {
+  id: string;
+  adId: string;
+  predictedScore: number;
+  predictedAt: string;
+  actualScore?: number;
+  delta?: number;
+  deltaPercent?: number;
+  isHighError: boolean;        // delta > 50%
+  isSurpriseSuccess: boolean;  // predicted < 50, actual >= 70
+  isSurpriseFailure: boolean;  // predicted >= 70, actual < 50
+  correctionApplied: boolean;
+}
+
+// Analysis types
+analyzePredictionResult(ad, results) → {
+  needsCorrection: boolean,
+  analysisType: 'surprise_success' | 'surprise_failure' | 'accurate' | 'minor_error',
+  delta: number,
+  recommendations: string[]
+}
+```
+
+#### 6. `exploration.ts` - Epsilon-Greedy
+
+Prevents self-fulfilling prophecies by recommending wildcards.
+
+```typescript
+interface ExplorationConfig {
+  enabled: true,
+  explorationRate: 0.1,      // 10% wildcards
+  wildcardCount: 1,
+  minScoreForWildcard: 20,   // Don't recommend terrible ideas
+  maxScoreForWildcard: 50    // Wildcards should be surprising
+}
+
+// Logic
+function generateWildcardRecommendations() {
+  // Find low-weighted features with low sample size
+  // These are "uncertain" - might be undervalued
+  
+  // Also find high-weighted but falling features
+  // These might be overused/declining
+  
+  return [{
+    trait: 'shaky_camera',
+    description: 'Raw, shaky camera work',
+    expectedScore: 35,
+    explorationReason: 'Only 2 data points - needs more testing'
+  }];
+}
+```
+
+#### 7. `time-decay.ts` - Recency Weighting
+
+```typescript
+const TIME_DECAY_RATES = {
+  thisWeek: 1.0,      // Full weight
+  lastMonth: 0.8,     // 80%
+  threeMonths: 0.5,   // 50%
+  sixMonths: 0.3,     // 30%
+  older: 0.1          // 10%
+};
+
+// Concept drift detection
+function detectConceptDrift() {
+  // Compare recent prediction accuracy vs historical
+  // If accuracy drops significantly → patterns are changing
+}
+```
+
+#### 8. `feature-discovery.ts` - Pattern Discovery
+
+When a surprise success/failure occurs, AI discovers new patterns.
+
+```typescript
+// Trigger: surprise_success or surprise_failure
+async function discoverFeaturesFromAd(ad, reason) {
+  // Call AI with ad content and results
+  // AI analyzes what made this ad different
+  
+  // Returns new features like:
+  return [{
+    name: 'neon_in_first_2_seconds',
+    description: 'Neon color in opening frames',
+    type: 'visual',
+    criteria: 'Detect bright neon colors in first 2 seconds',
+    correlation: 75
+  }];
+}
+```
+
+#### 9. `audience-segmentation.ts` - Segment Scoring
+
+Different audiences respond differently to features.
+
+```typescript
+interface AudienceSegment {
+  id: string;
+  name: string;                    // "Gen Z TikTok Users"
+  ageRange: { min: 18, max: 24 };
+  gender: 'all';
+  platforms: ['tiktok'];
+  featureWeights: FeatureWeight[]; // Segment-specific weights
+}
+
+// Segment-specific scoring
+getAllSegmentScores(features) → [
+  { segmentId: 'gen_z', score: 85 },
+  { segmentId: 'millennials', score: 72 },
+  { segmentId: 'boomer', score: 45 }
+]
+```
+
+#### 10. `history.ts` - Undo/Redo
+
+```typescript
+// Track all data operations
+interface HistoryEntry {
+  id: string;
+  action: 'create' | 'update' | 'delete';
+  entityType: 'ad' | 'result' | 'weight';
+  entityId: string;
+  previousState: any;
+  newState: any;
+  timestamp: string;
+}
+
+// Operations
+undoLast()   // Revert last action
+redoLast()   // Redo undone action
+getHistorySummary()  // Get history for UI
+```
 
 ---
 
-## Facebook Integration (CAPI)
+## AI Integration (NVIDIA NIM)
+
+### Configuration
+
+```typescript
+const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const MODEL = 'nvidia/llama-3.1-nemotron-70b-instruct';
+```
+
+### Request Format
+
+```typescript
+const response = await fetch(NVIDIA_API_URL, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${process.env.NVIDIA_API_KEY}`,
+  },
+  body: JSON.stringify({
+    model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: 0.3,  // Low for structured output
+    max_tokens: 1024
+  })
+});
+```
+
+### Fallback Strategy
+
+If NVIDIA API fails:
+1. Return `{ fallback: true }` to client
+2. Client uses heuristic prediction functions
+3. Basic regex parsing for document extraction
+
+---
+
+## Facebook CAPI Integration
 
 ### Setup Flow
 
-1. **Connect Facebook** → OAuth login via FacebookLogin component
-2. **Select Ad Account** → Fetch and choose from available accounts
-3. **Configure CAPI** → Enter Dataset ID and Access Token
-4. **Test Connection** → Validate credentials
-5. **Activate** → Start sending conversion events
+```
+1. Facebook Login (OAuth)
+   ├── User clicks "Connect Facebook"
+   ├── Redirect to Facebook OAuth
+   └── Returns with access_token
 
-### Data Hashing
+2. Select Page & Ad Account
+   ├── GET /me/accounts → List pages
+   ├── User selects page
+   ├── GET /me/adaccounts → List ad accounts
+   └── User selects ad account
+
+3. Configure CAPI
+   ├── User enters Dataset ID
+   ├── User enters Access Token
+   └── Credentials saved to localStorage
+
+4. Test Connection
+   └── Send test event to validate credentials
+
+5. Activate
+   └── Enable automatic event sending
+```
+
+### Data Hashing (capi.ts)
+
 All PII is SHA-256 hashed before sending:
-- Email (normalized: lowercase, trimmed)
-- Phone (normalized: remove spaces, dashes, +)
-- First/Last Name (lowercase, trimmed)
 
-### Best Practice: Lead ID
-When available, use `lead_id` from webhook - it provides 100% match rate vs ~40-60% for hashed email/phone.
+```typescript
+async function sha256Hash(value: string): Promise<string> {
+  const normalizedValue = value.toLowerCase().trim();
+  const encoder = new TextEncoder();
+  const data = encoder.encode(normalizedValue);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
-### Event ↔ Campaign Optimization Mapping
+// Normalization
+normalizePhone(phone) // Remove spaces, dashes, +, ()
+normalizeEmail(email) // Lowercase, trim
+```
 
-> [!CAUTION]
-> The event you send **MUST** match the event the campaign optimizes for. Mismatched events are **silently ignored** by Meta.
+### Event Matching Priority
 
-| Campaign Objective | Required Event | Athena Use Case |
-|--------------------|----------------|------------------|
-| **Leads** | `Lead` | New lead captured from ad |
-| **Complete Registration** | `CompleteRegistration` | User completed form/signup |
-| **Sales** | `Purchase` | Deal closed / payment received |
-| **Start Trial** | `StartTrial` | User began free trial |
-| **Subscribe** | `Subscribe` | User subscribed to service |
-| **Schedule** | `Schedule` | Appointment/call booked |
-| **Contact** | `Contact` | User initiated contact |
+1. **lead_id** - 100% match rate (best)
+2. **email (hashed)** - ~60% match rate
+3. **phone (hashed)** - ~40% match rate
+4. **Multiple identifiers** - Improves match rate
 
 ### Attribution Windows
 
+| Type | Window |
+|------|--------|
+| Click-through | 7 days |
+| View-through | 1 day |
+
+> **Important**: Conversions outside these windows will NOT be attributed, regardless of CAPI correctness.
+
+### Token Lifecycle & Expiry
+
 > [!WARNING]
-> Conversions outside these windows will **never** be attributed, regardless of CAPI correctness.
+> **Tokens expire!** Marketing API and CAPI tokens have limited lifespans. Events will silently fail when tokens expire.
 
-| Attribution Type | Window | Description |
-|------------------|--------|-------------|
-| **Click-through** | 7 days | User clicked ad → converted within 7 days |
-| **View-through** | 1 day | User saw ad → converted within 1 day |
+#### Token Types
 
-**Important Considerations:**
-- Long sales cycles (weeks/months) won't attribute to Meta ads
-- Set appropriate expectations with stakeholders
-- Consider using earlier funnel events (Lead, Contact) for attribution
+| Token Type | Lifespan | Use Case |
+|------------|----------|----------|
+| **Short-lived** | ~1-2 hours | Initial OAuth login |
+| **Long-lived** | ~60 days | Extended access |
+| **System User Token** | Never expires | Server-to-server (recommended for CAPI) |
 
-### Conversion Moment Definitions
+#### When Tokens Expire
 
-Each event type must fire at **one authoritative moment**. Meta expects immutable conversion events.
+**Symptoms:**
+- CAPI events return `error.code: 190` (Invalid OAuth access token)
+- Events Manager shows no new events
+- No error visible in Athena UI (silent failure)
 
-| Event | When to Fire | Notes |
-|-------|--------------|-------|
-| `Lead` | Lead record created | First capture, not updates |
-| `CompleteRegistration` | Form submission confirmed | After validation |
-| `Contact` | First message received | Not per-message |
-| `Schedule` | Appointment confirmed | Not tentative |
-| `Purchase` | Payment successful | Not pending/failed |
+**Error Response Example:**
+```json
+{
+  "error": {
+    "message": "Error validating access token: Session has expired",
+    "type": "OAuthException",
+    "code": 190,
+    "error_subcode": 463
+  }
+}
+```
 
-> [!NOTE]
-> Never update or re-send the same conversion event. Each `event_id` should be unique and sent only once.
+#### How to Regenerate Tokens
+
+**Option 1: User Token (60-day)**
+1. Go to [Facebook Graph API Explorer](https://developers.facebook.com/tools/explorer/)
+2. Select your app
+3. Generate User Token with required permissions
+4. Exchange for long-lived token:
+```bash
+GET /oauth/access_token?
+  grant_type=fb_exchange_token&
+  client_id={app-id}&
+  client_secret={app-secret}&
+  fb_exchange_token={short-lived-token}
+```
+
+**Option 2: System User Token (Recommended)**
+1. Go to Business Settings → System Users
+2. Create system user with Admin role
+3. Assign assets (Ad Account, Dataset)
+4. Generate token — this token never expires
+
+#### Where to Update in Athena
+
+1. Go to **Settings** → **Facebook CAPI**
+2. Enter new Access Token
+3. Click **Test Connection**
+4. If successful, click **Save**
+
+### Meta Permissions Matrix
+
+> [!IMPORTANT]
+> Request only the permissions you need. Meta app review requires justification for each permission.
+
+| Feature | API | Permission | Required For |
+|---------|-----|------------|--------------|
+| Read user pages | Graph API | `pages_show_list` | Selecting Facebook page |
+| Manage pages | Graph API | `pages_manage_metadata` | Webhooks setup |
+| Read ad accounts | Marketing API | `ads_read` | Listing ad accounts |
+| Read ad creatives | Marketing API | `ads_read` | Fetching ad content |
+| **Send conversions** | **CAPI** | `ads_management` | **Core CAPI functionality** |
+| Receive webhooks | Graph API | `pages_manage_metadata` | Lead/message webhooks |
+| Messaging | Graph API | `pages_messaging` | Reading DMs (if needed) |
+
+#### Minimum Permissions for CAPI Only
+
+```
+pages_show_list
+ads_read
+ads_management
+```
+
+#### Full Integration Permissions
+
+```
+pages_show_list
+pages_manage_metadata
+pages_messaging
+ads_read
+ads_management
+```
+
+### Offline Dataset Setup (Meta Business Suite)
+
+> [!CAUTION]
+> **#1 Failure Point**: If your Dataset is not assigned to your Ad Account, conversions will never attribute to campaigns, even if CAPI sends events successfully.
+
+#### Step 1: Create Offline Event Set (Dataset)
+
+1. Go to [Events Manager](https://business.facebook.com/events_manager)
+2. Click **Connect Data Sources** → **Offline**
+3. Name your dataset (e.g., "Athena Conversions")
+4. Click **Create**
+5. Copy the **Dataset ID** (you'll need this in Athena)
+
+#### Step 2: Assign Dataset to Ad Account
+
+**This step is critical!**
+
+1. In Events Manager, click your dataset
+2. Go to **Settings** tab
+3. Scroll to **Linked Assets**
+4. Click **Add Assets** → **Ad Accounts**
+5. Select your ad account
+6. Click **Add**
+
+#### Step 3: Verify Assignment
+
+1. Go to your Ad Account settings
+2. Look for "Offline Event Sets" or "Datasets"
+3. Confirm your dataset appears
+
+#### Step 4: Configure in Athena
+
+1. Go to **Settings** → **Facebook CAPI**
+2. Enter your **Dataset ID**
+3. Enter your **Access Token**
+4. Click **Test Connection**
+
+### ⚠️ Campaign Optimization Rules
+
+> [!CAUTION]
+> **CRITICAL**: The event you send MUST match the event your campaign optimizes for. Mismatched events are **silently ignored** by Meta.
+
+#### The Rule
+
+```
+Campaign Optimization Event === CAPI Event Name
+```
+
+#### Examples
+
+| Campaign Optimizes For | CAPI Event to Send | Result |
+|------------------------|-------------------|--------|
+| **Leads** | `Lead` | ✅ Attributed |
+| **Leads** | `Contact` | ❌ Ignored |
+| **Leads** | `Purchase` | ❌ Ignored |
+| **Purchase** | `Purchase` | ✅ Attributed |
+| **Purchase** | `Lead` | ❌ Ignored |
+| **Complete Registration** | `CompleteRegistration` | ✅ Attributed |
+
+#### How to Check Campaign Optimization
+
+1. Go to Ads Manager
+2. Select your campaign
+3. Look at the **Optimization Goal** setting
+4. Match your CAPI event name exactly
+
+#### Common Mistake
+
+Setting up a "Lead" campaign but sending "Contact" events when users message you.
+
+**Fix**: Either change your campaign to optimize for "Contact" OR change your CAPI event to "Lead".
+
+### Conversion State Machine
+
+> [!IMPORTANT]
+> Meta expects **one immutable conversion per outcome**. Do not send multiple events for the same conversion.
+
+#### Lead Lifecycle Diagram
+
+```
+                                    ┌─────────────────┐
+                                    │   Ad Clicked    │
+                                    └────────┬────────┘
+                                             │
+                                             ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         LEAD CREATED                                 │
+│                                                                      │
+│   ✅ Fire: Lead event                                                │
+│   📍 When: First contact/form submission                            │
+│   🔑 event_id: lead_{internal_id}                                   │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+              ▼              ▼              ▼
+        ┌──────────┐  ┌──────────┐  ┌──────────┐
+        │ Qualified│  │Disqualified│  │ No Show │
+        │          │  │           │  │         │
+        │ ❌ No    │  │ ❌ No     │  │ ❌ No   │
+        │   event  │  │   event   │  │  event  │
+        └────┬─────┘  └───────────┘  └─────────┘
+             │
+             ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      DEAL WON / PURCHASE                             │
+│                                                                      │
+│   ✅ Fire: Purchase event                                            │
+│   📍 When: Payment received / deal closed                           │
+│   🔑 event_id: purchase_{internal_id}                               │
+│   💰 Include: value, currency                                       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### When to Fire Each Event
+
+| Internal State | Fire Event? | Event Name | Notes |
+|----------------|-------------|------------|-------|
+| Lead created | ✅ Yes | `Lead` | First capture only |
+| Lead qualified | ❌ No | — | Internal state, not a conversion |
+| Appointment scheduled | ✅ Yes | `Schedule` | If optimizing for appointments |
+| No-show / cancelled | ❌ No | — | Don't "undo" conversions |
+| Trial started | ✅ Yes | `StartTrial` | If optimizing for trials |
+| Payment successful | ✅ Yes | `Purchase` | Include value |
+| Payment failed | ❌ No | — | Not a conversion |
+| Subscription renewed | ❌ No* | — | *Only if separate campaigns |
+
+#### Rules
+
+1. **One event per `event_id`** — Never re-send the same conversion
+2. **Immutable** — Don't update or delete sent events
+3. **Forward-only** — States move forward, not backward
+4. **Real-world moment** — Event time = when action happened, not when sent
+
+### Failure Debugging Guide
+
+#### Where to Check for Failures
+
+**1. Meta Events Manager**
+```
+Business Suite → Events Manager → Your Dataset → Overview
+```
+
+Look for:
+- **Events Received**: Total events received (even unmatched)
+- **Match Rate**: % of events matched to Meta users
+- **Test Events**: Real-time event debugging
+
+**2. Test Events Tool**
+```
+Events Manager → Your Dataset → Test Events
+```
+
+- Enter test event code
+- Send a test conversion from Athena
+- See real-time payload and errors
+
+**3. Athena API Response**
+
+Check for `fbtrace_id` in successful responses:
+```json
+{
+  "success": true,
+  "events_received": 1,
+  "fbtrace_id": "ABC123xyz..."
+}
+```
+
+Use `fbtrace_id` to debug with Meta support.
+
+#### Common Error Codes
+
+| Error Code | Meaning | Solution |
+|------------|---------|----------|
+| `190` | Invalid access token | Regenerate token (see Token Lifecycle) |
+| `100` | Invalid parameter | Check event payload format |
+| `200` | Permissions error | Check app permissions |
+| `1` | Unknown error | Check `fbtrace_id`, contact support |
+| `17` | Rate limit | Reduce request frequency |
+
+#### Debugging Checklist
+
+- [ ] Token is valid and not expired
+- [ ] Dataset ID is correct
+- [ ] Dataset is assigned to Ad Account
+- [ ] Event name matches campaign optimization
+- [ ] `event_id` is unique per conversion
+- [ ] `event_time` is within attribution window
+- [ ] At least one identifier (lead_id, email, or phone) is provided
+- [ ] Events Manager shows events being received
+
+#### Silent Failure Scenarios
+
+| Scenario | Events Manager Shows | Attribution | Fix |
+|----------|---------------------|-------------|-----|
+| Token expired | No new events | None | Regenerate token |
+| Dataset not assigned | Events received | None | Assign dataset to ad account |
+| Wrong event name | Events received | None | Match campaign optimization |
+| Outside attribution window | Events received | None | Send events sooner |
+| No identifiers | Events received (0% match) | None | Add lead_id, email, or phone |
 
 ---
 
-## Pages & Components
+## Components Architecture
 
-### Pages
+### Sidebar.tsx
 
-| Route | File | Description |
-|-------|------|-------------|
-| `/` | `app/page.tsx` | Main dashboard with stats, patterns, actions |
-| `/upload` | `app/upload/page.tsx` | Video upload, AI parsing, Facebook Ad ID |
-| `/predict` | `app/predict/page.tsx` | Configure ads and get AI predictions |
-| `/analytics` | `app/analytics/page.tsx` | Input performance results |
-| `/mindmap` | `app/mindmap/page.tsx` | 2D/3D pattern visualization |
-| `/videos` | `app/videos/page.tsx` | Video library browser |
-| `/settings` | `app/settings/page.tsx` | Config, CAPI, Facebook, ML settings |
-| `/results` | `app/results/page.tsx` | Performance results viewer |
-| `/pipeline` | `app/pipeline/page.tsx` | Ad processing pipeline |
+Collapsible navigation component.
 
-### Key Components
+```typescript
+// Features
+- Auto-collapse on mobile (<768px)
+- Manual collapse toggle
+- Active route highlighting
+- Icon-only mode when collapsed
+- localStorage persistence for collapse state
 
-| Component | Description |
-|-----------|-------------|
-| `Sidebar.tsx` | Navigation sidebar with icons and links |
-| `ChatBot.tsx` | Athena AI floating chat assistant |
-| `FacebookLogin.tsx` | Facebook OAuth button and flow |
-| `UndoPanel.tsx` | Undo/redo history management |
+// Routes
+'/'          → Dashboard
+'/upload'    → Upload
+'/predict'   → Predict
+'/analytics' → Analytics
+'/mindmap'   → Mind Map
+'/videos'    → Video Library
+'/settings'  → Settings
+'/pipeline'  → Pipeline
+```
+
+### ChatBot.tsx
+
+Floating AI assistant.
+
+```typescript
+// Features
+- Minimized/expanded states
+- Message history
+- Quick prompt suggestions
+- Context-aware responses
+- Typing indicator
+- Auto-scroll to latest message
+
+// State
+const [messages, setMessages] = useState<Message[]>([]);
+const [isLoading, setIsLoading] = useState(false);
+const [isMinimized, setIsMinimized] = useState(true);
+```
+
+### FacebookLogin.tsx
+
+OAuth component for Facebook integration.
+
+```typescript
+// Features
+- Facebook SDK initialization
+- OAuth login flow
+- Page and ad account selection
+- CAPI configuration form
+- Connection testing
+- Disconnect functionality
+```
+
+### UndoPanel.tsx
+
+ML history management panel.
+
+```typescript
+// Features
+- View undo/redo history
+- Undo last action
+- Redo undone action
+- Clear history
+- Filter by entity type
+```
+
+---
+
+## Type System
+
+### Core Types (types/index.ts)
+
+**713 lines** of TypeScript type definitions organized into:
+
+1. **Database Models** (3-75)
+   - Video, VideoMetadata, AdPerformance
+
+2. **Enum Types** (77-166)
+   - HookType (13 values)
+   - ContentCategory (12 values)
+   - EditingStyle (9 values)
+   - ColorScheme (10 values)
+   - MusicType (9 values)
+   - Platform (9 values)
+   - DayOfWeek, TimeOfDay
+
+3. **Document System** (219-479)
+   - MediaType, AspectRatio, AdPlacement, CTAType
+   - ContentDocument, ResultsDocument
+   - ExtractedAdData (80+ fields)
+   - ExtractedResultsData
+   - AdEntry (combined)
+
+4. **Mind Map Types** (481-544)
+   - MindMapNode, MindMapConnection
+   - MindMapCategory, DiscoveredPattern
+
+5. **ML System Types** (546-713)
+   - PredictionRecord
+   - FeatureWeight
+   - DiscoveredMLFeature
+   - AudienceSegment
+   - TimeDecayConfig, ExplorationConfig
+   - MLSystemState
+   - WeightAdjustmentEvent
+
+---
+
+## File Structure
+
+```
+ads-algorithm-app/
+├── app/                           # Next.js App Router
+│   ├── page.tsx                   # Dashboard (/)
+│   ├── page.module.css
+│   ├── layout.tsx                 # Root layout with Sidebar
+│   ├── globals.css                # Design tokens + responsive
+│   │
+│   ├── api/                       # API Routes
+│   │   ├── ai/
+│   │   │   └── route.ts           # Central AI endpoint (633 lines)
+│   │   ├── capi/
+│   │   │   └── send/
+│   │   │       └── route.ts       # CAPI event sending
+│   │   ├── categories/
+│   │   │   └── route.ts           # Trait categories
+│   │   ├── facebook/              # Facebook OAuth routes
+│   │   └── webhook/
+│   │       └── route.ts           # Facebook webhook receiver
+│   │
+│   ├── upload/                    # /upload page
+│   │   ├── page.tsx
+│   │   └── page.module.css
+│   │
+│   ├── predict/                   # /predict page
+│   │   ├── page.tsx
+│   │   └── page.module.css
+│   │
+│   ├── analytics/                 # /analytics page
+│   │   ├── page.tsx
+│   │   └── page.module.css
+│   │
+│   ├── mindmap/                   # /mindmap page
+│   │   ├── page.tsx
+│   │   └── page.module.css
+│   │
+│   ├── videos/                    # /videos page
+│   │   ├── page.tsx
+│   │   └── page.module.css
+│   │
+│   ├── settings/                  # /settings page
+│   │   ├── page.tsx
+│   │   └── page.module.css
+│   │
+│   ├── results/                   # /results page
+│   │   ├── page.tsx
+│   │   └── page.module.css
+│   │
+│   ├── pipeline/                  # /pipeline page
+│   │   ├── page.tsx
+│   │   └── page.module.css
+│   │
+│   └── import/                    # /import page
+│       ├── page.tsx
+│       └── page.module.css
+│
+├── components/                    # React Components
+│   ├── Sidebar.tsx                # Navigation (340 lines)
+│   ├── ChatBot.tsx                # AI Assistant (258 lines)
+│   ├── ChatBot.module.css
+│   ├── FacebookLogin.tsx          # OAuth Component (280 lines)
+│   └── UndoPanel.tsx              # History Management
+│
+├── lib/                           # Core Libraries
+│   ├── supabase.ts                # Database operations (205 lines)
+│   ├── cloudinary.ts              # Media upload (80 lines)
+│   ├── capi.ts                    # Facebook CAPI (176 lines)
+│   │
+│   ├── ai/                        # AI Integration
+│   │   ├── nvidia-ai.ts           # NVIDIA NIM client (379 lines)
+│   │   └── document-parser.ts     # AI parsing (317 lines)
+│   │
+│   └── ml/                        # ML System (10 modules)
+│       ├── index.ts               # Orchestrator (143 lines)
+│       ├── model.ts               # TensorFlow.js (296 lines)
+│       ├── features.ts            # Feature encoding (206 lines)
+│       ├── weight-adjustment.ts   # Dynamic weights (232 lines)
+│       ├── feedback-loop.ts       # Error detection (193 lines)
+│       ├── feature-discovery.ts   # Pattern discovery (220 lines)
+│       ├── exploration.ts         # Epsilon-greedy (192 lines)
+│       ├── time-decay.ts          # Recency weighting (160 lines)
+│       ├── audience-segmentation.ts # Segment scoring (280 lines)
+│       └── history.ts             # Undo/redo (250 lines)
+│
+├── types/                         # TypeScript Types
+│   ├── index.ts                   # All types (713 lines)
+│   └── extended-ad.ts             # Extended ad types
+│
+├── public/                        # Static Assets
+│   └── ...
+│
+├── .env.local                     # Environment variables
+├── package.json
+├── tsconfig.json
+├── next.config.ts
+└── SYSTEM_DOCUMENTATION.md        # This file
+```
 
 ---
 
@@ -446,49 +1745,54 @@ Each event type must fire at **one authoritative moment**. Meta expects immutabl
 
 ### Required Environment Variables
 
-Create `.env.local` in the project root:
+Create `.env.local` in project root:
 
 ```env
-# NVIDIA AI API (GPT-Powered Predictions)
-NVIDIA_API_KEY=your-nvidia-api-key
+# NVIDIA AI API (REQUIRED)
+NVIDIA_API_KEY=nvapi-xxxx...
 
-# Cloudinary Configuration
+# Cloudinary (REQUIRED)
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
 NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=ads_algorithm
 
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+# Supabase (REQUIRED)
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
-# Meta/Facebook Configuration
-NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
-FACEBOOK_WEBHOOK_VERIFY_TOKEN=your-secret-verify-token
+# Facebook (OPTIONAL - for CAPI integration)
+NEXT_PUBLIC_FACEBOOK_APP_ID=123456789
+FACEBOOK_WEBHOOK_VERIFY_TOKEN=your-secret-token
 ```
 
-### External Service Setup
+### Service Configuration
 
-#### Cloudinary
+#### Cloudinary Setup
+
 1. Sign up at https://cloudinary.com
-2. Go to Dashboard > Settings > Upload
+2. Go to Dashboard → Settings → Upload
 3. Create unsigned upload preset named `ads_algorithm`
 4. Copy Cloud Name from Dashboard
 
-#### Supabase
+#### Supabase Setup
+
 1. Sign up at https://supabase.com
 2. Create new project
-3. Run the database schema SQL
-4. Copy Project URL and anon key
+3. Run the database schema SQL (see Database Schema section)
+4. Copy Project URL and anon key from Settings → API
 
-#### NVIDIA NIM
+#### NVIDIA NIM Setup
+
 1. Sign up at https://build.nvidia.com
 2. Generate API key
-3. Model used: `nvidia/llama-3.1-nemotron-70b-instruct`
+3. Ensure access to `nvidia/llama-3.1-nemotron-70b-instruct` model
 
-#### Facebook Developer
+#### Facebook Developer Setup
+
 1. Create app at https://developers.facebook.com
 2. Add Facebook Login product
 3. Configure OAuth redirect URLs
 4. Set webhook callback: `https://your-domain.com/api/webhook/facebook`
+5. Subscribe to leadgen, messaging fields
 
 ---
 
@@ -497,65 +1801,87 @@ FACEBOOK_WEBHOOK_VERIFY_TOKEN=your-secret-verify-token
 ### Getting Started
 
 ```bash
+# Clone repository
+git clone <repo-url>
+cd ads-algorithm-app
+
 # Install dependencies
 npm install
+
+# Create environment file
+cp .env.example .env.local
+# Edit .env.local with your credentials
 
 # Run development server
 npm run dev
 
-# Build for production
-npm run build
-
-# Start production server
-npm start
+# Open http://localhost:3000
 ```
 
-### Project Structure
+### Commands
 
+```bash
+npm run dev      # Development server with hot reload
+npm run build    # Production build
+npm run start    # Start production server
+npm run lint     # Run ESLint
 ```
-ads-algorithm-app/
-├── app/                    # Next.js App Router pages
-│   ├── api/               # API routes
-│   ├── analytics/         # Analytics page
-│   ├── mindmap/           # Mind map visualization
-│   ├── predict/           # Prediction page
-│   ├── settings/          # Settings page
-│   ├── upload/            # Upload page
-│   └── videos/            # Video library
-├── components/            # React components
-│   ├── ChatBot.tsx       # AI chatbot
-│   ├── Sidebar.tsx       # Navigation
-│   └── FacebookLogin.tsx # OAuth component
-├── lib/                   # Utility libraries
-│   ├── ai/               # NVIDIA AI integration
-│   ├── ml/               # Machine learning system
-│   ├── capi.ts           # Facebook CAPI utilities
-│   ├── cloudinary.ts     # Media upload
-│   └── supabase.ts       # Database operations
-├── types/                 # TypeScript type definitions
-│   └── index.ts          # All application types
-└── public/               # Static assets
-```
-
-### Key Type Definitions
-
-Located in `types/index.ts`:
-
-- `Video`, `VideoMetadata`, `AdPerformance` - Database models
-- `ExtractedAdData` - 50+ AI-extracted fields
-- `ExtractedResultsData` - Performance metrics
-- `AdEntry` - Combined ad data structure
-- `MindMapNode`, `MindMapConnection` - Graph data
-- `PredictionRecord`, `FeatureWeight` - ML types
-- `MLSystemState` - Full ML system configuration
 
 ### Adding New Features
 
-1. **New Page**: Create folder in `app/` with `page.tsx` and `page.module.css`
-2. **New API**: Create `route.ts` in `app/api/[endpoint]/`
-3. **New Component**: Add to `components/` folder
-4. **New ML Feature**: Extend `lib/ml/` modules
-5. **New Type**: Add to `types/index.ts`
+#### New Page
+
+```bash
+# Create directory
+mkdir app/new-page
+
+# Create files
+touch app/new-page/page.tsx
+touch app/new-page/page.module.css
+```
+
+```typescript
+// app/new-page/page.tsx
+'use client';
+
+import styles from './page.module.css';
+
+export default function NewPage() {
+  return (
+    <div className={styles.container}>
+      <h1>New Page</h1>
+    </div>
+  );
+}
+```
+
+#### New API Route
+
+```bash
+mkdir -p app/api/new-endpoint
+touch app/api/new-endpoint/route.ts
+```
+
+```typescript
+// app/api/new-endpoint/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  return NextResponse.json({ message: 'Hello' });
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  return NextResponse.json({ received: body });
+}
+```
+
+#### New ML Feature
+
+1. Add feature to `types/index.ts`
+2. Add encoding to `lib/ml/features.ts`
+3. Add default weight to `lib/ml/weight-adjustment.ts`
+4. Update extraction prompt in `app/api/ai/route.ts`
 
 ---
 
@@ -567,17 +1893,52 @@ Located in `types/index.ts`:
 # Install Vercel CLI
 npm i -g vercel
 
+# Login
+vercel login
+
 # Deploy
 vercel
+
+# Production deploy
+vercel --prod
 ```
 
 ### Environment Variables
-Set all environment variables in Vercel dashboard under Project Settings > Environment Variables.
 
-### Webhook URL
-After deployment, your webhook URL will be:
-```
-https://your-app.vercel.app/api/webhook/facebook
+Set all environment variables in Vercel dashboard:
+Project Settings → Environment Variables
+
+### Post-Deployment
+
+1. Update Facebook OAuth redirect URLs
+2. Set webhook URL: `https://your-app.vercel.app/api/webhook/facebook`
+3. Verify webhook in Facebook Developer Console
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| NVIDIA API errors | Check API key, verify model access |
+| Cloudinary upload fails | Verify upload preset is unsigned |
+| Supabase connection fails | Check URL and anon key |
+| Facebook OAuth fails | Verify app ID and redirect URLs |
+| ML predictions not updating | Check localStorage is enabled |
+
+### Debugging
+
+```typescript
+// Enable console logging
+console.log('[ML]', getMLSystemState());
+console.log('[CAPI]', result);
+
+// Check localStorage
+localStorage.getItem('ml_feature_weights')
+localStorage.getItem('ml_predictions')
+localStorage.getItem('ads_data')
 ```
 
 ---
@@ -589,7 +1950,9 @@ https://your-app.vercel.app/api/webhook/facebook
 - **Cloudinary Docs**: https://cloudinary.com/documentation
 - **NVIDIA NIM**: https://docs.nvidia.com/nim
 - **Facebook CAPI**: https://developers.facebook.com/docs/marketing-api/conversions-api
+- **TensorFlow.js**: https://www.tensorflow.org/js
 
 ---
 
-*Documentation generated for AdVision AI v0.1.0*
+*Documentation last updated: December 24, 2024*  
+*AdVision AI (Athena) v0.1.0*
