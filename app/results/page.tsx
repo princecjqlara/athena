@@ -122,6 +122,17 @@ export default function ResultsPage() {
         setAds(storedAds);
     };
 
+    // Delete an ad
+    const handleDeleteAd = (e: React.MouseEvent, adId: string, adName: string) => {
+        e.stopPropagation(); // Prevent selecting the ad
+        const confirmed = window.confirm(`Delete "${adName}"?\n\nThis will permanently remove this ad. This cannot be undone.`);
+        if (!confirmed) return;
+
+        const updatedAds = ads.filter(a => a.id !== adId);
+        localStorage.setItem('ads', JSON.stringify(updatedAds));
+        setAds(updatedAds);
+    };
+
     return (
         <div className={styles.page}>
             <header className={styles.header}>
@@ -164,10 +175,10 @@ export default function ResultsPage() {
                                         <span className={styles.mediaBadge}>{ad.mediaType}</span>
                                     </div>
                                     <div className={styles.adInfo}>
-                                        <h3>{ad.extractedContent?.title || 'Untitled'}</h3>
+                                        <h3>{ad.extractedContent?.title || ad.name || 'Untitled'}</h3>
                                         <div className={styles.adMeta}>
-                                            <span className="badge">{ad.extractedContent?.platform}</span>
-                                            <span className="badge">{ad.extractedContent?.hookType}</span>
+                                            <span className="badge">{ad.extractedContent?.platform || 'UNKNOWN'}</span>
+                                            <span className="badge">{ad.extractedContent?.hookType || ''}</span>
                                         </div>
                                         {ad.hasResults ? (
                                             <div className={styles.resultsStatus}>
@@ -177,6 +188,24 @@ export default function ResultsPage() {
                                         ) : (
                                             <span className="badge badge-warning">Needs Results</span>
                                         )}
+                                        {/* Delete button */}
+                                        <button
+                                            className="btn btn-ghost btn-sm"
+                                            onClick={(e) => handleDeleteAd(e, ad.id, ad.extractedContent?.title || ad.name || 'Untitled')}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '8px',
+                                                right: '8px',
+                                                color: '#ef4444',
+                                                padding: '4px 8px',
+                                                fontSize: '0.75rem',
+                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                borderRadius: '4px'
+                                            }}
+                                            title="Delete Ad"
+                                        >
+                                            🗑️ Delete
+                                        </button>
                                     </div>
                                 </div>
                             ))}
