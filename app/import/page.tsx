@@ -287,6 +287,97 @@ export default function ImportPage() {
         setMetricModal({ open: true, metric, value, adName });
     };
 
+    // Messenger Contacts State
+    const [isFetchingContacts, setIsFetchingContacts] = useState(false);
+    const [messengerContacts, setMessengerContacts] = useState<Array<{
+        conversationId: string;
+        facebookPsid: string;
+        name: string;
+        isFromAd: boolean;
+        messageCount: number;
+        lastMessage?: string;
+        messages: Array<{ id: string; content: string; from: string; fromId: string; timestamp: string }>;
+    }>>([]);
+    const [showContactsModal, setShowContactsModal] = useState(false);
+    const [contactsError, setContactsError] = useState('');
+
+    // Fetch Messenger contacts from Facebook
+    const handleFetchMessengerContacts = async () => {
+        setIsFetchingContacts(true);
+        setContactsError('');
+
+        try {
+            // First get pages
+            const pagesResponse = await fetch(`/api/facebook/pages?access_token=${accessToken}`);
+            const pagesData = await pagesResponse.json();
+
+            if (!pagesData.success || !pagesData.pages?.length) {
+                setContactsError('No Facebook pages found. Make sure your token has pages_messaging permission.');
+                setIsFetchingContacts(false);
+                return;
+            }
+
+            // Use first page
+            const page = pagesData.pages[0];
+
+            // Fetch conversations
+            const convResponse = await fetch(
+                `/api/facebook/conversations?page_id=${page.id}&page_access_token=${page.accessToken}&limit=100`
+            );
+            const convData = await convResponse.json();
+
+            if (!convData.success) {
+                setContactsError(convData.error || 'Failed to fetch conversations. Make sure you have pages_messaging permission.');
+                setIsFetchingContacts(false);
+                return;
+            }
+
+            setMessengerContacts(convData.contacts || []);
+            setShowContactsModal(true);
+        } catch (err) {
+            console.error('Error fetching contacts:', err);
+            setContactsError('Error: ' + String(err));
+        }
+
+        setIsFetchingContacts(false);
+    };
+
+    // Import Messenger contacts to localStorage
+    const handleImportMessengerContacts = (contacts: typeof messengerContacts) => {
+        const existingContactsStr = localStorage.getItem('pipeline_contacts');
+        const existingContacts = existingContactsStr ? JSON.parse(existingContactsStr) : [];
+
+        let importedCount = 0;
+        contacts.forEach(contact => {
+            const exists = existingContacts.find((c: any) => c.facebookPsid === contact.facebookPsid);
+            if (!exists) {
+                existingContacts.push({
+                    id: `contact-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    name: contact.name,
+                    facebookPsid: contact.facebookPsid,
+                    source: contact.isFromAd ? 'ad' : 'organic',
+                    sourceAdId: contact.isFromAd ? 'messenger_ad' : undefined,
+                    messages: contact.messages?.map(m => ({
+                        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        contactId: '',
+                        content: m.content,
+                        direction: 'inbound',
+                        timestamp: m.timestamp,
+                        messageId: m.id
+                    })) || [],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+                importedCount++;
+            }
+        });
+
+        localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
+        setShowContactsModal(false);
+        setMessengerContacts([]);
+        alert(`✅ Imported ${importedCount} new contacts! (${contacts.length - importedCount} already existed)`);
+    };
+
     // Load saved credentials
     useEffect(() => {
         const savedAccountId = localStorage.getItem('meta_ad_account_id');
@@ -760,12 +851,55 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
         const allAds = [...existingAds, ...newAds];
         localStorage.setItem('ads', JSON.stringify(allAds));
 
+        // Auto-create contacts from ads with messaging results
+        const existingContactsStr = localStorage.getItem('pipeline_contacts');
+        const existingContacts = existingContactsStr ? JSON.parse(existingContactsStr) : [];
+        let contactsCreated = 0;
+
+        // For each ad with messaging results, create placeholder contacts
+        newAds.forEach((ad: any) => {
+            const metrics = ad.adInsights;
+            const messagesStarted = metrics?.messagesStarted || 0;
+
+            // If ad has messaging results, create contacts based on the count
+            // (These are placeholder contacts - real names come from webhook)
+            if (messagesStarted > 0) {
+                for (let i = 0; i < Math.min(messagesStarted, 10); i++) { // Cap at 10 per ad
+                    const contactId = `contact-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                    existingContacts.push({
+                        id: contactId,
+                        name: `Lead from "${ad.name?.substring(0, 30) || 'Ad'}" #${i + 1}`,
+                        sourceAdId: ad.facebookAdId || ad.id,
+                        sourceAdName: ad.name,
+                        source: 'ad',
+                        messages: [],
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    });
+                    contactsCreated++;
+                }
+            }
+        });
+
+        if (contactsCreated > 0) {
+            localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
+        }
+
         // Reset state
         setTimeout(() => {
             setImportProgress(null);
             setSelectedAds(new Set());
             setFacebookAds([]);
-            alert(`✅ Successfully imported ${newAds.length} ads! They are now available in the Algorithm and My Ads pages.`);
+
+            let message = `✅ Successfully imported ${newAds.length} ads!`;
+            if (contactsCreated > 0) {
+                message += `\n📱 Created ${contactsCreated} lead contacts from messaging ads!`;
+            }
+            message += '\n\nYour ads are now available in the Algorithm and My Ads pages.';
+            if (contactsCreated > 0) {
+                message += '\nContacts are available in the Pipeline page.';
+            }
+            alert(message);
         }, 500);
     };
 
