@@ -41,7 +41,11 @@ interface FacebookMetrics {
     // Messages
     messages?: number;
     messagesStarted?: number;
+    newMessagingContacts?: number;
+    totalMessagingContacts?: number;
     costPerMessage?: number;
+    costPerMessageStarted?: number;
+    costPerOutboundClick?: number;
     // Conversions
     leads?: number;
     purchases?: number;
@@ -1080,111 +1084,112 @@ export default function ImportPage() {
                                                     </div>
                                                 )}
 
-                                                {/* Expandable detailed metrics */}
-                                                <details style={{ marginTop: '4px' }}>
-                                                    <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.6875rem', marginBottom: '6px' }}>
-                                                        📊 Show detailed metrics
+                                                {/* Expandable ALL METRICS section */}
+                                                <details style={{ marginTop: '8px' }}>
+                                                    <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '8px', fontWeight: 600 }}>
+                                                        📊 Show ALL Metrics (Complete Data)
                                                     </summary>
                                                     <div style={{
-                                                        display: 'flex',
-                                                        gap: '5px',
-                                                        flexWrap: 'wrap',
-                                                        padding: '8px',
                                                         background: 'var(--bg-secondary)',
                                                         borderRadius: '8px',
-                                                        marginTop: '4px'
+                                                        padding: '12px',
+                                                        marginTop: '4px',
+                                                        fontSize: '0.7rem'
                                                     }}>
-                                                        {/* Cost Metrics */}
-                                                        {(ad.metrics.cpc ?? 0) > 0 && (
-                                                            <span title="Cost Per Click" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                ₱{ad.metrics.cpc?.toFixed(2)} CPC
-                                                            </span>
-                                                        )}
-                                                        {(ad.metrics.cpm ?? 0) > 0 && (
-                                                            <span title="Cost Per 1000 Impressions" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                ₱{ad.metrics.cpm?.toFixed(2)} CPM
-                                                            </span>
-                                                        )}
-                                                        {(ad.metrics.costPerLead ?? 0) > 0 && (
-                                                            <span title="Cost Per Lead" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                ₱{ad.metrics.costPerLead?.toFixed(2)} CPL
-                                                            </span>
-                                                        )}
-                                                        {(ad.metrics.costPerMessage ?? 0) > 0 && (
-                                                            <span title="Cost Per Message" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                ₱{ad.metrics.costPerMessage?.toFixed(2)} per msg
-                                                            </span>
-                                                        )}
+                                                        {/* Core Metrics */}
+                                                        <div style={{ marginBottom: '12px' }}>
+                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>📈 Core Metrics</div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '4px' }}>
+                                                                <div>Impressions: <strong>{ad.metrics.impressions?.toLocaleString() ?? 0}</strong></div>
+                                                                <div>Reach: <strong>{ad.metrics.reach?.toLocaleString() ?? 0}</strong></div>
+                                                                <div>Frequency: <strong>{(ad.metrics.frequency ?? 0).toFixed(2)}</strong></div>
+                                                                <div>Spend: <strong>₱{(ad.metrics.spend ?? 0).toFixed(2)}</strong></div>
+                                                                <div>CTR (all): <strong>{(ad.metrics.ctr ?? 0).toFixed(2)}%</strong></div>
+                                                                <div>CPM: <strong>₱{(ad.metrics.cpm ?? 0).toFixed(2)}</strong></div>
+                                                            </div>
+                                                        </div>
 
-                                                        {/* Engagement - only show if has data */}
-                                                        {(ad.metrics.linkClicks ?? 0) > 0 && (
-                                                            <span title="Clicks on links in your ad" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                🔗 {ad.metrics.linkClicks} link clicks
-                                                            </span>
-                                                        )}
-                                                        {(ad.metrics.landingPageViews ?? 0) > 0 && (
-                                                            <span title="People who loaded your landing page" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                📄 {ad.metrics.landingPageViews} LPV
-                                                            </span>
-                                                        )}
-                                                        {(ad.metrics.pageEngagement ?? 0) > 0 && (
-                                                            <span title="Total engagement on your page from this ad" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                👍 {ad.metrics.pageEngagement} engagements
-                                                            </span>
-                                                        )}
-                                                        {(ad.metrics.postReactions ?? 0) > 0 && (
-                                                            <span title="Reactions on your ad post" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                ❤️ {ad.metrics.postReactions} reactions
-                                                            </span>
-                                                        )}
-                                                        {(ad.metrics.postShares ?? 0) > 0 && (
-                                                            <span title="Times your ad was shared" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                ↗️ {ad.metrics.postShares} shares
-                                                            </span>
-                                                        )}
+                                                        {/* Clicks & Links */}
+                                                        <div style={{ marginBottom: '12px' }}>
+                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>🔗 Clicks & Links</div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '4px' }}>
+                                                                <div>Clicks (all): <strong>{ad.metrics.clicks ?? 0}</strong></div>
+                                                                <div>Link Clicks: <strong>{ad.metrics.linkClicks ?? 0}</strong></div>
+                                                                <div>Unique Clicks: <strong>{ad.metrics.uniqueClicks ?? 0}</strong></div>
+                                                                <div>Outbound Clicks: <strong>{ad.metrics.outboundClicks ?? 0}</strong></div>
+                                                                <div>Landing Page Views: <strong>{ad.metrics.landingPageViews ?? 0}</strong></div>
+                                                                <div>CPC (all): <strong>₱{(ad.metrics.cpc ?? 0).toFixed(2)}</strong></div>
+                                                            </div>
+                                                        </div>
 
-                                                        {/* Video - only if video ad */}
-                                                        {(ad.metrics.videoViews ?? 0) > 0 && (
-                                                            <span title="3-second video views" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                ▶️ {ad.metrics.videoViews} views
-                                                            </span>
-                                                        )}
-                                                        {(ad.metrics.videoThruPlays ?? 0) > 0 && (
-                                                            <span title="Video played to 97% or 15+ seconds" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                🎬 {ad.metrics.videoThruPlays} ThruPlays
-                                                            </span>
-                                                        )}
-                                                        {(ad.metrics.videoAvgWatchTime ?? 0) > 0 && (
-                                                            <span title="Average time watched" style={{ background: '#3a3a4e', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help' }}>
-                                                                ⏱️ {ad.metrics.videoAvgWatchTime}s avg
-                                                            </span>
-                                                        )}
+                                                        {/* Results & Conversions */}
+                                                        <div style={{ marginBottom: '12px' }}>
+                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>🎯 Results & Conversions</div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '4px' }}>
+                                                                <div>Results: <strong>{ad.metrics.results ?? 0}</strong> ({ad.metrics.resultType ?? 'none'})</div>
+                                                                <div>Cost per Result: <strong>₱{(ad.metrics.costPerResult ?? 0).toFixed(2)}</strong></div>
+                                                                <div>Leads: <strong>{ad.metrics.leads ?? 0}</strong></div>
+                                                                <div>Cost per Lead: <strong>₱{(ad.metrics.costPerLead ?? 0).toFixed(2)}</strong></div>
+                                                                <div>Purchases: <strong>{ad.metrics.purchases ?? 0}</strong></div>
+                                                                <div>Cost per Purchase: <strong>₱{(ad.metrics.costPerPurchase ?? 0).toFixed(2)}</strong></div>
+                                                                <div>Add to Cart: <strong>{ad.metrics.addToCart ?? 0}</strong></div>
+                                                                <div>Initiate Checkout: <strong>{ad.metrics.initiateCheckout ?? 0}</strong></div>
+                                                                <div>ROAS: <strong>{(ad.metrics.purchaseRoas ?? 0).toFixed(2)}x</strong></div>
+                                                            </div>
+                                                        </div>
 
-                                                        {/* Quality Rankings - Only if not UNKNOWN */}
-                                                        {ad.metrics.qualityRanking && !['UNKNOWN', 'N/A', ''].includes(ad.metrics.qualityRanking) && (
-                                                            <span title="How your ad quality compares to competitors" style={{
-                                                                background: ad.metrics.qualityRanking === 'ABOVE_AVERAGE' ? '#22c55e' : ad.metrics.qualityRanking === 'AVERAGE' ? '#f59e0b' : '#ef4444',
-                                                                color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help'
-                                                            }}>
-                                                                Quality: {ad.metrics.qualityRanking.replace('_', ' ')}
-                                                            </span>
-                                                        )}
-                                                        {ad.metrics.engagementRateRanking && !['UNKNOWN', 'N/A', ''].includes(ad.metrics.engagementRateRanking) && (
-                                                            <span title="How your engagement rate compares" style={{
-                                                                background: ad.metrics.engagementRateRanking === 'ABOVE_AVERAGE' ? '#22c55e' : ad.metrics.engagementRateRanking === 'AVERAGE' ? '#f59e0b' : '#ef4444',
-                                                                color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help'
-                                                            }}>
-                                                                Engagement: {ad.metrics.engagementRateRanking.replace('_', ' ')}
-                                                            </span>
-                                                        )}
-                                                        {ad.metrics.conversionRateRanking && !['UNKNOWN', 'N/A', ''].includes(ad.metrics.conversionRateRanking) && (
-                                                            <span title="How your conversion rate compares" style={{
-                                                                background: ad.metrics.conversionRateRanking === 'ABOVE_AVERAGE' ? '#22c55e' : ad.metrics.conversionRateRanking === 'AVERAGE' ? '#f59e0b' : '#ef4444',
-                                                                color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6875rem', cursor: 'help'
-                                                            }}>
-                                                                Conversion: {ad.metrics.conversionRateRanking.replace('_', ' ')}
-                                                            </span>
-                                                        )}
+                                                        {/* Messaging */}
+                                                        <div style={{ marginBottom: '12px' }}>
+                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>💬 Messaging</div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '4px' }}>
+                                                                <div>Messages Started: <strong>{ad.metrics.messagesStarted ?? 0}</strong></div>
+                                                                <div>Cost per Msg Started: <strong>₱{(ad.metrics.costPerMessageStarted ?? 0).toFixed(2)}</strong></div>
+                                                                <div>Messages (First Reply): <strong>{ad.metrics.messages ?? 0}</strong></div>
+                                                                <div>Cost per Message: <strong>₱{(ad.metrics.costPerMessage ?? 0).toFixed(2)}</strong></div>
+                                                                <div>New Messaging Contacts: <strong>{ad.metrics.newMessagingContacts ?? 0}</strong></div>
+                                                                <div>Total Msging Contacts: <strong>{ad.metrics.totalMessagingContacts ?? 0}</strong></div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Engagement */}
+                                                        <div style={{ marginBottom: '12px' }}>
+                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>👍 Engagement</div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '4px' }}>
+                                                                <div>Page Engagement: <strong>{ad.metrics.pageEngagement ?? 0}</strong></div>
+                                                                <div>Post Engagement: <strong>{ad.metrics.postEngagement ?? 0}</strong></div>
+                                                                <div>Post Reactions: <strong>{ad.metrics.postReactions ?? 0}</strong></div>
+                                                                <div>Post Comments: <strong>{ad.metrics.postComments ?? 0}</strong></div>
+                                                                <div>Post Shares: <strong>{ad.metrics.postShares ?? 0}</strong></div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Video Metrics */}
+                                                        <div style={{ marginBottom: '12px' }}>
+                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>🎬 Video Metrics</div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '4px' }}>
+                                                                <div>Video Views: <strong>{ad.metrics.videoViews ?? 0}</strong></div>
+                                                                <div>Video Plays: <strong>{ad.metrics.videoPlays ?? 0}</strong></div>
+                                                                <div>ThruPlays: <strong>{ad.metrics.videoThruPlays ?? 0}</strong></div>
+                                                                <div>2-Sec Views: <strong>{ad.metrics.video2SecViews ?? 0}</strong></div>
+                                                                <div>25% Watched: <strong>{ad.metrics.video25Watched ?? 0}</strong></div>
+                                                                <div>50% Watched: <strong>{ad.metrics.video50Watched ?? 0}</strong></div>
+                                                                <div>75% Watched: <strong>{ad.metrics.video75Watched ?? 0}</strong></div>
+                                                                <div>95% Watched: <strong>{ad.metrics.video95Watched ?? 0}</strong></div>
+                                                                <div>100% Watched: <strong>{ad.metrics.video100Watched ?? 0}</strong></div>
+                                                                <div>Avg Watch Time: <strong>{ad.metrics.videoAvgWatchTime ?? 0}s</strong></div>
+                                                                <div>Cost/ThruPlay: <strong>₱{(ad.metrics.costPerThruPlay ?? 0).toFixed(2)}</strong></div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Quality Rankings */}
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>⭐ Quality Rankings</div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '4px' }}>
+                                                                <div>Quality: <strong>{ad.metrics.qualityRanking ?? '-'}</strong></div>
+                                                                <div>Engagement Rate: <strong>{ad.metrics.engagementRateRanking ?? '-'}</strong></div>
+                                                                <div>Conversion Rate: <strong>{ad.metrics.conversionRateRanking ?? '-'}</strong></div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </details>
 
@@ -1430,135 +1435,140 @@ export default function ImportPage() {
                             </div>
                         ))}
                     </div>
-                </div>
-            )}
+                </div >
+            )
+            }
 
             {/* Empty State */}
-            {facebookAds.length === 0 && !isLoading && (
-                <div className="glass-card" style={{
-                    padding: 'var(--spacing-xl)',
-                    textAlign: 'center',
-                    color: 'var(--text-muted)'
-                }}>
-                    <div style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)' }}>📥</div>
-                    <h3>Import Existing Ads</h3>
-                    <p>Connect your Facebook Ad Account to import ads with auto-filled results</p>
-                    <ul style={{ textAlign: 'left', maxWidth: '400px', margin: '0 auto', marginTop: 'var(--spacing-md)' }}>
-                        <li>✅ Auto-fetch impressions, clicks, CTR, conversions</li>
-                        <li>✅ Import active, paused, or archived ads</li>
-                        <li>✅ Tag traits for AI learning</li>
-                        <li>✅ Sync results anytime to update algorithm</li>
-                    </ul>
-                </div>
-            )}
+            {
+                facebookAds.length === 0 && !isLoading && (
+                    <div className="glass-card" style={{
+                        padding: 'var(--spacing-xl)',
+                        textAlign: 'center',
+                        color: 'var(--text-muted)'
+                    }}>
+                        <div style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)' }}>📥</div>
+                        <h3>Import Existing Ads</h3>
+                        <p>Connect your Facebook Ad Account to import ads with auto-filled results</p>
+                        <ul style={{ textAlign: 'left', maxWidth: '400px', margin: '0 auto', marginTop: 'var(--spacing-md)' }}>
+                            <li>✅ Auto-fetch impressions, clicks, CTR, conversions</li>
+                            <li>✅ Import active, paused, or archived ads</li>
+                            <li>✅ Tag traits for AI learning</li>
+                            <li>✅ Sync results anytime to update algorithm</li>
+                        </ul>
+                    </div>
+                )
+            }
 
             {/* Metric Insight Modal */}
-            {metricModal && metricModal.open && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'rgba(0,0,0,0.8)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 1000
-                    }}
-                    onClick={() => setMetricModal(null)}
-                >
+            {
+                metricModal && metricModal.open && (
                     <div
                         style={{
-                            background: 'var(--bg-secondary)',
-                            borderRadius: '16px',
-                            padding: '24px',
-                            maxWidth: '500px',
-                            width: '90%',
-                            border: '1px solid var(--border-primary)'
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0,0,0,0.8)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1000
                         }}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={() => setMetricModal(null)}
                     >
-                        {(() => {
-                            const info = metricInfo[metricModal.metric];
-                            const numValue = typeof metricModal.value === 'number' ? metricModal.value : parseFloat(metricModal.value) || 0;
-                            const rating = info?.benchmark(numValue);
-                            const ratingColor = rating === 'good' ? '#22c55e' : rating === 'average' ? '#f59e0b' : '#ef4444';
-                            const ratingEmoji = rating === 'good' ? '✅' : rating === 'average' ? '⚡' : '⚠️';
+                        <div
+                            style={{
+                                background: 'var(--bg-secondary)',
+                                borderRadius: '16px',
+                                padding: '24px',
+                                maxWidth: '500px',
+                                width: '90%',
+                                border: '1px solid var(--border-primary)'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {(() => {
+                                const info = metricInfo[metricModal.metric];
+                                const numValue = typeof metricModal.value === 'number' ? metricModal.value : parseFloat(metricModal.value) || 0;
+                                const rating = info?.benchmark(numValue);
+                                const ratingColor = rating === 'good' ? '#22c55e' : rating === 'average' ? '#f59e0b' : '#ef4444';
+                                const ratingEmoji = rating === 'good' ? '✅' : rating === 'average' ? '⚡' : '⚠️';
 
-                            return info ? (
-                                <>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                        <h3 style={{ margin: 0 }}>{info.name}</h3>
-                                        <button
-                                            onClick={() => setMetricModal(null)}
-                                            style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}
-                                        >×</button>
-                                    </div>
-
-                                    <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                                        {info.description}
-                                    </p>
-
-                                    <div style={{
-                                        background: 'var(--bg-tertiary)',
-                                        padding: '16px',
-                                        borderRadius: '12px',
-                                        marginBottom: '16px',
-                                        textAlign: 'center'
-                                    }}>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                                            Current Value for &quot;{metricModal.adName}&quot;
+                                return info ? (
+                                    <>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                            <h3 style={{ margin: 0 }}>{info.name}</h3>
+                                            <button
+                                                onClick={() => setMetricModal(null)}
+                                                style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                            >×</button>
                                         </div>
-                                        <div style={{ fontSize: '2rem', fontWeight: 700 }}>
-                                            {typeof metricModal.value === 'number'
-                                                ? (metricModal.metric.includes('ctr') || metricModal.metric.includes('frequency')
-                                                    ? `${metricModal.value.toFixed(2)}${metricModal.metric === 'ctr' ? '%' : ''}`
-                                                    : `₱${metricModal.value.toFixed(2)}`)
-                                                : metricModal.value
-                                            }
-                                        </div>
+
+                                        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                                            {info.description}
+                                        </p>
+
                                         <div style={{
-                                            display: 'inline-block',
-                                            marginTop: '8px',
-                                            padding: '4px 12px',
-                                            borderRadius: '20px',
-                                            background: ratingColor,
-                                            color: '#000',
-                                            fontWeight: 600,
-                                            fontSize: '0.875rem'
+                                            background: 'var(--bg-tertiary)',
+                                            padding: '16px',
+                                            borderRadius: '12px',
+                                            marginBottom: '16px',
+                                            textAlign: 'center'
                                         }}>
-                                            {ratingEmoji} {rating?.toUpperCase()} PERFORMANCE
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                                Current Value for &quot;{metricModal.adName}&quot;
+                                            </div>
+                                            <div style={{ fontSize: '2rem', fontWeight: 700 }}>
+                                                {typeof metricModal.value === 'number'
+                                                    ? (metricModal.metric.includes('ctr') || metricModal.metric.includes('frequency')
+                                                        ? `${metricModal.value.toFixed(2)}${metricModal.metric === 'ctr' ? '%' : ''}`
+                                                        : `₱${metricModal.value.toFixed(2)}`)
+                                                    : metricModal.value
+                                                }
+                                            </div>
+                                            <div style={{
+                                                display: 'inline-block',
+                                                marginTop: '8px',
+                                                padding: '4px 12px',
+                                                borderRadius: '20px',
+                                                background: ratingColor,
+                                                color: '#000',
+                                                fontWeight: 600,
+                                                fontSize: '0.875rem'
+                                            }}>
+                                                {ratingEmoji} {rating?.toUpperCase()} PERFORMANCE
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div style={{ fontSize: '0.875rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#22c55e' }}></span>
-                                            <span><strong>Good:</strong> {info.good}</span>
+                                        <div style={{ fontSize: '0.875rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#22c55e' }}></span>
+                                                <span><strong>Good:</strong> {info.good}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f59e0b' }}></span>
+                                                <span><strong>Average:</strong> {info.average}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }}></span>
+                                                <span><strong>Needs Work:</strong> {info.poor}</span>
+                                            </div>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f59e0b' }}></span>
-                                            <span><strong>Average:</strong> {info.average}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }}></span>
-                                            <span><strong>Needs Work:</strong> {info.poor}</span>
-                                        </div>
+                                    </>
+                                ) : (
+                                    <div>
+                                        <h3>{metricModal.metric}</h3>
+                                        <p>Value: {metricModal.value}</p>
+                                        <button onClick={() => setMetricModal(null)} className="btn">Close</button>
                                     </div>
-                                </>
-                            ) : (
-                                <div>
-                                    <h3>{metricModal.metric}</h3>
-                                    <p>Value: {metricModal.value}</p>
-                                    <button onClick={() => setMetricModal(null)} className="btn">Close</button>
-                                </div>
-                            );
-                        })()}
+                                );
+                            })()}
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
