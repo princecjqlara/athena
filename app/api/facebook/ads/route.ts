@@ -63,30 +63,37 @@ export async function GET(request: NextRequest) {
                 };
             }) => {
                 try {
-                    // Comprehensive insights fields
+                    // Comprehensive insights fields - ALL available metrics
                     const insightsFields = [
-                        'impressions',
-                        'reach',
-                        'clicks',
-                        'unique_clicks',
-                        'ctr',
-                        'unique_ctr',
-                        'cpc',
-                        'cpm',
-                        'cpp', // cost per 1000 people reached
-                        'spend',
-                        'frequency',
-                        'actions',
-                        'cost_per_action_type',
-                        'video_p25_watched_actions',
-                        'video_p50_watched_actions',
-                        'video_p75_watched_actions',
-                        'video_p100_watched_actions',
-                        'video_play_actions',
-                        'inline_link_clicks',
-                        'inline_post_engagement',
-                        'outbound_clicks',
-                        'social_spend'
+                        // Core
+                        'impressions', 'reach', 'frequency', 'spend',
+                        'clicks', 'unique_clicks', 'ctr', 'unique_ctr',
+                        'cpc', 'cpm', 'cpp',
+                        // Actions
+                        'actions', 'action_values', 'cost_per_action_type',
+                        'cost_per_unique_action_type',
+                        // Links
+                        'inline_link_clicks', 'unique_inline_link_clicks',
+                        'inline_link_click_ctr', 'outbound_clicks',
+                        'cost_per_inline_link_click', 'cost_per_outbound_click',
+                        // Engagement
+                        'inline_post_engagement', 'social_spend',
+                        // Video
+                        'video_play_actions', 'video_avg_time_watched_actions',
+                        'video_p25_watched_actions', 'video_p50_watched_actions',
+                        'video_p75_watched_actions', 'video_p95_watched_actions',
+                        'video_p100_watched_actions', 'video_30_sec_watched_actions',
+                        'video_thruplay_watched_actions',
+                        'video_continuous_2_sec_watched_actions',
+                        'cost_per_thruplay',
+                        // Quality
+                        'quality_ranking', 'engagement_rate_ranking', 'conversion_rate_ranking',
+                        // Ad Recall
+                        'estimated_ad_recallers', 'estimated_ad_recall_rate',
+                        'cost_per_estimated_ad_recallers',
+                        // Conversions
+                        'conversions', 'conversion_values', 'cost_per_conversion',
+                        'purchase_roas', 'mobile_app_purchase_roas'
                     ].join(',');
 
                     // Main insights call
@@ -139,6 +146,16 @@ export async function GET(request: NextRequest) {
                     const costPerLinkClick = getCostPerAction('link_click');
                     const costPerMessage = getCostPerAction('onsite_conversion.messaging_first_reply');
                     const costPerPageEngagement = getCostPerAction('page_engagement');
+                    const costPerLandingPageView = getCostPerAction('landing_page_view');
+                    const costPerAddToCart = getCostPerAction('add_to_cart');
+                    const costPerContentView = getCostPerAction('view_content');
+
+                    // Additional actions
+                    const contentViews = getAction('view_content');
+                    const completeRegistration = getAction('complete_registration');
+                    const phoneCalls = getAction('phone_call');
+                    const postSaves = getAction('onsite_conversion.post_save');
+                    const pageLikes = getAction('like');
 
                     // Determine primary result and cost per result
                     let primaryResult = 0;
@@ -215,6 +232,42 @@ export async function GET(request: NextRequest) {
                         console.log('Regions not available');
                     }
 
+                    // Fetch by impression device
+                    let byDevice: { device: string; impressions: number; clicks: number; spend: number }[] = [];
+                    try {
+                        const deviceUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,clicks,spend&breakdowns=impression_device&date_preset=maximum&access_token=${accessToken}`;
+                        const deviceResponse = await fetch(deviceUrl);
+                        const deviceData = await deviceResponse.json();
+                        if (deviceData.data) {
+                            byDevice = deviceData.data.map((d: { impression_device: string; impressions?: string; clicks?: string; spend?: string }) => ({
+                                device: d.impression_device,
+                                impressions: parseInt(d.impressions || '0'),
+                                clicks: parseInt(d.clicks || '0'),
+                                spend: parseFloat(d.spend || '0')
+                            }));
+                        }
+                    } catch (e) {
+                        console.log('Device breakdown not available');
+                    }
+
+                    // Fetch by platform
+                    let byPlatform: { platform: string; impressions: number; clicks: number; spend: number }[] = [];
+                    try {
+                        const platformUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,clicks,spend&breakdowns=publisher_platform&date_preset=maximum&access_token=${accessToken}`;
+                        const platformResponse = await fetch(platformUrl);
+                        const platformData = await platformResponse.json();
+                        if (platformData.data) {
+                            byPlatform = platformData.data.map((p: { publisher_platform: string; impressions?: string; clicks?: string; spend?: string }) => ({
+                                platform: p.publisher_platform,
+                                impressions: parseInt(p.impressions || '0'),
+                                clicks: parseInt(p.clicks || '0'),
+                                spend: parseFloat(p.spend || '0')
+                            }));
+                        }
+                    } catch (e) {
+                        console.log('Platform breakdown not available');
+                    }
+
                     // Determine media type from creative
                     let mediaType = 'unknown';
                     let thumbnailUrl = ad.creative?.thumbnail_url || '';
@@ -286,15 +339,44 @@ export async function GET(request: NextRequest) {
                             // Video metrics
                             videoViews,
                             videoPlays: insights.video_play_actions?.[0]?.value || 0,
+                            videoThruPlays: insights.video_thruplay_watched_actions?.[0]?.value || 0,
+                            video2SecViews: insights.video_continuous_2_sec_watched_actions?.[0]?.value || 0,
                             video25Watched: getVideoMetric(insights.video_p25_watched_actions),
                             video50Watched: getVideoMetric(insights.video_p50_watched_actions),
                             video75Watched: getVideoMetric(insights.video_p75_watched_actions),
+                            video95Watched: insights.video_p95_watched_actions?.[0]?.value || 0,
                             video100Watched: getVideoMetric(insights.video_p100_watched_actions),
+                            videoAvgWatchTime: insights.video_avg_time_watched_actions?.[0]?.value || 0,
+                            costPerThruPlay: parseFloat(insights.cost_per_thruplay?.[0]?.value) || 0,
+
+                            // Quality Rankings
+                            qualityRanking: insights.quality_ranking || 'N/A',
+                            engagementRateRanking: insights.engagement_rate_ranking || 'N/A',
+                            conversionRateRanking: insights.conversion_rate_ranking || 'N/A',
+
+                            // Estimated Ad Recall
+                            estimatedAdRecallers: parseInt(insights.estimated_ad_recallers) || 0,
+                            estimatedAdRecallRate: parseFloat(insights.estimated_ad_recall_rate) || 0,
+
+                            // Additional conversions
+                            contentViews,
+                            completeRegistration,
+                            phoneCalls,
+                            postSaves,
+                            pageLikes,
+                            costPerLandingPageView,
+                            costPerAddToCart,
+                            costPerContentView,
+
+                            // ROAS
+                            purchaseRoas: parseFloat(insights.purchase_roas?.[0]?.value) || 0,
                         },
                         // Breakdowns
                         demographics,
                         placements,
-                        regions
+                        regions,
+                        byDevice,
+                        byPlatform
                     };
                 } catch (err) {
                     console.error(`Error fetching insights for ad ${ad.id}:`, err);
@@ -309,7 +391,9 @@ export async function GET(request: NextRequest) {
                         metrics: null,
                         demographics: [],
                         placements: [],
-                        regions: []
+                        regions: [],
+                        byDevice: [],
+                        byPlatform: []
                     };
                 }
             })
