@@ -124,6 +124,14 @@ export async function GET(request: NextRequest) {
                     const actions = insights.actions || [];
                     const costPerAction = insights.cost_per_action_type || [];
 
+                    // Debug: Log all action types to diagnose
+                    if (actions.length > 0) {
+                        console.log(`[Ad ${ad.id}] All actions:`, actions.map((a: {action_type: string; value: string}) => `${a.action_type}=${a.value}`).join(', '));
+                    }
+                    if (costPerAction.length > 0) {
+                        console.log(`[Ad ${ad.id}] Cost per action:`, costPerAction.map((a: {action_type: string; value: string}) => `${a.action_type}=${a.value}`).join(', '));
+                    }
+
                     // Helper to get action values
                     const getAction = (type: string) => {
                         const action = actions.find((a: { action_type: string; value: string }) => a.action_type === type);
