@@ -77,6 +77,85 @@ export default function FacebookLogin({ appId, onSuccess, onError }: FacebookLog
         };
     }, [appId]);
 
+    // Process login response - separated to avoid async callback issue with FB SDK
+    const processLoginResponse = (shortLivedToken: string, userID: string, expiresIn: number) => {
+        // Exchange short-lived token for long-lived token
+        fetch('/api/facebook/exchange-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shortLivedToken })
+        })
+            .then(res => res.json())
+            .then(exchangeData => {
+                // Use long-lived token if exchange succeeded, otherwise fall back to short-lived
+                const accessToken = exchangeData.success
+                    ? exchangeData.accessToken
+                    : shortLivedToken;
+
+                const tokenExpiresAt = exchangeData.success
+                    ? exchangeData.expiresAt
+                    : new Date(Date.now() + expiresIn * 1000).toISOString();
+
+                console.log(exchangeData.success
+                    ? '✅ Using long-lived token (expires in ~60 days)'
+                    : '⚠️ Using short-lived token (exchange failed: ' + (exchangeData.error || 'unknown') + ')');
+
+                // Get user info and ad accounts
+                window.FB.api('/me', { fields: 'name,email' }, (userInfo: any) => {
+                    window.FB.api('/me/adaccounts', { fields: 'name,account_id' }, (adAccountsResponse: any) => {
+                        const authData: FacebookAuthResponse = {
+                            accessToken,
+                            userID,
+                            expiresIn: exchangeData.success ? exchangeData.expiresIn : expiresIn,
+                            name: userInfo.name,
+                            email: userInfo.email,
+                            adAccounts: adAccountsResponse.data || []
+                        };
+
+                        // Save to localStorage with token type and expiry info
+                        localStorage.setItem('fb_access_token', accessToken);
+                        localStorage.setItem('fb_token_type', exchangeData.success ? 'long_lived' : 'short_lived');
+                        localStorage.setItem('fb_token_expires_at', tokenExpiresAt);
+                        localStorage.setItem('fb_user_id', userID);
+                        localStorage.setItem('fb_user_name', userInfo.name || '');
+                        localStorage.setItem('fb_ad_accounts', JSON.stringify(adAccountsResponse.data || []));
+
+                        setIsConnected(true);
+                        setUserName(userInfo.name);
+                        setIsLoading(false);
+                        onSuccess(authData);
+                    });
+                });
+            })
+            .catch(err => {
+                console.error('Token exchange error:', err);
+                // Fall back to short-lived token
+                window.FB.api('/me', { fields: 'name,email' }, (userInfo: any) => {
+                    window.FB.api('/me/adaccounts', { fields: 'name,account_id' }, (adAccountsResponse: any) => {
+                        const authData: FacebookAuthResponse = {
+                            accessToken: shortLivedToken,
+                            userID,
+                            expiresIn,
+                            name: userInfo.name,
+                            email: userInfo.email,
+                            adAccounts: adAccountsResponse.data || []
+                        };
+
+                        localStorage.setItem('fb_access_token', shortLivedToken);
+                        localStorage.setItem('fb_token_type', 'short_lived');
+                        localStorage.setItem('fb_user_id', userID);
+                        localStorage.setItem('fb_user_name', userInfo.name || '');
+                        localStorage.setItem('fb_ad_accounts', JSON.stringify(adAccountsResponse.data || []));
+
+                        setIsConnected(true);
+                        setUserName(userInfo.name);
+                        setIsLoading(false);
+                        onSuccess(authData);
+                    });
+                });
+            });
+    };
+
     const handleLogin = () => {
         if (!isSDKLoaded) {
             onError?.('Facebook SDK not loaded yet');
@@ -85,86 +164,10 @@ export default function FacebookLogin({ appId, onSuccess, onError }: FacebookLog
 
         setIsLoading(true);
 
-        window.FB.login(async (response: any) => {
+        window.FB.login((response: any) => {
             if (response.authResponse) {
-                const { accessToken: shortLivedToken, userID, expiresIn } = response.authResponse;
-
-                try {
-                    // Exchange short-lived token for long-lived token
-                    const exchangeResponse = await fetch('/api/facebook/exchange-token', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ shortLivedToken })
-                    });
-
-                    const exchangeData = await exchangeResponse.json();
-
-                    // Use long-lived token if exchange succeeded, otherwise fall back to short-lived
-                    const accessToken = exchangeData.success
-                        ? exchangeData.accessToken
-                        : shortLivedToken;
-
-                    const tokenExpiresAt = exchangeData.success
-                        ? exchangeData.expiresAt
-                        : new Date(Date.now() + expiresIn * 1000).toISOString();
-
-                    console.log(exchangeData.success
-                        ? '✅ Using long-lived token (expires in ~60 days)'
-                        : '⚠️ Using short-lived token (exchange failed: ' + (exchangeData.error || 'unknown') + ')');
-
-                    // Get user info and ad accounts
-                    window.FB.api('/me', { fields: 'name,email' }, (userInfo: any) => {
-                        window.FB.api('/me/adaccounts', { fields: 'name,account_id' }, (adAccountsResponse: any) => {
-                            const authData: FacebookAuthResponse = {
-                                accessToken,
-                                userID,
-                                expiresIn: exchangeData.success ? exchangeData.expiresIn : expiresIn,
-                                name: userInfo.name,
-                                email: userInfo.email,
-                                adAccounts: adAccountsResponse.data || []
-                            };
-
-                            // Save to localStorage with token type and expiry info
-                            localStorage.setItem('fb_access_token', accessToken);
-                            localStorage.setItem('fb_token_type', exchangeData.success ? 'long_lived' : 'short_lived');
-                            localStorage.setItem('fb_token_expires_at', tokenExpiresAt);
-                            localStorage.setItem('fb_user_id', userID);
-                            localStorage.setItem('fb_user_name', userInfo.name || '');
-                            localStorage.setItem('fb_ad_accounts', JSON.stringify(adAccountsResponse.data || []));
-
-                            setIsConnected(true);
-                            setUserName(userInfo.name);
-                            setIsLoading(false);
-                            onSuccess(authData);
-                        });
-                    });
-                } catch (err) {
-                    console.error('Token exchange error:', err);
-                    // Fall back to short-lived token
-                    window.FB.api('/me', { fields: 'name,email' }, (userInfo: any) => {
-                        window.FB.api('/me/adaccounts', { fields: 'name,account_id' }, (adAccountsResponse: any) => {
-                            const authData: FacebookAuthResponse = {
-                                accessToken: shortLivedToken,
-                                userID,
-                                expiresIn,
-                                name: userInfo.name,
-                                email: userInfo.email,
-                                adAccounts: adAccountsResponse.data || []
-                            };
-
-                            localStorage.setItem('fb_access_token', shortLivedToken);
-                            localStorage.setItem('fb_token_type', 'short_lived');
-                            localStorage.setItem('fb_user_id', userID);
-                            localStorage.setItem('fb_user_name', userInfo.name || '');
-                            localStorage.setItem('fb_ad_accounts', JSON.stringify(adAccountsResponse.data || []));
-
-                            setIsConnected(true);
-                            setUserName(userInfo.name);
-                            setIsLoading(false);
-                            onSuccess(authData);
-                        });
-                    });
-                }
+                const { accessToken, userID, expiresIn } = response.authResponse;
+                processLoginResponse(accessToken, userID, expiresIn);
             } else {
                 setIsLoading(false);
                 onError?.('User cancelled login or did not fully authorize.');
