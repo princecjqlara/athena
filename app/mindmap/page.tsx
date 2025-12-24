@@ -276,6 +276,10 @@ interface Node3D {
     actualScore?: number;
     thumbnailUrl?: string;
     traits?: string[];
+    // Facebook metrics for Results orb
+    adInsights?: AdEntry['adInsights'];
+    resultsDescription?: string;
+    status?: string;
 }
 
 // Extended AdEntry interface to support all ExtractedAdData fields
@@ -352,6 +356,37 @@ interface AdEntry {
     thumbnailUrl?: string;
     successScore?: number;
     predictedScore?: number;
+    // Facebook insights data
+    adInsights?: {
+        impressions?: number;
+        reach?: number;
+        clicks?: number;
+        ctr?: number;
+        spend?: number;
+        cpc?: number;
+        cpm?: number;
+        frequency?: number;
+        resultType?: string;
+        results?: number;
+        costPerResult?: number;
+        linkClicks?: number;
+        landingPageViews?: number;
+        pageEngagement?: number;
+        postReactions?: number;
+        postComments?: number;
+        postShares?: number;
+        leads?: number;
+        purchases?: number;
+        messagesStarted?: number;
+        costPerMessage?: number;
+        videoViews?: number;
+        videoThruPlays?: number;
+        qualityRanking?: string;
+        engagementRateRanking?: string;
+        conversionRateRanking?: string;
+    };
+    resultsDescription?: string;
+    status?: string;
 }
 
 export default function MindMapPage() {
@@ -762,6 +797,10 @@ export default function MindMapPage() {
                 actualScore,
                 thumbnailUrl: ad.thumbnailUrl,
                 traits: adTraits,
+                // Facebook metrics for Results orb
+                adInsights: ad.adInsights,
+                resultsDescription: ad.resultsDescription,
+                status: ad.status,
             });
         });
 
@@ -1501,6 +1540,105 @@ export default function MindMapPage() {
                                     </span>
                                 )}
                             </div>
+                        </div>
+                    )}
+
+                    {/* 📊 Results Orb - Facebook Metrics Display */}
+                    {selectedNode.type === 'ad' && selectedNode.adInsights && (
+                        <div className={styles.resultsOrb}>
+                            <h4 style={{ color: '#c8f560', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                📊 Results Orb
+                                {selectedNode.status && (
+                                    <span style={{
+                                        fontSize: '0.65rem',
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        background: selectedNode.status === 'ACTIVE' ? '#22c55e' :
+                                            selectedNode.status === 'PAUSED' ? '#f59e0b' : '#6b7280',
+                                        color: '#000'
+                                    }}>
+                                        {selectedNode.status}
+                                    </span>
+                                )}
+                            </h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '0.75rem' }}>
+                                {/* Spend */}
+                                <div style={{ background: 'rgba(200, 245, 96, 0.1)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ color: '#c8f560', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                        ₱{(selectedNode.adInsights.spend || 0).toFixed(2)}
+                                    </div>
+                                    <div style={{ color: '#888' }}>Spend</div>
+                                </div>
+                                {/* Results */}
+                                <div style={{ background: 'rgba(200, 245, 96, 0.1)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ color: '#10b981', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                        {selectedNode.adInsights.results || 0}
+                                    </div>
+                                    <div style={{ color: '#888' }}>{selectedNode.adInsights.resultType || 'Results'}</div>
+                                </div>
+                                {/* CTR */}
+                                <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ color: '#3b82f6', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                        {(selectedNode.adInsights.ctr || 0).toFixed(2)}%
+                                    </div>
+                                    <div style={{ color: '#888' }}>CTR</div>
+                                </div>
+                                {/* Cost per Result */}
+                                <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ color: '#ef4444', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                        ₱{(selectedNode.adInsights.costPerResult || 0).toFixed(2)}
+                                    </div>
+                                    <div style={{ color: '#888' }}>Cost/Result</div>
+                                </div>
+                                {/* Impressions */}
+                                <div style={{ background: 'rgba(139, 92, 246, 0.1)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ color: '#8b5cf6', fontSize: '1rem', fontWeight: 'bold' }}>
+                                        {(selectedNode.adInsights.impressions || 0).toLocaleString()}
+                                    </div>
+                                    <div style={{ color: '#888' }}>Impressions</div>
+                                </div>
+                                {/* Reach */}
+                                <div style={{ background: 'rgba(236, 72, 153, 0.1)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ color: '#ec4899', fontSize: '1rem', fontWeight: 'bold' }}>
+                                        {(selectedNode.adInsights.reach || 0).toLocaleString()}
+                                    </div>
+                                    <div style={{ color: '#888' }}>Reach</div>
+                                </div>
+                                {/* Clicks */}
+                                <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ color: '#f59e0b', fontSize: '1rem', fontWeight: 'bold' }}>
+                                        {selectedNode.adInsights.clicks || 0}
+                                    </div>
+                                    <div style={{ color: '#888' }}>Clicks</div>
+                                </div>
+                                {/* Engagement */}
+                                <div style={{ background: 'rgba(34, 197, 94, 0.1)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ color: '#22c55e', fontSize: '1rem', fontWeight: 'bold' }}>
+                                        {selectedNode.adInsights.pageEngagement || 0}
+                                    </div>
+                                    <div style={{ color: '#888' }}>Engagement</div>
+                                </div>
+                            </div>
+                            {/* Additional metrics row */}
+                            {(selectedNode.adInsights.messagesStarted || selectedNode.adInsights.leads || selectedNode.adInsights.videoViews) && (
+                                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                                    {selectedNode.adInsights.messagesStarted && (
+                                        <span style={{ background: '#1e40af', color: '#93c5fd', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem' }}>
+                                            💬 {selectedNode.adInsights.messagesStarted} messages
+                                        </span>
+                                    )}
+                                    {selectedNode.adInsights.leads && (
+                                        <span style={{ background: '#065f46', color: '#6ee7b7', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem' }}>
+                                            📋 {selectedNode.adInsights.leads} leads
+                                        </span>
+                                    )}
+                                    {selectedNode.adInsights.videoViews && (
+                                        <span style={{ background: '#7c2d12', color: '#fdba74', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem' }}>
+                                            ▶️ {selectedNode.adInsights.videoViews} views
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 

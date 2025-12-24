@@ -401,24 +401,86 @@ export default function ImportPage() {
                     if (fbAd.metrics) {
                         updatedCount++;
 
-                        // Calculate success score based on CTR
-                        const successScore = Math.min(100, Math.round((fbAd.metrics.ctr || 0) * 20));
+                        // Calculate success score based on multiple metrics
+                        const m = fbAd.metrics;
+                        let score = 0, factors = 0;
+                        if (m.ctr && m.ctr > 0) { score += Math.min(40, m.ctr * 10); factors++; }
+                        if (m.results && m.results > 0 && m.impressions && m.impressions > 0) {
+                            score += Math.min(40, (m.results / m.impressions) * 1000); factors++;
+                        } else if (m.messagesStarted && m.messagesStarted > 0) {
+                            score += Math.min(40, m.messagesStarted * 4); factors++;
+                        }
+                        if (m.pageEngagement && m.pageEngagement > 0 && m.impressions && m.impressions > 0) {
+                            score += Math.min(20, (m.pageEngagement / m.impressions) * 500); factors++;
+                        }
+                        const successScore = factors > 0 ? Math.round(Math.min(100, score)) : undefined;
+
+                        // Generate updated results description
+                        const resultsDescription = `📊 Facebook Ad Performance Report (Updated: ${new Date().toLocaleString()})
+
+📅 Status: ${fbAd.effectiveStatus}
+💰 Total Spend: ₱${(m.spend || 0).toFixed(2)}
+
+📈 REACH & IMPRESSIONS
+• Impressions: ${(m.impressions || 0).toLocaleString()}
+• Reach: ${(m.reach || 0).toLocaleString()}
+• Frequency: ${(m.frequency || 0).toFixed(2)}
+
+🔗 CLICKS & ENGAGEMENT
+• Total Clicks: ${m.clicks || 0}
+• Link Clicks: ${m.linkClicks || 0}
+• CTR: ${(m.ctr || 0).toFixed(2)}%
+• CPC: ₱${(m.cpc || 0).toFixed(2)}
+• CPM: ₱${(m.cpm || 0).toFixed(2)}
+
+🎯 RESULTS & CONVERSIONS
+• Result Type: ${m.resultType || 'N/A'}
+• Results: ${m.results || 0}
+• Cost per Result: ₱${(m.costPerResult || 0).toFixed(2)}
+${m.leads ? `• Leads: ${m.leads}` : ''}
+${m.purchases ? `• Purchases: ${m.purchases}` : ''}
+${m.messagesStarted ? `• Messages Started: ${m.messagesStarted}` : ''}
+
+👍 ENGAGEMENT
+• Page Engagement: ${m.pageEngagement || 0}
+• Post Reactions: ${m.postReactions || 0}
+• Comments: ${m.postComments || 0}
+• Shares: ${m.postShares || 0}`;
 
                         return {
                             ...ad,
                             adInsights: {
-                                impressions: fbAd.metrics.impressions,
-                                clicks: fbAd.metrics.clicks,
-                                ctr: fbAd.metrics.ctr,
-                                reach: fbAd.metrics.reach,
-                                spend: fbAd.metrics.spend,
-                                cpc: fbAd.metrics.cpc,
-                                frequency: fbAd.metrics.frequency,
-                                leads: fbAd.metrics.leads,
-                                purchases: fbAd.metrics.purchases,
+                                impressions: m.impressions,
+                                reach: m.reach,
+                                clicks: m.clicks,
+                                ctr: m.ctr,
+                                spend: m.spend,
+                                cpc: m.cpc,
+                                cpm: m.cpm,
+                                frequency: m.frequency,
+                                resultType: m.resultType,
+                                results: m.results,
+                                costPerResult: m.costPerResult,
+                                linkClicks: m.linkClicks,
+                                landingPageViews: m.landingPageViews,
+                                pageEngagement: m.pageEngagement,
+                                postReactions: m.postReactions,
+                                postComments: m.postComments,
+                                postShares: m.postShares,
+                                leads: m.leads,
+                                purchases: m.purchases,
+                                messagesStarted: m.messagesStarted,
+                                costPerMessage: m.costPerMessage,
+                                videoViews: m.videoViews,
+                                videoThruPlays: m.videoThruPlays,
+                                qualityRanking: m.qualityRanking,
+                                engagementRateRanking: m.engagementRateRanking,
+                                conversionRateRanking: m.conversionRateRanking,
                             },
                             hasResults: true,
-                            successScore: successScore > 0 ? successScore : ad.successScore,
+                            successScore: successScore || ad.successScore,
+                            resultsDescription,
+                            status: fbAd.effectiveStatus,
                             lastSyncedAt: new Date().toISOString(),
                         };
                     }
@@ -647,6 +709,46 @@ export default function ImportPage() {
                 importedAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 lastSyncedAt: new Date().toISOString(),
+                // Auto-generated results description from Facebook metrics
+                resultsDescription: fbAd.metrics ? `📊 Facebook Ad Performance Report
+
+📅 Status: ${fbAd.effectiveStatus}
+💰 Total Spend: ₱${(fbAd.metrics.spend || 0).toFixed(2)}
+
+📈 REACH & IMPRESSIONS
+• Impressions: ${(fbAd.metrics.impressions || 0).toLocaleString()}
+• Reach: ${(fbAd.metrics.reach || 0).toLocaleString()}
+• Frequency: ${(fbAd.metrics.frequency || 0).toFixed(2)}
+
+🔗 CLICKS & ENGAGEMENT
+• Total Clicks: ${fbAd.metrics.clicks || 0}
+• Link Clicks: ${fbAd.metrics.linkClicks || 0}
+• CTR: ${(fbAd.metrics.ctr || 0).toFixed(2)}%
+• CPC: ₱${(fbAd.metrics.cpc || 0).toFixed(2)}
+• CPM: ₱${(fbAd.metrics.cpm || 0).toFixed(2)}
+
+🎯 RESULTS & CONVERSIONS
+• Result Type: ${fbAd.metrics.resultType || 'N/A'}
+• Results: ${fbAd.metrics.results || 0}
+• Cost per Result: ₱${(fbAd.metrics.costPerResult || 0).toFixed(2)}
+${fbAd.metrics.leads ? `• Leads: ${fbAd.metrics.leads}` : ''}
+${fbAd.metrics.purchases ? `• Purchases: ${fbAd.metrics.purchases}` : ''}
+${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesStarted}` : ''}
+
+👍 ENGAGEMENT
+• Page Engagement: ${fbAd.metrics.pageEngagement || 0}
+• Post Reactions: ${fbAd.metrics.postReactions || 0}
+• Comments: ${fbAd.metrics.postComments || 0}
+• Shares: ${fbAd.metrics.postShares || 0}
+
+🎬 VIDEO (if applicable)
+• Video Views: ${fbAd.metrics.videoViews || 0}
+• ThruPlays: ${fbAd.metrics.videoThruPlays || 0}
+
+⭐ QUALITY RANKINGS
+• Quality: ${fbAd.metrics.qualityRanking || 'N/A'}
+• Engagement Rate: ${fbAd.metrics.engagementRateRanking || 'N/A'}
+• Conversion Rate: ${fbAd.metrics.conversionRateRanking || 'N/A'}` : '',
             };
 
             newAds.push(newAd);
