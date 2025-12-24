@@ -28,8 +28,11 @@ Get these from https://developers.facebook.com
 
 ```
 NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
+FACEBOOK_APP_SECRET=your-facebook-app-secret
 FACEBOOK_WEBHOOK_VERIFY_TOKEN=your-secret-verify-token
 ```
+
+> **Note:** `FACEBOOK_APP_SECRET` is required for automatic long-lived token exchange. Without it, tokens will expire in ~1-2 hours. With it, tokens last ~60 days.
 
 ### Meta Marketing API (for Ads Data)
 These enable fetching ads and insights from your Ad Account:
