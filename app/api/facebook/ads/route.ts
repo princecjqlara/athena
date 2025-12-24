@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
         }
         // 'all' = no filter
 
-        // Fetch ads from the account
-        const adsUrl = `https://graph.facebook.com/v24.0/act_${adAccountId}/ads?fields=id,name,status,effective_status,created_time,updated_time,creative{id,name,thumbnail_url,object_story_spec,asset_feed_spec}&limit=100${statusFilter}&access_token=${accessToken}`;
+        // Fetch ads from the account with start/stop times
+        const adsUrl = `https://graph.facebook.com/v24.0/act_${adAccountId}/ads?fields=id,name,status,effective_status,configured_status,created_time,updated_time,start_time,adset{end_time,daily_budget,lifetime_budget},creative{id,name,thumbnail_url,object_story_spec,asset_feed_spec}&limit=100${statusFilter}&access_token=${accessToken}`;
 
         const adsResponse = await fetch(adsUrl);
         const adsData = await adsResponse.json();
@@ -51,8 +51,15 @@ export async function GET(request: NextRequest) {
                 name: string;
                 status: string;
                 effective_status: string;
+                configured_status?: string;
                 created_time: string;
                 updated_time: string;
+                start_time?: string;
+                adset?: {
+                    end_time?: string;
+                    daily_budget?: string;
+                    lifetime_budget?: string;
+                };
                 creative?: {
                     id: string;
                     name: string;
@@ -307,8 +314,13 @@ export async function GET(request: NextRequest) {
                         name: ad.name,
                         status: ad.status,
                         effectiveStatus: ad.effective_status,
+                        configuredStatus: ad.configured_status,
                         createdAt: ad.created_time,
                         updatedAt: ad.updated_time,
+                        startTime: ad.start_time || ad.created_time, // Use created_time as fallback
+                        endTime: ad.adset?.end_time || null, // When ad/adset is scheduled to stop
+                        dailyBudget: ad.adset?.daily_budget ? parseFloat(ad.adset.daily_budget) / 100 : null,
+                        lifetimeBudget: ad.adset?.lifetime_budget ? parseFloat(ad.adset.lifetime_budget) / 100 : null,
                         mediaType,
                         thumbnailUrl,
                         creativeId: ad.creative?.id,

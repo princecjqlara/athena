@@ -84,8 +84,13 @@ interface FacebookAd {
     name: string;
     status: string;
     effectiveStatus: string;
+    configuredStatus?: string;
     createdAt: string;
     updatedAt?: string;
+    startTime?: string;
+    endTime?: string | null;
+    dailyBudget?: number | null;
+    lifetimeBudget?: number | null;
     mediaType: string;
     thumbnailUrl: string;
     creativeId?: string;
@@ -822,6 +827,33 @@ export default function ImportPage() {
                                             >
                                                 {ad.effectiveStatus}
                                             </span>
+                                        </div>
+
+                                        {/* Ad Timeline and Spend Summary */}
+                                        <div style={{
+                                            display: 'flex',
+                                            gap: '12px',
+                                            fontSize: '0.7rem',
+                                            color: 'var(--text-muted)',
+                                            marginBottom: '8px',
+                                            flexWrap: 'wrap'
+                                        }}>
+                                            <span title="When this ad started running">
+                                                📅 Started: {ad.startTime ? new Date(ad.startTime).toLocaleDateString() : 'N/A'}
+                                            </span>
+                                            {ad.endTime && (
+                                                <span title="When this ad stopped/will stop">
+                                                    🏁 Ended: {new Date(ad.endTime).toLocaleDateString()}
+                                                </span>
+                                            )}
+                                            {ad.metrics?.spend !== undefined && ad.metrics.spend > 0 && (
+                                                <span title="Total amount spent on this ad" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                                                    💰 ₱{ad.metrics.spend.toFixed(2)} spent
+                                                </span>
+                                            )}
+                                            {ad.dailyBudget && (
+                                                <span title="Daily budget">📊 ₱{ad.dailyBudget.toFixed(2)}/day</span>
+                                            )}
                                         </div>
 
                                         {/* Dynamic Metrics Display */}
