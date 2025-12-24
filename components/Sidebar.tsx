@@ -294,23 +294,26 @@ function NavItem({ href, icon, label, collapsed }: { href: string; icon: string;
           display: flex;
           align-items: center;
           gap: var(--spacing-md);
-          padding: var(--spacing-sm) var(--spacing-md);
+          padding: var(--spacing-xs);
           color: var(--text-secondary);
-          border-radius: var(--radius-lg);
+          border-radius: var(--radius-xl);
           transition: all var(--transition-fast);
           text-decoration: none;
         }
         
         .nav-item.collapsed {
           justify-content: center;
-          padding: var(--spacing-sm);
-          width: 48px;
-          height: 48px;
+          padding: 0;
         }
         
         .nav-item:hover {
-          background: var(--bg-tertiary);
           color: var(--text-primary);
+        }
+        
+        .nav-item:hover .nav-icon {
+          background: rgba(200, 245, 96, 0.15);
+          color: #c8f560;
+          box-shadow: 0 0 20px rgba(200, 245, 96, 0.2);
         }
         
         .nav-icon {
@@ -318,6 +321,11 @@ function NavItem({ href, icon, label, collapsed }: { href: string; icon: string;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.05);
+          transition: all var(--transition-fast);
         }
         
         .nav-label {

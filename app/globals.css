@@ -163,21 +163,37 @@ a:hover {
   color: var(--accent-secondary);
 }
 
-/* Glassmorphism Card */
+/* Glassmorphism Card - Enhanced */
 .glass-card {
-  background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-xl);
+  background: linear-gradient(145deg, rgba(37, 21, 65, 0.8) 0%, rgba(26, 15, 46, 0.9) 100%);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-2xl);
   padding: var(--spacing-lg);
   transition: all var(--transition-normal);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .glass-card:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--border-accent);
-  box-shadow: var(--shadow-glow);
+  background: linear-gradient(145deg, rgba(50, 30, 85, 0.85) 0%, rgba(37, 21, 65, 0.95) 100%);
+  border-color: rgba(200, 245, 96, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 40px rgba(147, 51, 234, 0.1);
+}
+
+/* Lime Accent Card - For highlight sections */
+.lime-card {
+  background: linear-gradient(135deg, #c8f560 0%, #a8e030 100%);
+  border-radius: var(--radius-2xl);
+  padding: var(--spacing-lg);
+  color: #120a1c;
+  box-shadow: 0 8px 32px rgba(200, 245, 96, 0.3);
+}
+
+.lime-card h3,
+.lime-card h4,
+.lime-card p {
+  color: #120a1c;
 }
 
 /* Buttons */
