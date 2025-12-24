@@ -77,9 +77,9 @@ export function Sidebar() {
           top: 0;
           bottom: 0;
           width: 260px;
-          background: rgba(18, 18, 26, 0.95);
+          background: rgba(26, 15, 46, 0.95);
           backdrop-filter: blur(20px);
-          border-right: 1px solid var(--border-primary);
+          border-right: 1px solid rgba(200, 245, 96, 0.1);
           display: flex;
           flex-direction: column;
           z-index: 100;
