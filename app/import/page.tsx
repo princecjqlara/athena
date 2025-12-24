@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from './page.module.css';
 import { DEFAULT_CATEGORIES } from '@/types/extended-ad';
 
@@ -29,13 +29,35 @@ interface FacebookAd {
     } | null;
 }
 
+interface StoredAd {
+    id: string;
+    facebookAdId?: string;
+    name?: string;
+    adInsights?: {
+        impressions?: number;
+        clicks?: number;
+        ctr?: number;
+        reach?: number;
+        spend?: number;
+        cpc?: number;
+        frequency?: number;
+        leads?: number;
+        purchases?: number;
+    };
+    successScore?: number;
+    hasResults?: boolean;
+    lastSyncedAt?: string;
+}
+
 export default function ImportPage() {
     const [adAccountId, setAdAccountId] = useState('');
     const [accessToken, setAccessToken] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'archived'>('all');
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
     const [facebookAds, setFacebookAds] = useState<FacebookAd[]>([]);
     const [selectedAds, setSelectedAds] = useState<Set<string>>(new Set());
@@ -86,6 +108,86 @@ export default function ImportPage() {
             setIsLoading(false);
         }
     };
+
+    // Auto-sync all imported ads with latest results from Facebook
+    const handleSyncAllResults = useCallback(async () => {
+        if (!adAccountId || !accessToken) {
+            setError('Please enter Ad Account ID and Access Token to sync');
+            return;
+        }
+
+        setIsSyncing(true);
+        setSyncMessage('🔄 Syncing results from Facebook...');
+        setError(null);
+
+        try {
+            // Fetch fresh data from Facebook
+            const response = await fetch(
+                `/api/facebook/ads?adAccountId=${adAccountId}&accessToken=${accessToken}&status=all`
+            );
+            const data = await response.json();
+
+            if (!data.success) {
+                setError(data.error || 'Failed to sync ads');
+                setSyncMessage(null);
+                return;
+            }
+
+            const facebookAdsMap = new Map<string, FacebookAd>();
+            data.data.forEach((ad: FacebookAd) => {
+                facebookAdsMap.set(ad.id, ad);
+            });
+
+            // Get stored ads and update their results
+            const storedAds: StoredAd[] = JSON.parse(localStorage.getItem('ads') || '[]');
+            let updatedCount = 0;
+
+            const updatedAds = storedAds.map((ad: StoredAd) => {
+                if (ad.facebookAdId && facebookAdsMap.has(ad.facebookAdId)) {
+                    const fbAd = facebookAdsMap.get(ad.facebookAdId)!;
+
+                    if (fbAd.metrics) {
+                        updatedCount++;
+
+                        // Calculate success score based on CTR
+                        const successScore = Math.min(100, Math.round((fbAd.metrics.ctr || 0) * 20));
+
+                        return {
+                            ...ad,
+                            adInsights: {
+                                impressions: fbAd.metrics.impressions,
+                                clicks: fbAd.metrics.clicks,
+                                ctr: fbAd.metrics.ctr,
+                                reach: fbAd.metrics.reach,
+                                spend: fbAd.metrics.spend,
+                                cpc: fbAd.metrics.cpc,
+                                frequency: fbAd.metrics.frequency,
+                                leads: fbAd.metrics.leads,
+                                purchases: fbAd.metrics.purchases,
+                            },
+                            hasResults: true,
+                            successScore: successScore > 0 ? successScore : ad.successScore,
+                            lastSyncedAt: new Date().toISOString(),
+                        };
+                    }
+                }
+                return ad;
+            });
+
+            // Save updated ads
+            localStorage.setItem('ads', JSON.stringify(updatedAds));
+            setSyncMessage(`✅ Synced ${updatedCount} ads with latest results from Facebook!`);
+
+            // Clear message after 3 seconds
+            setTimeout(() => setSyncMessage(null), 3000);
+
+        } catch (err) {
+            setError('Failed to sync with Facebook');
+            console.error(err);
+        } finally {
+            setIsSyncing(false);
+        }
+    }, [adAccountId, accessToken]);
 
     // Toggle ad selection
     const toggleAdSelection = (adId: string) => {
@@ -190,13 +292,14 @@ export default function ImportPage() {
                     leads: fbAd.metrics.leads,
                     purchases: fbAd.metrics.purchases,
                 } : null,
-                hasResults: !!fbAd.metrics,
+                hasResults: !!fbAd.metrics && (fbAd.metrics.impressions > 0 || fbAd.metrics.clicks > 0),
                 successScore,
                 status: fbAd.effectiveStatus,
                 importedFromFacebook: true,
                 createdAt: fbAd.createdAt,
                 importedAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
+                lastSyncedAt: new Date().toISOString(),
             };
 
             newAds.push(newAd);
@@ -219,7 +322,7 @@ export default function ImportPage() {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'ACTIVE': return '#10B981';
+            case 'ACTIVE': return '#22c55e';
             case 'PAUSED': return '#F59E0B';
             case 'ARCHIVED': return '#6B7280';
             default: return '#8B5CF6';
@@ -231,7 +334,7 @@ export default function ImportPage() {
             <header className={styles.header}>
                 <h1 className={styles.title}>📥 Import from Facebook</h1>
                 <p className={styles.subtitle}>
-                    Import existing ads with auto-filled results • Just add traits for AI learning
+                    Import existing ads with auto-filled results • Tag traits for AI learning
                 </p>
             </header>
 
@@ -249,7 +352,7 @@ export default function ImportPage() {
                             value={adAccountId}
                             onChange={(e) => setAdAccountId(e.target.value.replace('act_', ''))}
                         />
-                        <small style={{ color: 'var(--text-muted)' }}>Without "act_" prefix</small>
+                        <small style={{ color: 'var(--text-muted)' }}>Without &quot;act_&quot; prefix</small>
                     </div>
                     <div className="form-group">
                         <label className="form-label">Marketing Access Token</label>
@@ -263,7 +366,7 @@ export default function ImportPage() {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label">Filter by Status</label>
                         <select
@@ -283,9 +386,29 @@ export default function ImportPage() {
                         disabled={isLoading}
                         style={{ marginTop: '24px' }}
                     >
-                        {isLoading ? '🔄 Fetching...' : '📥 Fetch Ads'}
+                        {isLoading ? '🔄 Fetching...' : '📥 Fetch Ads to Import'}
+                    </button>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={handleSyncAllResults}
+                        disabled={isSyncing || !adAccountId || !accessToken}
+                        style={{ marginTop: '24px' }}
+                    >
+                        {isSyncing ? '🔄 Syncing...' : '🔄 Sync All Results'}
                     </button>
                 </div>
+
+                {syncMessage && (
+                    <div style={{
+                        marginTop: 'var(--spacing-md)',
+                        padding: 'var(--spacing-sm)',
+                        background: 'rgba(34, 197, 94, 0.1)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--success)'
+                    }}>
+                        {syncMessage}
+                    </div>
+                )}
 
                 {error && (
                     <div style={{
@@ -300,12 +423,23 @@ export default function ImportPage() {
                 )}
             </div>
 
+            {/* Sync Info */}
+            <div className="glass-card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)', background: 'rgba(200, 245, 96, 0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                    <span>💡</span>
+                    <span style={{ fontSize: '0.875rem' }}>
+                        <strong>New ads may show 0 results</strong> - Facebook takes time to report metrics.
+                        Use <strong>&quot;Sync All Results&quot;</strong> to update your imported ads with the latest data.
+                    </span>
+                </div>
+            </div>
+
             {/* Ads List */}
             {facebookAds.length > 0 && (
                 <div className="glass-card" style={{ padding: 'var(--spacing-lg)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
                         <h3>📊 Found {facebookAds.length} Ads</h3>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
                             <button className="btn btn-ghost btn-sm" onClick={selectAllAds}>
                                 ✓ Select All
                             </button>
@@ -351,7 +485,7 @@ export default function ImportPage() {
                                     border: selectedAds.has(ad.id) ? '2px solid var(--primary)' : '1px solid var(--border-primary)',
                                     borderRadius: 'var(--radius-lg)',
                                     padding: 'var(--spacing-md)',
-                                    background: selectedAds.has(ad.id) ? 'rgba(139, 92, 246, 0.05)' : 'var(--bg-secondary)',
+                                    background: selectedAds.has(ad.id) ? 'rgba(200, 245, 96, 0.05)' : 'var(--bg-secondary)',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s'
                                 }}
@@ -396,22 +530,28 @@ export default function ImportPage() {
                                         </div>
 
                                         {/* Metrics */}
-                                        {ad.metrics && (
-                                            <div style={{
-                                                display: 'flex',
-                                                gap: 'var(--spacing-md)',
-                                                fontSize: '0.8125rem',
-                                                flexWrap: 'wrap',
-                                                marginBottom: 'var(--spacing-sm)'
-                                            }}>
-                                                <span><strong>{ad.metrics.impressions.toLocaleString()}</strong> impressions</span>
-                                                <span><strong>{ad.metrics.clicks.toLocaleString()}</strong> clicks</span>
-                                                <span style={{ color: 'var(--success)' }}><strong>{ad.metrics.ctr.toFixed(2)}%</strong> CTR</span>
-                                                <span><strong>${ad.metrics.spend.toFixed(2)}</strong> spent</span>
-                                                {ad.metrics.leads > 0 && <span style={{ color: 'var(--primary)' }}><strong>{ad.metrics.leads}</strong> leads</span>}
-                                                {ad.metrics.purchases > 0 && <span style={{ color: 'var(--success)' }}><strong>{ad.metrics.purchases}</strong> purchases</span>}
-                                            </div>
-                                        )}
+                                        <div style={{
+                                            display: 'flex',
+                                            gap: 'var(--spacing-md)',
+                                            fontSize: '0.8125rem',
+                                            flexWrap: 'wrap',
+                                            marginBottom: 'var(--spacing-sm)'
+                                        }}>
+                                            {ad.metrics ? (
+                                                <>
+                                                    <span><strong>{ad.metrics.impressions.toLocaleString()}</strong> impressions</span>
+                                                    <span><strong>{ad.metrics.clicks.toLocaleString()}</strong> clicks</span>
+                                                    <span style={{ color: ad.metrics.ctr > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                                                        <strong>{ad.metrics.ctr.toFixed(2)}%</strong> CTR
+                                                    </span>
+                                                    <span><strong>${ad.metrics.spend.toFixed(2)}</strong> spent</span>
+                                                    {ad.metrics.leads > 0 && <span style={{ color: 'var(--primary)' }}><strong>{ad.metrics.leads}</strong> leads</span>}
+                                                    {ad.metrics.purchases > 0 && <span style={{ color: 'var(--success)' }}><strong>{ad.metrics.purchases}</strong> purchases</span>}
+                                                </>
+                                            ) : (
+                                                <span style={{ color: 'var(--text-muted)' }}>No metrics available yet</span>
+                                            )}
+                                        </div>
 
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                                             ID: {ad.id} • Created: {new Date(ad.createdAt).toLocaleDateString()}
@@ -452,7 +592,7 @@ export default function ImportPage() {
                                                                 ? 'var(--primary)'
                                                                 : 'transparent',
                                                             color: adTraits[ad.id]?.categories.includes(cat)
-                                                                ? 'white'
+                                                                ? '#120a1c'
                                                                 : 'var(--text-secondary)',
                                                             cursor: 'pointer'
                                                         }}
@@ -485,7 +625,7 @@ export default function ImportPage() {
                                                                 ? 'var(--accent)'
                                                                 : 'transparent',
                                                             color: adTraits[ad.id]?.traits.includes(trait)
-                                                                ? 'white'
+                                                                ? '#120a1c'
                                                                 : 'var(--text-secondary)',
                                                             cursor: 'pointer'
                                                         }}
@@ -516,7 +656,8 @@ export default function ImportPage() {
                     <ul style={{ textAlign: 'left', maxWidth: '400px', margin: '0 auto', marginTop: 'var(--spacing-md)' }}>
                         <li>✅ Auto-fetch impressions, clicks, CTR, conversions</li>
                         <li>✅ Import active, paused, or archived ads</li>
-                        <li>✅ Just add traits for AI learning</li>
+                        <li>✅ Tag traits for AI learning</li>
+                        <li>✅ Sync results anytime to update algorithm</li>
                     </ul>
                 </div>
             )}
