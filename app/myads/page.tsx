@@ -37,6 +37,8 @@ interface Ad {
     platform?: string;
     hook_type?: string;
     status?: 'active' | 'completed' | 'draft' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+    // User-defined status tag
+    userStatus?: 'active' | 'completed' | 'paused' | 'discontinued' | 'testing' | 'archived';
     mediaType?: 'video' | 'photo' | string;
     ctr?: number;
     roas?: number;
@@ -45,6 +47,16 @@ interface Ad {
     spend?: number;
     hasResults?: boolean;
 }
+
+// Status options for dropdown
+const STATUS_OPTIONS = [
+    { value: 'active', label: '🟢 Active', color: '#22c55e' },
+    { value: 'paused', label: '⏸️ Paused', color: '#f59e0b' },
+    { value: 'completed', label: '✅ Completed', color: '#3b82f6' },
+    { value: 'testing', label: '🧪 Testing', color: '#8b5cf6' },
+    { value: 'discontinued', label: '🚫 Discontinued', color: '#ef4444' },
+    { value: 'archived', label: '📦 Archived', color: '#6b7280' },
+];
 
 // Helper to get normalized values from either data format
 function getAdName(ad: Ad): string {
@@ -91,7 +103,7 @@ function getMediaType(ad: Ad): string {
 export default function MyAdsPage() {
     const [ads, setAds] = useState<Ad[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'draft' | 'imported'>('all');
+    const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'paused' | 'discontinued' | 'imported'>('all');
     const [sortBy, setSortBy] = useState<'date' | 'score' | 'ctr' | 'spend'>('date');
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -128,11 +140,27 @@ export default function MyAdsPage() {
         setAds(updatedAds);
     };
 
+    // Change ad status
+    const handleStatusChange = (adId: string, newStatus: string) => {
+        const updatedAds = ads.map(a =>
+            a.id === adId ? { ...a, userStatus: newStatus as Ad['userStatus'] } : a
+        );
+        localStorage.setItem('ads', JSON.stringify(updatedAds));
+        setAds(updatedAds);
+    };
+
+    // Get display status (user-defined takes precedence)
+    const getDisplayStatus = (ad: Ad): string => {
+        return ad.userStatus || getAdStatus(ad);
+    };
+
     const filteredAds = ads
         .filter(a => {
             if (filter === 'all') return true;
             if (filter === 'imported') return a.importedFromFacebook;
-            return getAdStatus(a) === filter;
+            // Check userStatus first, then fall back to computed status
+            const status = a.userStatus || getAdStatus(a);
+            return status === filter;
         })
         .filter(a => getAdName(a).toLowerCase().includes(searchQuery.toLowerCase()))
         .sort((a, b) => {
@@ -230,13 +258,18 @@ export default function MyAdsPage() {
                 </div>
 
                 <div className={styles.filterTabs}>
-                    {(['all', 'imported', 'active', 'completed'] as const).map(tab => (
+                    {(['all', 'imported', 'active', 'paused', 'completed', 'discontinued'] as const).map(tab => (
                         <button
                             key={tab}
                             className={`${styles.filterTab} ${filter === tab ? styles.active : ''}`}
                             onClick={() => setFilter(tab)}
                         >
-                            {tab === 'imported' ? 'From FB' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                            {tab === 'imported' ? '📥 FB' :
+                                tab === 'discontinued' ? '🚫' :
+                                    tab === 'paused' ? '⏸️' :
+                                        tab === 'completed' ? '✅' :
+                                            tab === 'active' ? '🟢' :
+                                                tab.charAt(0).toUpperCase() + tab.slice(1)}
                         </button>
                     ))}
                 </div>
@@ -310,7 +343,27 @@ export default function MyAdsPage() {
 
                                 <div className={styles.videoMeta}>
                                     <span className="tag tag-primary">{getAdPlatform(ad)}</span>
-                                    {getAdHookType(ad) !== 'N/A' && <span className="tag">{getAdHookType(ad)}</span>}
+                                    {/* Status dropdown */}
+                                    <select
+                                        className="form-select"
+                                        value={getDisplayStatus(ad)}
+                                        onChange={(e) => handleStatusChange(ad.id, e.target.value)}
+                                        style={{
+                                            padding: '4px 8px',
+                                            fontSize: '0.75rem',
+                                            borderRadius: 'var(--radius-sm)',
+                                            background: STATUS_OPTIONS.find(s => s.value === getDisplayStatus(ad))?.color || 'var(--bg-secondary)',
+                                            color: 'white',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            minWidth: '100px'
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {STATUS_OPTIONS.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div className={styles.videoDate}>
