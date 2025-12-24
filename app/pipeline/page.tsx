@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import styles from './page.module.css';
+import { contactsStore } from '@/lib/contacts-store';
 
 interface Pipeline {
     id: string;
@@ -19,6 +20,25 @@ interface Stage {
     isGoal: boolean;
     isAutoCreated: boolean;
     leadCount: number;
+}
+
+interface FetchedContact {
+    conversationId: string;
+    facebookPsid: string;
+    name: string;
+    email?: string;
+    isFromAd: boolean;
+    messageCount: number;
+    firstMessageAt?: string;
+    lastMessageAt?: string;
+    lastMessage?: string;
+    messages: Array<{
+        id: string;
+        content: string;
+        from: string;
+        fromId: string;
+        timestamp: string;
+    }>;
 }
 
 const GOAL_PRESETS = [
@@ -38,6 +58,12 @@ export default function PipelinePage() {
     const [customGoal, setCustomGoal] = useState('');
     const [isCreating, setIsCreating] = useState(false);
 
+    // Fetch contacts state
+    const [isFetchingContacts, setIsFetchingContacts] = useState(false);
+    const [fetchedContacts, setFetchedContacts] = useState<FetchedContact[]>([]);
+    const [showFetchModal, setShowFetchModal] = useState(false);
+    const [fetchError, setFetchError] = useState('');
+
     // Load pipelines from localStorage
     useEffect(() => {
         const saved = localStorage.getItem('pipelines');
@@ -45,6 +71,108 @@ export default function PipelinePage() {
             setPipelines(JSON.parse(saved));
         }
     }, []);
+
+    // Fetch Messenger contacts from Facebook
+    const handleFetchContacts = async () => {
+        setIsFetchingContacts(true);
+        setFetchError('');
+
+        try {
+            // Get user's access token from localStorage
+            const accessToken = localStorage.getItem('fb_access_token');
+            if (!accessToken) {
+                setFetchError('Please connect your Facebook account first. Go to Import page and connect with Facebook.');
+                setIsFetchingContacts(false);
+                return;
+            }
+
+            // First, get pages
+            const pagesResponse = await fetch(`/api/facebook/pages?access_token=${accessToken}`);
+            const pagesData = await pagesResponse.json();
+
+            if (!pagesData.success || !pagesData.pages?.length) {
+                setFetchError('No Facebook pages found. Make sure you have pages_messaging permission.');
+                setIsFetchingContacts(false);
+                return;
+            }
+
+            // Use first page for now (could add page selector later)
+            const page = pagesData.pages[0];
+
+            // Fetch conversations using page token
+            const convResponse = await fetch(
+                `/api/facebook/conversations?page_id=${page.id}&page_access_token=${page.accessToken}&limit=50`
+            );
+            const convData = await convResponse.json();
+
+            if (!convData.success) {
+                setFetchError(convData.error || 'Failed to fetch conversations');
+                setIsFetchingContacts(false);
+                return;
+            }
+
+            setFetchedContacts(convData.contacts);
+            setShowFetchModal(true);
+        } catch (error) {
+            console.error('Error fetching contacts:', error);
+            setFetchError('Error fetching contacts: ' + String(error));
+        }
+
+        setIsFetchingContacts(false);
+    };
+
+    // Import selected contacts
+    const handleImportContacts = (contacts: FetchedContact[], pipelineId?: string, stageId?: string) => {
+        // Import to contacts store
+        contacts.forEach(contact => {
+            const newContact = {
+                id: `contact-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                name: contact.name,
+                email: contact.email,
+                facebookPsid: contact.facebookPsid,
+                sourceAdId: contact.isFromAd ? 'messenger_ad' : undefined,
+                source: contact.isFromAd ? 'ad' as const : 'organic' as const,
+                pipelineId: pipelineId,
+                stageId: stageId || 'new-lead',
+                messages: contact.messages?.map(m => ({
+                    id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    contactId: '',
+                    content: m.content,
+                    direction: 'inbound' as const,
+                    timestamp: m.timestamp,
+                    messageId: m.id
+                })) || [],
+                firstMessageAt: contact.firstMessageAt,
+                lastMessageAt: contact.lastMessageAt,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            // Save to existing contacts
+            const existingContacts = contactsStore.getAll();
+            const exists = existingContacts.find(c => c.facebookPsid === contact.facebookPsid);
+            if (!exists) {
+                existingContacts.push(newContact as any);
+                contactsStore.saveAll(existingContacts);
+            }
+        });
+
+        // Update pipeline lead count
+        if (pipelineId) {
+            const updated = pipelines.map(p => {
+                if (p.id === pipelineId) {
+                    return { ...p, leadCount: p.leadCount + contacts.length };
+                }
+                return p;
+            });
+            setPipelines(updated);
+            localStorage.setItem('pipelines', JSON.stringify(updated));
+        }
+
+        setShowFetchModal(false);
+        setFetchedContacts([]);
+        alert(`✅ Imported ${contacts.length} contacts!`);
+    };
 
     const handleCreatePipeline = () => {
         if (!newPipelineName || !selectedGoal) return;
@@ -99,17 +227,51 @@ export default function PipelinePage() {
                         Let AI build your sales pipeline based on real customer behavior
                     </p>
                 </div>
-                <button
-                    className="btn btn-primary"
-                    onClick={() => setShowCreateModal(true)}
-                >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    Create Pipeline
-                </button>
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={handleFetchContacts}
+                        disabled={isFetchingContacts}
+                    >
+                        {isFetchingContacts ? (
+                            <>⏳ Fetching...</>
+                        ) : (
+                            <>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                                    <polyline points="7 10 12 15 17 10" />
+                                    <line x1="12" y1="15" x2="12" y2="3" />
+                                </svg>
+                                Fetch Messenger Contacts
+                            </>
+                        )}
+                    </button>
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => setShowCreateModal(true)}
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Create Pipeline
+                    </button>
+                </div>
             </header>
+
+            {/* Error message */}
+            {fetchError && (
+                <div style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: 'var(--spacing-md)',
+                    marginBottom: 'var(--spacing-lg)',
+                    color: '#ef4444'
+                }}>
+                    ⚠️ {fetchError}
+                </div>
+            )}
 
             {/* How It Works */}
             <div className={`glass-card ${styles.howItWorks}`}>
@@ -310,6 +472,109 @@ export default function PipelinePage() {
                             >
                                 {isCreating ? 'Creating...' : '🤖 Create AI Pipeline'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Fetch Contacts Modal */}
+            {showFetchModal && (
+                <div className={styles.modalOverlay} onClick={() => setShowFetchModal(false)}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+                        <div className={styles.modalHeader}>
+                            <h2>📱 Messenger Contacts ({fetchedContacts.length})</h2>
+                            <button className={styles.closeBtn} onClick={() => setShowFetchModal(false)}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className={styles.modalBody} style={{ maxHeight: '400px', overflow: 'auto' }}>
+                            {fetchedContacts.length === 0 ? (
+                                <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                                    No conversations found on this page.
+                                </p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                                    {fetchedContacts.map(contact => (
+                                        <div
+                                            key={contact.conversationId}
+                                            style={{
+                                                background: 'var(--bg-secondary)',
+                                                padding: 'var(--spacing-md)',
+                                                borderRadius: 'var(--radius-lg)',
+                                                border: '1px solid var(--border-primary)'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <strong>{contact.name}</strong>
+                                                    {contact.isFromAd && (
+                                                        <span style={{
+                                                            marginLeft: '8px',
+                                                            background: 'var(--accent-gradient)',
+                                                            color: 'white',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '20px',
+                                                            fontSize: '0.7rem'
+                                                        }}>📣 From Ad</span>
+                                                    )}
+                                                </div>
+                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                                                    {contact.messageCount} messages
+                                                </span>
+                                            </div>
+                                            {contact.lastMessage && (
+                                                <p style={{
+                                                    color: 'var(--text-muted)',
+                                                    fontSize: '0.85rem',
+                                                    marginTop: '4px',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    "{contact.lastMessage}"
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className={styles.modalFooter}>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => setShowFetchModal(false)}
+                            >
+                                Cancel
+                            </button>
+                            {pipelines.length > 0 ? (
+                                <select
+                                    className="form-select"
+                                    onChange={(e) => {
+                                        if (e.target.value) {
+                                            handleImportContacts(fetchedContacts, e.target.value, 'new-lead');
+                                        }
+                                    }}
+                                    defaultValue=""
+                                    style={{ width: 'auto' }}
+                                >
+                                    <option value="">Import to Pipeline...</option>
+                                    {pipelines.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={() => handleImportContacts(fetchedContacts)}
+                                >
+                                    💾 Import {fetchedContacts.length} Contacts
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
