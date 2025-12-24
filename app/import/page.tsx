@@ -4,6 +4,55 @@ import { useState, useEffect, useCallback } from 'react';
 import styles from './page.module.css';
 import { DEFAULT_CATEGORIES } from '@/types/extended-ad';
 
+interface FacebookMetrics {
+    // Core
+    impressions: number;
+    reach: number;
+    clicks: number;
+    uniqueClicks?: number;
+    ctr: number;
+    uniqueCtr?: number;
+    cpc: number;
+    cpm: number;
+    cpp?: number;
+    spend: number;
+    frequency: number;
+    // Results
+    resultType?: string;
+    results?: number;
+    costPerResult?: number;
+    // Links
+    linkClicks?: number;
+    inlineLinkClicks?: number;
+    landingPageViews?: number;
+    outboundClicks?: number;
+    // Engagement
+    pageEngagement?: number;
+    postEngagement?: number;
+    inlinePostEngagement?: number;
+    postReactions?: number;
+    postComments?: number;
+    postShares?: number;
+    // Messages
+    messages?: number;
+    messagesStarted?: number;
+    costPerMessage?: number;
+    // Conversions
+    leads?: number;
+    purchases?: number;
+    addToCart?: number;
+    initiateCheckout?: number;
+    costPerLead?: number;
+    costPerPurchase?: number;
+    // Video
+    videoViews?: number;
+    videoPlays?: number;
+    video25Watched?: number;
+    video50Watched?: number;
+    video75Watched?: number;
+    video100Watched?: number;
+}
+
 interface FacebookAd {
     id: string;
     name: string;
@@ -14,36 +63,20 @@ interface FacebookAd {
     mediaType: string;
     thumbnailUrl: string;
     creativeId?: string;
-    metrics: {
-        impressions: number;
-        reach: number;
-        clicks: number;
-        ctr: number;
-        cpc: number;
-        cpm: number;
-        spend: number;
-        frequency: number;
-        linkClicks: number;
-        leads: number;
-        purchases: number;
-    } | null;
+    metrics: FacebookMetrics | null;
+    demographics?: { age?: string; gender?: string; impressions?: number }[];
+    placements?: { platform?: string; position?: string; impressions?: number; spend?: number }[];
+    regions?: { country?: string; impressions?: number; spend?: number }[];
 }
 
 interface StoredAd {
     id: string;
     facebookAdId?: string;
     name?: string;
-    adInsights?: {
-        impressions?: number;
-        clicks?: number;
-        ctr?: number;
-        reach?: number;
-        spend?: number;
-        cpc?: number;
-        frequency?: number;
-        leads?: number;
-        purchases?: number;
-    };
+    adInsights?: FacebookMetrics;
+    demographics?: { age?: string; gender?: string; impressions?: number }[];
+    placements?: { platform?: string; position?: string; impressions?: number; spend?: number }[];
+    regions?: { country?: string; impressions?: number; spend?: number }[];
     successScore?: number;
     hasResults?: boolean;
     lastSyncedAt?: string;
@@ -298,23 +331,60 @@ export default function ImportPage() {
                 // Traits from user selection
                 categories: traits.categories,
                 traits: traits.traits,
-                // Auto-filled from Facebook
+                // Comprehensive Facebook Insights
                 adInsights: fbAd.metrics ? {
+                    // Core metrics
                     impressions: fbAd.metrics.impressions,
-                    clicks: fbAd.metrics.clicks,
-                    ctr: fbAd.metrics.ctr,
                     reach: fbAd.metrics.reach,
-                    spend: fbAd.metrics.spend,
+                    clicks: fbAd.metrics.clicks,
+                    uniqueClicks: fbAd.metrics.uniqueClicks,
+                    ctr: fbAd.metrics.ctr,
+                    uniqueCtr: fbAd.metrics.uniqueCtr,
                     cpc: fbAd.metrics.cpc,
                     cpm: fbAd.metrics.cpm,
+                    cpp: fbAd.metrics.cpp,
+                    spend: fbAd.metrics.spend,
                     frequency: fbAd.metrics.frequency,
+                    // Results
+                    resultType: fbAd.metrics.resultType,
+                    results: fbAd.metrics.results,
+                    costPerResult: fbAd.metrics.costPerResult,
+                    // Links
+                    linkClicks: fbAd.metrics.linkClicks,
+                    inlineLinkClicks: fbAd.metrics.inlineLinkClicks,
+                    landingPageViews: fbAd.metrics.landingPageViews,
+                    outboundClicks: fbAd.metrics.outboundClicks,
+                    // Engagement
+                    pageEngagement: fbAd.metrics.pageEngagement,
+                    postEngagement: fbAd.metrics.postEngagement,
+                    inlinePostEngagement: fbAd.metrics.inlinePostEngagement,
+                    postReactions: fbAd.metrics.postReactions,
+                    postComments: fbAd.metrics.postComments,
+                    postShares: fbAd.metrics.postShares,
+                    // Messages
+                    messages: fbAd.metrics.messages,
+                    messagesStarted: fbAd.metrics.messagesStarted,
+                    costPerMessage: fbAd.metrics.costPerMessage,
+                    // Conversions
                     leads: fbAd.metrics.leads,
                     purchases: fbAd.metrics.purchases,
-                    // Cost per result
-                    costPerResult: fbAd.metrics.clicks > 0
-                        ? (fbAd.metrics.spend / fbAd.metrics.clicks).toFixed(2)
-                        : null,
+                    addToCart: fbAd.metrics.addToCart,
+                    initiateCheckout: fbAd.metrics.initiateCheckout,
+                    costPerLead: fbAd.metrics.costPerLead,
+                    costPerPurchase: fbAd.metrics.costPerPurchase,
+                    // Video
+                    videoViews: fbAd.metrics.videoViews,
+                    videoPlays: fbAd.metrics.videoPlays,
+                    video25Watched: fbAd.metrics.video25Watched,
+                    video50Watched: fbAd.metrics.video50Watched,
+                    video75Watched: fbAd.metrics.video75Watched,
+                    video100Watched: fbAd.metrics.video100Watched,
                 } : null,
+                // Breakdown data
+                demographics: fbAd.demographics || [],
+                placements: fbAd.placements || [],
+                regions: fbAd.regions || [],
+                // Status flags
                 hasResults: !!fbAd.metrics && (fbAd.metrics.impressions > 0 || fbAd.metrics.clicks > 0),
                 successScore,
                 status: fbAd.effectiveStatus,

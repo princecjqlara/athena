@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/facebook/ads
- * Fetch all ads from a Facebook Ad Account
+ * Fetch all ads from a Facebook Ad Account with comprehensive metrics
  */
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // For each ad, fetch its insights
+        // For each ad, fetch comprehensive insights
         const adsWithInsights = await Promise.all(
             (adsData.data || []).map(async (ad: {
                 id: string;
@@ -63,18 +63,157 @@ export async function GET(request: NextRequest) {
                 };
             }) => {
                 try {
-                    // Fetch insights for this ad - use 'maximum' for all-time data
-                    const insightsUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,reach,clicks,ctr,cpc,cpm,spend,actions,cost_per_action_type,frequency&date_preset=maximum&access_token=${accessToken}`;
+                    // Comprehensive insights fields
+                    const insightsFields = [
+                        'impressions',
+                        'reach',
+                        'clicks',
+                        'unique_clicks',
+                        'ctr',
+                        'unique_ctr',
+                        'cpc',
+                        'cpm',
+                        'cpp', // cost per 1000 people reached
+                        'spend',
+                        'frequency',
+                        'actions',
+                        'cost_per_action_type',
+                        'video_p25_watched_actions',
+                        'video_p50_watched_actions',
+                        'video_p75_watched_actions',
+                        'video_p100_watched_actions',
+                        'video_play_actions',
+                        'inline_link_clicks',
+                        'inline_post_engagement',
+                        'outbound_clicks',
+                        'social_spend'
+                    ].join(',');
+
+                    // Main insights call
+                    const insightsUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=${insightsFields}&date_preset=maximum&access_token=${accessToken}`;
                     const insightsResponse = await fetch(insightsUrl);
                     const insightsData = await insightsResponse.json();
-
                     const insights = insightsData.data?.[0] || {};
 
-                    // Extract conversions from actions
+                    // Extract all actions
                     const actions = insights.actions || [];
-                    const leads = actions.find((a: { action_type: string }) => a.action_type === 'lead')?.value || 0;
-                    const purchases = actions.find((a: { action_type: string }) => a.action_type === 'purchase')?.value || 0;
-                    const linkClicks = actions.find((a: { action_type: string }) => a.action_type === 'link_click')?.value || 0;
+                    const costPerAction = insights.cost_per_action_type || [];
+
+                    // Helper to get action values
+                    const getAction = (type: string) => {
+                        const action = actions.find((a: { action_type: string; value: string }) => a.action_type === type);
+                        return action ? parseInt(action.value) || 0 : 0;
+                    };
+
+                    const getCostPerAction = (type: string) => {
+                        const cpa = costPerAction.find((a: { action_type: string; value: string }) => a.action_type === type);
+                        return cpa ? parseFloat(cpa.value) || 0 : 0;
+                    };
+
+                    // Get video completion metrics
+                    const getVideoMetric = (metricArray: { action_type: string; value: string }[] | undefined) => {
+                        if (!metricArray) return 0;
+                        const video = metricArray.find((v: { action_type: string }) => v.action_type === 'video_view');
+                        return video ? parseInt(video.value) || 0 : 0;
+                    };
+
+                    // Extract key action metrics
+                    const leads = getAction('lead');
+                    const purchases = getAction('purchase');
+                    const linkClicks = getAction('link_click');
+                    const pageEngagement = getAction('page_engagement');
+                    const postEngagement = getAction('post_engagement');
+                    const postReactions = getAction('post_reaction');
+                    const postComments = getAction('comment');
+                    const postShares = getAction('post');
+                    const videoViews = getAction('video_view');
+                    const onFacebookMessages = getAction('onsite_conversion.messaging_first_reply');
+                    const onFacebookMessagesStarted = getAction('onsite_conversion.messaging_conversation_started_7d');
+                    const landingPageViews = getAction('landing_page_view');
+                    const addToCart = getAction('add_to_cart');
+                    const initiateCheckout = getAction('initiate_checkout');
+
+                    // Cost per result calculations
+                    const costPerLead = getCostPerAction('lead');
+                    const costPerPurchase = getCostPerAction('purchase');
+                    const costPerLinkClick = getCostPerAction('link_click');
+                    const costPerMessage = getCostPerAction('onsite_conversion.messaging_first_reply');
+                    const costPerPageEngagement = getCostPerAction('page_engagement');
+
+                    // Determine primary result and cost per result
+                    let primaryResult = 0;
+                    let costPerResult = 0;
+                    let resultType = 'link_clicks';
+
+                    if (leads > 0) {
+                        primaryResult = leads;
+                        costPerResult = costPerLead;
+                        resultType = 'leads';
+                    } else if (purchases > 0) {
+                        primaryResult = purchases;
+                        costPerResult = costPerPurchase;
+                        resultType = 'purchases';
+                    } else if (onFacebookMessages > 0) {
+                        primaryResult = onFacebookMessages;
+                        costPerResult = costPerMessage;
+                        resultType = 'messages';
+                    } else if (linkClicks > 0) {
+                        primaryResult = linkClicks;
+                        costPerResult = costPerLinkClick;
+                        resultType = 'link_clicks';
+                    }
+
+                    // Fetch demographics breakdown (age + gender)
+                    let demographics: { age?: string; gender?: string; value: number }[] = [];
+                    try {
+                        const demoUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=actions&breakdowns=age,gender&date_preset=maximum&access_token=${accessToken}`;
+                        const demoResponse = await fetch(demoUrl);
+                        const demoData = await demoResponse.json();
+                        if (demoData.data) {
+                            demographics = demoData.data.map((d: { age: string; gender: string; impressions?: string }) => ({
+                                age: d.age,
+                                gender: d.gender,
+                                impressions: parseInt(d.impressions || '0')
+                            }));
+                        }
+                    } catch (e) {
+                        console.log('Demographics not available');
+                    }
+
+                    // Fetch placement breakdown
+                    let placements: { placement?: string; impressions: number; spend: number }[] = [];
+                    try {
+                        const placementUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,spend&breakdowns=publisher_platform,platform_position&date_preset=maximum&access_token=${accessToken}`;
+                        const placementResponse = await fetch(placementUrl);
+                        const placementData = await placementResponse.json();
+                        if (placementData.data) {
+                            placements = placementData.data.map((p: { publisher_platform: string; platform_position: string; impressions?: string; spend?: string }) => ({
+                                platform: p.publisher_platform,
+                                position: p.platform_position,
+                                impressions: parseInt(p.impressions || '0'),
+                                spend: parseFloat(p.spend || '0')
+                            }));
+                        }
+                    } catch (e) {
+                        console.log('Placements not available');
+                    }
+
+                    // Fetch region/country breakdown
+                    let regions: { country?: string; region?: string; impressions: number }[] = [];
+                    try {
+                        const regionUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=impressions,spend&breakdowns=country&date_preset=maximum&access_token=${accessToken}`;
+                        const regionResponse = await fetch(regionUrl);
+                        const regionData = await regionResponse.json();
+                        if (regionData.data) {
+                            regions = regionData.data.map((r: { country: string; impressions?: string; spend?: string }) => ({
+                                country: r.country,
+                                impressions: parseInt(r.impressions || '0'),
+                                spend: parseFloat(r.spend || '0')
+                            }));
+                        }
+                    } catch (e) {
+                        console.log('Regions not available');
+                    }
 
                     // Determine media type from creative
                     let mediaType = 'unknown';
@@ -97,20 +236,65 @@ export async function GET(request: NextRequest) {
                         mediaType,
                         thumbnailUrl,
                         creativeId: ad.creative?.id,
-                        // Metrics
+                        // Comprehensive Metrics
                         metrics: {
+                            // Core metrics
                             impressions: parseInt(insights.impressions) || 0,
                             reach: parseInt(insights.reach) || 0,
                             clicks: parseInt(insights.clicks) || 0,
+                            uniqueClicks: parseInt(insights.unique_clicks) || 0,
                             ctr: parseFloat(insights.ctr) || 0,
+                            uniqueCtr: parseFloat(insights.unique_ctr) || 0,
                             cpc: parseFloat(insights.cpc) || 0,
                             cpm: parseFloat(insights.cpm) || 0,
+                            cpp: parseFloat(insights.cpp) || 0,
                             spend: parseFloat(insights.spend) || 0,
                             frequency: parseFloat(insights.frequency) || 0,
-                            linkClicks: parseInt(linkClicks) || 0,
-                            leads: parseInt(leads) || 0,
-                            purchases: parseInt(purchases) || 0,
-                        }
+
+                            // Results
+                            resultType,
+                            results: primaryResult,
+                            costPerResult,
+
+                            // Link & Landing
+                            linkClicks,
+                            inlineLinkClicks: parseInt(insights.inline_link_clicks) || 0,
+                            landingPageViews,
+                            outboundClicks: insights.outbound_clicks?.[0]?.value || 0,
+
+                            // Engagement
+                            pageEngagement,
+                            postEngagement,
+                            inlinePostEngagement: parseInt(insights.inline_post_engagement) || 0,
+                            postReactions,
+                            postComments,
+                            postShares,
+
+                            // Messages
+                            messages: onFacebookMessages,
+                            messagesStarted: onFacebookMessagesStarted,
+                            costPerMessage,
+
+                            // Leads & Purchases
+                            leads,
+                            purchases,
+                            addToCart,
+                            initiateCheckout,
+                            costPerLead,
+                            costPerPurchase,
+
+                            // Video metrics
+                            videoViews,
+                            videoPlays: insights.video_play_actions?.[0]?.value || 0,
+                            video25Watched: getVideoMetric(insights.video_p25_watched_actions),
+                            video50Watched: getVideoMetric(insights.video_p50_watched_actions),
+                            video75Watched: getVideoMetric(insights.video_p75_watched_actions),
+                            video100Watched: getVideoMetric(insights.video_p100_watched_actions),
+                        },
+                        // Breakdowns
+                        demographics,
+                        placements,
+                        regions
                     };
                 } catch (err) {
                     console.error(`Error fetching insights for ad ${ad.id}:`, err);
@@ -122,7 +306,10 @@ export async function GET(request: NextRequest) {
                         createdAt: ad.created_time,
                         mediaType: 'unknown',
                         thumbnailUrl: ad.creative?.thumbnail_url || '',
-                        metrics: null
+                        metrics: null,
+                        demographics: [],
+                        placements: [],
+                        regions: []
                     };
                 }
             })
@@ -142,3 +329,4 @@ export async function GET(request: NextRequest) {
         );
     }
 }
+
