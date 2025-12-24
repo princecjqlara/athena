@@ -47,25 +47,60 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load data from database (empty for new users)
-    // TODO: Replace with actual Supabase queries
-    setTimeout(() => {
-      // No demo data - start clean
-      setStats({
-        totalVideos: 0,
-        totalAds: 0,
-        averageCtr: 0,
-        averageRoas: 0,
-        totalSpend: 0,
-        totalRevenue: 0,
-        modelAccuracy: 0,
-        dataPoints: 0,
+    // Load real data from localStorage
+    try {
+      const stored = localStorage.getItem('ads');
+      const ads = stored ? JSON.parse(stored) : [];
+
+      // Calculate aggregate stats from all ads
+      let totalCtr = 0;
+      let totalRoas = 0;
+      let totalSpend = 0;
+      let totalRevenue = 0;
+      let adsWithCtr = 0;
+      let adsWithRoas = 0;
+
+      ads.forEach((ad: Record<string, unknown>) => {
+        // Handle both data structures (uploaded vs imported)
+        const ctr = (ad.adInsights as Record<string, number>)?.ctr || (ad as Record<string, number>).ctr || 0;
+        const roas = (ad as Record<string, number>).roas || 0;
+        const spend = (ad.adInsights as Record<string, number>)?.spend || (ad as Record<string, number>).spend || 0;
+        const revenue = (ad as Record<string, number>).revenue || 0;
+
+        if (ctr > 0) { totalCtr += ctr; adsWithCtr++; }
+        if (roas > 0) { totalRoas += roas; adsWithRoas++; }
+        totalSpend += spend;
+        totalRevenue += revenue;
       });
 
-      setRecentVideos([]);
+      setStats({
+        totalVideos: ads.length,
+        totalAds: ads.filter((a: Record<string, unknown>) => a.importedFromFacebook || a.facebookAdId).length,
+        averageCtr: adsWithCtr > 0 ? Math.round((totalCtr / adsWithCtr) * 100) / 100 : 0,
+        averageRoas: adsWithRoas > 0 ? Math.round((totalRoas / adsWithRoas) * 10) / 10 : 0,
+        totalSpend: Math.round(totalSpend),
+        totalRevenue: Math.round(totalRevenue),
+        modelAccuracy: Math.min(95, Math.round(ads.length * 2)), // Mock accuracy based on data points
+        dataPoints: ads.length,
+      });
+
+      // Get recent ads for display
+      const recent = ads.slice(-6).reverse().map((ad: Record<string, unknown>, i: number) => ({
+        id: ad.id as string || `ad-${i}`,
+        thumbnail: (ad.thumbnailUrl as string) || '',
+        name: ((ad.extractedContent as Record<string, string>)?.title) || (ad.name as string) || 'Untitled Ad',
+        successScore: (ad.successScore as number) || 0,
+        ctr: (ad.adInsights as Record<string, number>)?.ctr || (ad as Record<string, number>).ctr || 0,
+        platform: ((ad.extractedContent as Record<string, string>)?.platform) || (ad.platform as string) || 'Unknown',
+        date: new Date((ad.importedAt as string) || (ad.uploadDate as string) || (ad.createdAt as string) || Date.now()).toLocaleDateString()
+      }));
+      setRecentVideos(recent);
+
       setTopPatterns([]);
-      setIsLoading(false);
-    }, 500);
+    } catch (e) {
+      console.error('Error loading dashboard data:', e);
+    }
+    setIsLoading(false);
   }, []);
 
   return (

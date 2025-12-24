@@ -270,6 +270,22 @@ export default function ImportPage() {
                 ? Math.min(100, Math.round((fbAd.metrics.ctr || 0) * 20))
                 : undefined;
 
+            // Create extractedContent for Algorithm/mindmap compatibility
+            const extractedContent = {
+                title: fbAd.name,
+                platform: 'Facebook',
+                placement: 'Feed',
+                mediaType: fbAd.mediaType || 'video',
+                // Map user-selected categories and traits
+                contentCategory: traits.categories[0] || 'other',
+                hookType: traits.traits.find((t: string) => ['curiosity', 'shock', 'question', 'transformation', 'story'].includes(t.toLowerCase())) || 'other',
+                editingStyle: traits.traits.find((t: string) => ['fast_cuts', 'cinematic', 'raw_authentic', 'ugc'].includes(t.toLowerCase())) || 'other',
+                isUGCStyle: traits.traits.some((t: string) => t.toLowerCase().includes('ugc')),
+                hasSubtitles: traits.traits.some((t: string) => t.toLowerCase().includes('subtitle')),
+                hasVoiceover: traits.traits.some((t: string) => t.toLowerCase().includes('voiceover')),
+                customTraits: [...traits.categories, ...traits.traits],
+            };
+
             const newAd = {
                 id: `ad-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 facebookAdId: fbAd.id,
@@ -277,6 +293,8 @@ export default function ImportPage() {
                 mediaUrl: fbAd.thumbnailUrl,
                 thumbnailUrl: fbAd.thumbnailUrl,
                 mediaType: fbAd.mediaType,
+                // Add extractedContent for Algorithm compatibility
+                extractedContent,
                 // Traits from user selection
                 categories: traits.categories,
                 traits: traits.traits,
@@ -288,9 +306,14 @@ export default function ImportPage() {
                     reach: fbAd.metrics.reach,
                     spend: fbAd.metrics.spend,
                     cpc: fbAd.metrics.cpc,
+                    cpm: fbAd.metrics.cpm,
                     frequency: fbAd.metrics.frequency,
                     leads: fbAd.metrics.leads,
                     purchases: fbAd.metrics.purchases,
+                    // Cost per result
+                    costPerResult: fbAd.metrics.clicks > 0
+                        ? (fbAd.metrics.spend / fbAd.metrics.clicks).toFixed(2)
+                        : null,
                 } : null,
                 hasResults: !!fbAd.metrics && (fbAd.metrics.impressions > 0 || fbAd.metrics.clicks > 0),
                 successScore,

@@ -48,7 +48,7 @@ export function Sidebar() {
         <NavItem href="/results" icon="chart" label="Add Results" collapsed={isCollapsed} />
         <NavItem href="/mindmap" icon="mindmap" label="Algorithm" collapsed={isCollapsed} />
         <NavItem href="/pipeline" icon="pipeline" label="AI Pipeline" collapsed={isCollapsed} />
-        <NavItem href="/videos" icon="ads" label="My Ads" collapsed={isCollapsed} />
+        <NavItem href="/myads" icon="ads" label="My Ads" collapsed={isCollapsed} />
         <NavItem href="/settings" icon="settings" label="Settings" collapsed={isCollapsed} />
       </nav>
 
