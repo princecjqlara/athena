@@ -132,6 +132,9 @@ export default function ImportPage() {
 
     const [importProgress, setImportProgress] = useState<{ total: number; imported: number } | null>(null);
 
+    // Debug mode to show raw data
+    const [showDebug, setShowDebug] = useState(false);
+
     // Metric Insight Modal State
     const [metricModal, setMetricModal] = useState<{
         open: boolean;
@@ -735,6 +738,16 @@ export default function ImportPage() {
                             >
                                 📥 Import {selectedAds.size} Selected
                             </button>
+                            <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setShowDebug(!showDebug)}
+                                style={{
+                                    background: showDebug ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
+                                    border: showDebug ? '1px solid rgba(239, 68, 68, 0.5)' : undefined
+                                }}
+                            >
+                                🐛 {showDebug ? 'Hide' : 'Show'} Raw Data
+                            </button>
                         </div>
                     </div>
 
@@ -856,6 +869,31 @@ export default function ImportPage() {
                                                         </span>
                                                     )}
                                                 </div>
+
+                                                {/* Debug: Raw Data Display */}
+                                                {showDebug && ad.metrics && (
+                                                    <div style={{
+                                                        background: 'rgba(239, 68, 68, 0.1)',
+                                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                        borderRadius: '6px',
+                                                        padding: '8px',
+                                                        marginBottom: '8px',
+                                                        fontSize: '0.65rem',
+                                                        fontFamily: 'monospace'
+                                                    }}>
+                                                        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>🐛 RAW API DATA:</div>
+                                                        <div>impressions: {ad.metrics.impressions}</div>
+                                                        <div>clicks: {ad.metrics.clicks}</div>
+                                                        <div>ctr: {ad.metrics.ctr}</div>
+                                                        <div>spend: {ad.metrics.spend}</div>
+                                                        <div>reach: {ad.metrics.reach}</div>
+                                                        <div>results: {ad.metrics.results} ({ad.metrics.resultType})</div>
+                                                        <div>costPerResult: {ad.metrics.costPerResult}</div>
+                                                        <div>linkClicks: {ad.metrics.linkClicks}</div>
+                                                        <div>messages: {ad.metrics.messages}</div>
+                                                        <div>leads: {ad.metrics.leads}</div>
+                                                    </div>
+                                                )}
 
                                                 {/* Results Row - Primary conversion metrics */}
                                                 {((ad.metrics.results ?? 0) > 0 || ((ad.metrics.messages ?? 0) > 0 && ad.metrics.resultType !== 'messages') || (ad.metrics.leads ?? 0) > 0 || (ad.metrics.purchases ?? 0) > 0) && (
