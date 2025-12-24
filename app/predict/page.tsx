@@ -12,8 +12,16 @@ import {
     DayOfWeek,
     TimeOfDay,
     PredictionResult,
-    PredictionFactor
+    PredictionFactor,
+    ExtractedAdData,
 } from '@/types';
+import {
+    predictWithML,
+    RiskTier,
+    RiskAssessment,
+    PotentialFailure,
+    getRiskTierDisplay,
+} from '@/lib/ml';
 
 const QUICK_OPTIONS = {
     hook_types: [
@@ -47,6 +55,7 @@ export default function PredictPage() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [prediction, setPrediction] = useState<PredictionResult | null>(null);
     const [dataPoints, setDataPoints] = useState(0);
+    const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
 
     const [inputs, setInputs] = useState({
         hook_type: '' as HookType | '',
@@ -74,6 +83,31 @@ export default function PredictPage() {
         setIsAnalyzing(true);
 
         try {
+            // Build ExtractedAdData for ML system
+            const adData: Partial<ExtractedAdData> = {
+                hookType: inputs.hook_type as HookType,
+                editingStyle: inputs.editing_style as EditingStyle,
+                contentCategory: inputs.content_category as ContentCategory,
+                colorScheme: inputs.color_scheme,
+                musicType: inputs.music_type,
+                platform: inputs.platform as Platform,
+                hasSubtitles: inputs.subtitles,
+                hasTextOverlays: inputs.text_overlays,
+                isUGCStyle: inputs.ugc_style,
+                hasVoiceover: inputs.voiceover,
+                numberOfActors: inputs.number_of_actors,
+                mediaType: 'video',
+                aspectRatio: '9:16',
+                placement: 'feed',
+                customTraits: [],
+                extractionConfidence: 100,
+            };
+
+            // Call ML system for risk assessment
+            const mlResult = await predictWithML(adData as ExtractedAdData);
+            setRiskAssessment(mlResult.riskAssessment);
+            setDataPoints(mlResult.baselineStats.sampleSize);
+
             // Call the AI API for GPT-powered prediction
             const response = await fetch('/api/ai', {
                 method: 'POST',
@@ -101,8 +135,8 @@ export default function PredictPage() {
                 // Use AI prediction
                 const aiPrediction = result.data;
                 const mockPrediction: PredictionResult = {
-                    success_probability: aiPrediction.successProbability || 70,
-                    confidence: aiPrediction.confidence || 60,
+                    success_probability: aiPrediction.successProbability || mlResult.globalScore,
+                    confidence: mlResult.confidence, // Use ML confidence
                     top_factors: (aiPrediction.keyFactors || []).map((f: { name: string; impact: string; weight: number }) => ({
                         factor: f.name,
                         impact: f.impact as 'positive' | 'negative' | 'neutral',
@@ -113,48 +147,29 @@ export default function PredictPage() {
                 };
                 setPrediction(mockPrediction);
             } else {
-                // Fallback to heuristic prediction
-                let score = 50;
-
-                const hookOption = QUICK_OPTIONS.hook_types.find(h => h.value === inputs.hook_type);
-                if (hookOption) score += (hookOption.score - 70) / 3;
-
-                const editOption = QUICK_OPTIONS.editing_styles.find(e => e.value === inputs.editing_style);
-                if (editOption) score += (editOption.score - 70) / 3;
-
-                const contentOption = QUICK_OPTIONS.content_categories.find(c => c.value === inputs.content_category);
-                if (contentOption) score += (contentOption.score - 70) / 3;
-
-                const platformOption = QUICK_OPTIONS.platforms.find(p => p.value === inputs.platform);
-                if (platformOption) score += (platformOption.score - 70) / 3;
-
-                if (inputs.ugc_style) score += 8;
-                if (inputs.subtitles) score += 5;
-                if (inputs.text_overlays) score += 3;
-                if (inputs.voiceover) score += 2;
-                if (inputs.launch_time === 'evening') score += 4;
-                if (inputs.music_type === 'trending') score += 5;
-
-                score = Math.min(98, Math.max(35, Math.round(score)));
-
+                // Use ML prediction as fallback
                 const fallbackPrediction: PredictionResult = {
-                    success_probability: score,
-                    confidence: Math.min(95, 50 + dataPoints),
+                    success_probability: mlResult.globalScore,
+                    confidence: mlResult.confidence,
                     top_factors: [
                         { factor: 'UGC Style', impact: inputs.ugc_style ? 'positive' : 'negative', weight: inputs.ugc_style ? 0.95 : 0.4 },
-                        { factor: 'Hook Type', impact: score > 70 ? 'positive' : 'neutral', weight: 0.85 },
+                        { factor: 'Hook Type', impact: mlResult.globalScore > 70 ? 'positive' : 'neutral', weight: 0.85 },
                         { factor: 'Subtitles', impact: inputs.subtitles ? 'positive' : 'negative', weight: inputs.subtitles ? 0.9 : 0.4 },
-                        { factor: 'Launch Time', impact: inputs.launch_time === 'evening' ? 'positive' : 'neutral', weight: 0.8 },
-                        { factor: 'Platform Choice', impact: platformOption && platformOption.score > 80 ? 'positive' : 'neutral', weight: 0.75 },
+                        { factor: 'Platform Choice', impact: inputs.platform === 'tiktok' ? 'positive' : 'neutral', weight: 0.75 },
                     ],
                     recommendations: [],
                     similar_videos: [],
                 };
 
+                // Add recommendations based on risk assessment
+                if (mlResult.riskAssessment.potentialFailures.length > 0) {
+                    mlResult.riskAssessment.potentialFailures.forEach(f => {
+                        fallbackPrediction.recommendations.push(f.mitigation);
+                    });
+                }
+
                 if (!inputs.ugc_style) fallbackPrediction.recommendations.push('Consider using UGC-style content for +15% engagement');
                 if (!inputs.subtitles) fallbackPrediction.recommendations.push('Add subtitles/captions for +12% watch time');
-                if (inputs.music_type !== 'trending') fallbackPrediction.recommendations.push('Using trending audio could boost reach by +20%');
-                if (inputs.launch_time !== 'evening') fallbackPrediction.recommendations.push('Launch during evening hours (5-9 PM) for best reach');
 
                 setPrediction(fallbackPrediction);
             }
@@ -168,6 +183,7 @@ export default function PredictPage() {
                 recommendations: ['Unable to get AI prediction. Please try again.'],
                 similar_videos: [],
             });
+            setRiskAssessment(null);
         }
 
         setIsAnalyzing(false);
@@ -179,6 +195,7 @@ export default function PredictPage() {
 
     const resetPrediction = () => {
         setPrediction(null);
+        setRiskAssessment(null);
         setInputs({
             hook_type: '',
             editing_style: '',
@@ -456,11 +473,25 @@ export default function PredictPage() {
                                                 ? '⚠️ Average. Consider implementing the recommendations.'
                                                 : '❌ Low potential. Significant changes recommended.'}
                                 </p>
-                                <div className={styles.confidenceBadge}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                                    </svg>
-                                    {prediction.confidence}% confidence ({dataPoints} data points)
+                                <div className={styles.badgeRow}>
+                                    <div className={styles.confidenceBadge}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                        </svg>
+                                        {prediction.confidence}% confidence ({dataPoints} data points)
+                                    </div>
+                                    {riskAssessment && (
+                                        <div
+                                            className={`${styles.riskBadge} ${styles[`risk${riskAssessment.tierInfo.color.charAt(0).toUpperCase() + riskAssessment.tierInfo.color.slice(1)}`]}`}
+                                        >
+                                            {riskAssessment.tier === 'proven_pattern' && '✅'}
+                                            {riskAssessment.tier === 'likely_success' && '👍'}
+                                            {riskAssessment.tier === 'moderate_risk' && '⚠️'}
+                                            {riskAssessment.tier === 'high_variance' && '⚡'}
+                                            {riskAssessment.tier === 'unproven_territory' && '🔬'}
+                                            {' '}{riskAssessment.tierInfo.label}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -516,6 +547,32 @@ export default function PredictPage() {
                         </div>
                     </div>
 
+                    {/* Potential Failures (Why This May Fail) */}
+                    {riskAssessment && riskAssessment.potentialFailures.length > 0 && (
+                        <div className={`glass-card ${styles.failuresCard}`}>
+                            <h3>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                    <line x1="12" y1="9" x2="12" y2="13" />
+                                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                                </svg>
+                                Why This May Fail
+                            </h3>
+                            <div className={styles.failuresList}>
+                                {riskAssessment.potentialFailures.slice(0, 4).map((failure, index) => (
+                                    <div key={index} className={`${styles.failureItem} ${styles[`severity${failure.severity.charAt(0).toUpperCase() + failure.severity.slice(1)}`]}`}>
+                                        <div className={styles.failureHeader}>
+                                            <span className={styles.failureReason}>{failure.reason}</span>
+                                            <span className={styles.failureProbability}>{failure.probability}% likely</span>
+                                        </div>
+                                        <div className={styles.failureMitigation}>
+                                            💡 {failure.mitigation}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     {/* Actions */}
                     <div className={styles.resultActions}>
                         <button className="btn btn-secondary" onClick={resetPrediction}>

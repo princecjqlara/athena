@@ -245,6 +245,127 @@
     color: var(--success);
 }
 
+/* Badge Row */
+.badgeRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+/* Risk Badge */
+.riskBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.riskGreen {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.riskBlue {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.riskYellow {
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.riskOrange {
+    background: rgba(249, 115, 22, 0.15);
+    color: #f97316;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.riskRed {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Failures Card */
+.failuresCard {
+    padding: var(--spacing-lg);
+}
+
+.failuresCard h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--warning);
+}
+
+.failuresCard h3 svg {
+    color: var(--warning);
+}
+
+.failuresList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.failureItem {
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
+    border-left: 3px solid;
+}
+
+.failureItem.severityLow {
+    background: rgba(234, 179, 8, 0.08);
+    border-left-color: #eab308;
+}
+
+.failureItem.severityMedium {
+    background: rgba(249, 115, 22, 0.08);
+    border-left-color: #f97316;
+}
+
+.failureItem.severityHigh {
+    background: rgba(239, 68, 68, 0.08);
+    border-left-color: #ef4444;
+}
+
+.failureHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+}
+
+.failureReason {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.failureProbability {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.failureMitigation {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
 /* Side Panels */
 .sidePanels {
     display: grid;
