@@ -517,10 +517,45 @@ export default function ImportPage() {
 
             const traits = adTraits[adId] || { categories: [], traits: [] };
 
-            // Calculate success score based on CTR
-            const successScore = fbAd.metrics
-                ? Math.min(100, Math.round((fbAd.metrics.ctr || 0) * 20))
-                : undefined;
+            // Calculate success score based on multiple metrics
+            // Score is 0-100 based on CTR, conversion rate, and overall performance
+            let successScore: number | undefined = undefined;
+            if (fbAd.metrics) {
+                const m = fbAd.metrics;
+                let score = 0;
+                let factors = 0;
+
+                // CTR contribution (0-40 points)
+                if (m.ctr && m.ctr > 0) {
+                    // CTR of 2% = 20 points, 5% = 50 points (capped at 40)
+                    score += Math.min(40, m.ctr * 10);
+                    factors++;
+                }
+
+                // Results/Conversions contribution (0-40 points)
+                if (m.results && m.results > 0 && m.impressions && m.impressions > 0) {
+                    // Conversion rate: results / impressions * 1000
+                    const convRate = (m.results / m.impressions) * 100;
+                    score += Math.min(40, convRate * 10);
+                    factors++;
+                } else if (m.leads && m.leads > 0) {
+                    score += Math.min(40, m.leads * 5);
+                    factors++;
+                } else if (m.messagesStarted && m.messagesStarted > 0) {
+                    score += Math.min(40, m.messagesStarted * 4);
+                    factors++;
+                }
+
+                // Engagement contribution (0-20 points)
+                if (m.pageEngagement && m.pageEngagement > 0 && m.impressions && m.impressions > 0) {
+                    const engRate = (m.pageEngagement / m.impressions) * 100;
+                    score += Math.min(20, engRate * 5);
+                    factors++;
+                }
+
+                // Normalize: if we have metrics, calculate average
+                successScore = factors > 0 ? Math.round(Math.min(100, score)) : undefined;
+            }
 
             // Create extractedContent for Algorithm/mindmap compatibility
             const extractedContent = {
