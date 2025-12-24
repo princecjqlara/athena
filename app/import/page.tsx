@@ -739,7 +739,7 @@ export default function ImportPage() {
                                                 </div>
 
                                                 {/* Breakdowns */}
-                                                {(ad.byPlatform?.length > 0 || ad.byDevice?.length > 0 || ad.demographics?.length > 0 || ad.regions?.length > 0) && (
+                                                {((ad.byPlatform?.length ?? 0) > 0 || (ad.byDevice?.length ?? 0) > 0 || (ad.demographics?.length ?? 0) > 0 || (ad.regions?.length ?? 0) > 0) && (
                                                     <div style={{
                                                         display: 'flex',
                                                         gap: '6px',
@@ -747,29 +747,29 @@ export default function ImportPage() {
                                                         marginTop: 'var(--spacing-xs)',
                                                         fontSize: '0.6875rem'
                                                     }}>
-                                                        {ad.byPlatform?.length > 0 && (
+                                                        {(ad.byPlatform?.length ?? 0) > 0 && (
                                                             <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
-                                                                📱 {ad.byPlatform.map((p: { platform: string }) => p.platform).join(', ')}
+                                                                📱 {ad.byPlatform?.map((p) => p.platform).join(', ')}
                                                             </span>
                                                         )}
-                                                        {ad.byDevice?.length > 0 && (
+                                                        {(ad.byDevice?.length ?? 0) > 0 && (
                                                             <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
-                                                                💻 {ad.byDevice.map((d: { device: string }) => d.device).join(', ')}
+                                                                💻 {ad.byDevice?.map((d) => d.device).join(', ')}
                                                             </span>
                                                         )}
-                                                        {ad.demographics?.length > 0 && (
+                                                        {(ad.demographics?.length ?? 0) > 0 && (
                                                             <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
-                                                                👥 {ad.demographics.slice(0, 3).map((d: { age: string; gender: string }) => `${d.age} ${d.gender}`).join(', ')}...
+                                                                👥 {ad.demographics?.slice(0, 3).map((d) => `${d.age || ''} ${d.gender || ''}`).join(', ')}...
                                                             </span>
                                                         )}
-                                                        {ad.regions?.length > 0 && (
+                                                        {(ad.regions?.length ?? 0) > 0 && (
                                                             <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
-                                                                🌍 {ad.regions.slice(0, 3).map((r: { country: string }) => r.country).join(', ')}
+                                                                🌍 {ad.regions?.slice(0, 3).map((r) => r.country || '').join(', ')}
                                                             </span>
                                                         )}
-                                                        {ad.placements?.length > 0 && (
+                                                        {(ad.placements?.length ?? 0) > 0 && (
                                                             <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
-                                                                📍 {ad.placements.slice(0, 3).map((p: { position: string }) => p.position).join(', ')}
+                                                                📍 {ad.placements?.slice(0, 3).map((p) => p.position || '').join(', ')}
                                                             </span>
                                                         )}
                                                     </div>
