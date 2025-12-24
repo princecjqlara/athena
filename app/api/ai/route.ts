@@ -79,6 +79,15 @@ export async function POST(request: NextRequest) {
         prompt = buildChatPrompt(data.message, data.context, data.history);
         return await handleChatResponse(prompt, systemMessage, apiKey);
 
+      case 'analyze-metrics':
+        systemMessage = `You are an expert Facebook advertising analyst. Analyze raw Facebook metrics and provide:
+        - Human-readable labels for every action type
+        - Performance assessments (good/average/poor) based on industry benchmarks
+        - A clear summary of what's working and what needs improvement
+        Always respond with valid JSON.`;
+        prompt = buildMetricsAnalysisPrompt(data.metrics, data.adName);
+        break;
+
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
@@ -629,4 +638,85 @@ async function handleChatResponse(
       data: { response: "Sorry, I encountered an error. Please try again." }
     });
   }
+}
+
+interface RawAction {
+  type: string;
+  value: number;
+}
+
+interface RawCostPerAction {
+  type: string;
+  cost: number;
+}
+
+interface MetricsData {
+  impressions: number;
+  reach: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  spend: number;
+  frequency: number;
+  results?: number;
+  resultType?: string;
+  costPerResult?: number;
+  rawActions?: RawAction[];
+  rawCostPerAction?: RawCostPerAction[];
+}
+
+function buildMetricsAnalysisPrompt(metrics: MetricsData, adName: string): string {
+  return `Analyze these Facebook ad metrics for "${adName}" and provide intelligent labeling:
+
+CORE METRICS:
+- Impressions: ${metrics.impressions?.toLocaleString() || 0}
+- Reach: ${metrics.reach?.toLocaleString() || 0}
+- Clicks: ${metrics.clicks?.toLocaleString() || 0}
+- CTR: ${metrics.ctr?.toFixed(2) || 0}%
+- CPC: ₱${metrics.cpc?.toFixed(2) || 0}
+- CPM: ₱${metrics.cpm?.toFixed(2) || 0}
+- Total Spent: ₱${metrics.spend?.toFixed(2) || 0}
+- Frequency: ${metrics.frequency?.toFixed(2) || 0}
+${metrics.results ? `- Results: ${metrics.results} (${metrics.resultType || 'unknown'})` : ''}
+${metrics.costPerResult ? `- Cost per Result: ₱${metrics.costPerResult.toFixed(2)}` : ''}
+
+RAW FACEBOOK ACTIONS:
+${metrics.rawActions?.map(a => `- ${a.type}: ${a.value}`).join('\n') || 'None'}
+
+COST PER ACTION:
+${metrics.rawCostPerAction?.map(a => `- ${a.type}: ₱${a.cost.toFixed(2)}`).join('\n') || 'None'}
+
+Provide a JSON response with:
+1. Human-readable labels for each raw action (translate Facebook's internal names to user-friendly labels)
+2. Performance assessment for key metrics
+3. Summary and recommendations
+
+Return JSON:
+{
+  "summary": "One-line performance summary",
+  "overallScore": <0-100>,
+  "labeledMetrics": [
+    {
+      "rawName": "original_action_type",
+      "label": "User-Friendly Label",
+      "value": <number>,
+      "cost": <number or null>,
+      "assessment": "good|average|poor",
+      "emoji": "relevant emoji",
+      "explanation": "Brief explanation of what this metric means"
+    }
+  ],
+  "keyInsights": [
+    {
+      "metric": "CTR",
+      "label": "Click-Through Rate",
+      "value": "3.5%",
+      "assessment": "good",
+      "benchmark": "Industry average is 0.9-2%"
+    }
+  ],
+  "recommendations": ["Actionable improvement suggestions"],
+  "warnings": ["Any concerning metrics"]
+}`;
 }

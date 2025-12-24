@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import styles from './page.module.css';
+import { adLinksStore, getStoredAds, AdPipelineLink } from '@/lib/contacts-store';
 
 interface Stage {
     id: string;
@@ -10,6 +12,14 @@ interface Stage {
     isGoal: boolean;
     isAutoCreated: boolean;
     leadCount: number;
+    linkedAdIds?: string[];  // Facebook Ad IDs linked to this stage
+}
+
+interface StoredAd {
+    id: string;
+    facebookAdId?: string;
+    name?: string;
+    thumbnailUrl?: string;
 }
 
 interface Lead {
@@ -51,6 +61,13 @@ export default function PipelineDetailPage() {
     const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
     const [pendingGoalStageId, setPendingGoalStageId] = useState<string | null>(null);
 
+    // Ad linking state
+    const [storedAds, setStoredAds] = useState<StoredAd[]>([]);
+    const [adLinks, setAdLinks] = useState<AdPipelineLink[]>([]);
+    const [showLinkAdModal, setShowLinkAdModal] = useState(false);
+    const [selectedStageForLinking, setSelectedStageForLinking] = useState<string | null>(null);
+    const [selectedAdToLink, setSelectedAdToLink] = useState<string>('');
+
     useEffect(() => {
         // Load pipeline from localStorage
         const savedPipelines = localStorage.getItem('pipelines');
@@ -66,7 +83,49 @@ export default function PipelineDetailPage() {
                 }
             }
         }
+
+        // Load stored ads and ad-pipeline links
+        setStoredAds(getStoredAds());
+        setAdLinks(adLinksStore.getByPipeline(params.id as string));
     }, [params.id]);
+
+    // Handle linking an ad to a stage
+    const handleLinkAd = () => {
+        if (!selectedStageForLinking || !selectedAdToLink) return;
+
+        const ad = storedAds.find(a => a.id === selectedAdToLink);
+        if (!ad) return;
+
+        const newLink = adLinksStore.create({
+            adId: ad.facebookAdId || ad.id,
+            adName: ad.name || 'Unnamed Ad',
+            pipelineId: params.id as string,
+            stageId: selectedStageForLinking,
+        });
+
+        setAdLinks([...adLinks.filter(l => l.adId !== newLink.adId), newLink]);
+        setShowLinkAdModal(false);
+        setSelectedStageForLinking(null);
+        setSelectedAdToLink('');
+    };
+
+    // Handle unlinking an ad
+    const handleUnlinkAd = (adId: string) => {
+        adLinksStore.delete(adId);
+        setAdLinks(adLinks.filter(l => l.adId !== adId));
+    };
+
+    // Get linked ads for a stage
+    const getLinkedAdsForStage = (stageId: string) => {
+        return adLinks.filter(l => l.stageId === stageId);
+    };
+
+    // Open link ad modal
+    const openLinkAdModal = (stageId: string) => {
+        setSelectedStageForLinking(stageId);
+        setSelectedAdToLink('');
+        setShowLinkAdModal(true);
+    };
 
     const saveLeads = (updatedLeads: Lead[]) => {
         setLeads(updatedLeads);
@@ -378,8 +437,34 @@ export default function PipelineDetailPage() {
                                 {stage.name}
                                 {stage.isGoal && <span className={styles.goalBadge}>✓</span>}
                             </div>
-                            <span className={styles.columnCount}>{getLeadsForStage(stage.id).length}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span className={styles.columnCount}>{getLeadsForStage(stage.id).length}</span>
+                                <button
+                                    className={styles.linkAdBtn}
+                                    onClick={(e) => { e.stopPropagation(); openLinkAdModal(stage.id); }}
+                                    title="Link an ad to this stage"
+                                >
+                                    🔗
+                                </button>
+                            </div>
                         </div>
+                        {/* Linked Ads */}
+                        {getLinkedAdsForStage(stage.id).length > 0 && (
+                            <div className={styles.linkedAds}>
+                                {getLinkedAdsForStage(stage.id).map(link => (
+                                    <div key={link.adId} className={styles.linkedAdBadge}>
+                                        <span>📊 {link.adName.length > 15 ? link.adName.slice(0, 15) + '...' : link.adName}</span>
+                                        <button
+                                            className={styles.unlinkBtn}
+                                            onClick={() => handleUnlinkAd(link.adId)}
+                                            title="Unlink this ad"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
 
                         <div className={styles.columnContent}>
                             {getLeadsForStage(stage.id).map(lead => (
@@ -595,6 +680,83 @@ export default function PipelineDetailPage() {
                     </div>
                 </div>
             )}
+
+            {/* Link Ad Modal */}
+            {showLinkAdModal && (
+                <div className={styles.modalOverlay} onClick={() => setShowLinkAdModal(false)}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h2>🔗 Link Ad to Stage</h2>
+                            <button className={styles.closeBtn} onClick={() => setShowLinkAdModal(false)}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className={styles.modalBody}>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)', fontSize: '0.875rem' }}>
+                                Link a Facebook ad to track contacts from that ad in this pipeline stage.
+                            </p>
+
+                            {storedAds.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)', color: 'var(--text-muted)' }}>
+                                    <p>No ads imported yet.</p>
+                                    <Link href="/import" className="btn btn-primary" style={{ marginTop: 'var(--spacing-md)' }}>
+                                        📥 Import Ads First
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div className="form-group">
+                                    <label className="form-label">Select Ad</label>
+                                    <select
+                                        className="form-input"
+                                        value={selectedAdToLink}
+                                        onChange={e => setSelectedAdToLink(e.target.value)}
+                                    >
+                                        <option value="">-- Select an ad --</option>
+                                        {storedAds.map(ad => {
+                                            const isLinked = adLinks.some(l => l.adId === (ad.facebookAdId || ad.id));
+                                            return (
+                                                <option
+                                                    key={ad.id}
+                                                    value={ad.id}
+                                                    disabled={isLinked}
+                                                >
+                                                    {ad.name || 'Unnamed Ad'} {isLinked ? '(already linked)' : ''}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className={styles.modalFooter}>
+                            <button className="btn btn-secondary" onClick={() => setShowLinkAdModal(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleLinkAd}
+                                disabled={!selectedAdToLink}
+                            >
+                                🔗 Link Ad
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* View Contacts Button - fixed position */}
+            <Link
+                href={`/pipeline/${params.id}/contacts`}
+                className={styles.viewContactsBtn}
+            >
+                👥 View Contacts
+            </Link>
         </div>
     );
 }
+

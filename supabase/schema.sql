@@ -189,3 +189,94 @@ CREATE INDEX IF NOT EXISTS idx_ads_created_at ON ads(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ad_insights_ad_id ON ad_insights(ad_id);
 CREATE INDEX IF NOT EXISTS idx_ad_breakdowns_ad_id ON ad_breakdowns(ad_id);
 CREATE INDEX IF NOT EXISTS idx_ad_breakdowns_type ON ad_breakdowns(breakdown_type);
+
+-- ============================================
+-- CONTACTS TABLE - Leads/contacts from ads
+-- ============================================
+CREATE TABLE IF NOT EXISTS contacts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  
+  -- Contact info
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  
+  -- Source tracking
+  source_ad_id TEXT,          -- Facebook Ad ID that generated this contact
+  source_ad_name TEXT,        -- Ad name for display
+  facebook_lead_id TEXT,      -- Lead ID from Facebook webhook
+  facebook_psid TEXT,         -- Page-Scoped User ID for Messenger
+  
+  -- Pipeline tracking
+  pipeline_id TEXT,
+  stage_id TEXT,
+  
+  -- AI Analysis (stored as JSON)
+  ai_analysis JSONB,
+  
+  -- Timestamps
+  last_message_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- MESSAGES TABLE - Conversation history
+-- ============================================
+CREATE TABLE IF NOT EXISTS messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_id UUID REFERENCES contacts(id) ON DELETE CASCADE,
+  
+  content TEXT NOT NULL,
+  direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+  message_id TEXT,            -- Facebook message ID
+  
+  timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- AD PIPELINE LINKS - Connect ads to pipeline stages
+-- ============================================
+CREATE TABLE IF NOT EXISTS ad_pipeline_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  
+  ad_id TEXT NOT NULL,
+  ad_name TEXT,
+  pipeline_id TEXT NOT NULL,
+  stage_id TEXT NOT NULL,
+  
+  linked_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  UNIQUE(ad_id)  -- An ad can only be linked to one pipeline/stage
+);
+
+-- Enable RLS
+ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ad_pipeline_links ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies (public access for now)
+CREATE POLICY "Public read contacts" ON contacts FOR SELECT USING (true);
+CREATE POLICY "Public insert contacts" ON contacts FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public update contacts" ON contacts FOR UPDATE USING (true);
+CREATE POLICY "Public delete contacts" ON contacts FOR DELETE USING (true);
+
+CREATE POLICY "Public read messages" ON messages FOR SELECT USING (true);
+CREATE POLICY "Public insert messages" ON messages FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Public read ad_pipeline_links" ON ad_pipeline_links FOR SELECT USING (true);
+CREATE POLICY "Public insert ad_pipeline_links" ON ad_pipeline_links FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public update ad_pipeline_links" ON ad_pipeline_links FOR UPDATE USING (true);
+CREATE POLICY "Public delete ad_pipeline_links" ON ad_pipeline_links FOR DELETE USING (true);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_contacts_pipeline_id ON contacts(pipeline_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_source_ad_id ON contacts(source_ad_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_facebook_lead_id ON contacts(facebook_lead_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_facebook_psid ON contacts(facebook_psid);
+CREATE INDEX IF NOT EXISTS idx_messages_contact_id ON messages(contact_id);
+CREATE INDEX IF NOT EXISTS idx_ad_pipeline_links_pipeline_id ON ad_pipeline_links(pipeline_id);
+CREATE INDEX IF NOT EXISTS idx_ad_pipeline_links_ad_id ON ad_pipeline_links(ad_id);
+

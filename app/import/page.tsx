@@ -140,6 +140,45 @@ export default function ImportPage() {
         adName: string;
     } | null>(null);
 
+    // AI Analysis State
+    const [aiAnalysis, setAiAnalysis] = useState<Record<string, {
+        loading: boolean;
+        data: {
+            summary: string;
+            overallScore: number;
+            labeledMetrics: { rawName: string; label: string; value: number; cost: number | null; assessment: string; emoji: string; explanation: string }[];
+            keyInsights: { metric: string; label: string; value: string; assessment: string; benchmark: string }[];
+            recommendations: string[];
+            warnings: string[];
+        } | null;
+    }>>({});
+
+    // Function to analyze metrics with AI
+    const analyzeWithAI = async (adId: string, adName: string, metrics: FacebookMetrics) => {
+        setAiAnalysis(prev => ({ ...prev, [adId]: { loading: true, data: null } }));
+
+        try {
+            const response = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'analyze-metrics',
+                    data: { metrics, adName }
+                })
+            });
+
+            const result = await response.json();
+            if (result.success && result.data) {
+                setAiAnalysis(prev => ({ ...prev, [adId]: { loading: false, data: result.data } }));
+            } else {
+                setAiAnalysis(prev => ({ ...prev, [adId]: { loading: false, data: null } }));
+            }
+        } catch (err) {
+            console.error('AI analysis error:', err);
+            setAiAnalysis(prev => ({ ...prev, [adId]: { loading: false, data: null } }));
+        }
+    };
+
     // Metric definitions with benchmarks
     const metricInfo: Record<string, { name: string; description: string; good: string; average: string; poor: string; benchmark: (v: number) => 'good' | 'average' | 'poor' }> = {
         ctr: {
@@ -642,8 +681,27 @@ export default function ImportPage() {
             {/* Ads List */}
             {facebookAds.length > 0 && (
                 <div className="glass-card" style={{ padding: 'var(--spacing-lg)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
-                        <h3>📊 Found {facebookAds.length} Ads</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap', gap: 'var(--spacing-md)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-lg)', flexWrap: 'wrap' }}>
+                            <h3 style={{ margin: 0 }}>📊 Found {facebookAds.length} Ads</h3>
+                            <div style={{
+                                background: 'rgba(200, 245, 96, 0.15)',
+                                padding: '8px 16px',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid rgba(200, 245, 96, 0.3)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <span style={{ fontSize: '1.25rem' }}>💰</span>
+                                <div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Spent</div>
+                                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)' }}>
+                                        ₱{facebookAds.reduce((sum, ad) => sum + (ad.metrics?.spend || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
                             <button className="btn btn-ghost btn-sm" onClick={selectAllAds}>
                                 ✓ Select All
@@ -940,42 +998,131 @@ export default function ImportPage() {
                                                     </div>
                                                 </details>
 
-                                                {/* Raw Facebook Actions - Show ALL data */}
+                                                {/* AI-Powered Metrics Analysis */}
                                                 {(ad.metrics.rawActions?.length ?? 0) > 0 && (
-                                                    <details style={{ marginTop: '8px' }}>
-                                                        <summary style={{ cursor: 'pointer', color: '#f59e0b', fontSize: '0.6875rem', marginBottom: '6px' }}>
-                                                            🔍 All Facebook Actions ({ad.metrics.rawActions?.length} types)
-                                                        </summary>
-                                                        <div style={{
-                                                            display: 'grid',
-                                                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                                                            gap: '4px',
-                                                            padding: '8px',
-                                                            background: '#1a1a2e',
-                                                            borderRadius: '8px',
-                                                            marginTop: '4px',
-                                                            fontSize: '0.625rem'
-                                                        }}>
-                                                            {ad.metrics.rawActions?.map((action, idx) => {
-                                                                const costData = ad.metrics?.rawCostPerAction?.find(c => c.type === action.type);
-                                                                return (
-                                                                    <div key={idx} style={{
-                                                                        background: '#2a2a3e',
-                                                                        padding: '4px 8px',
-                                                                        borderRadius: '4px',
-                                                                        display: 'flex',
-                                                                        justifyContent: 'space-between'
+                                                    <div style={{ marginTop: '8px' }}>
+                                                        {!aiAnalysis[ad.id]?.data && (
+                                                            <button
+                                                                onClick={() => analyzeWithAI(ad.id, ad.name, ad.metrics!)}
+                                                                disabled={aiAnalysis[ad.id]?.loading}
+                                                                style={{
+                                                                    background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                                                                    color: 'white',
+                                                                    border: 'none',
+                                                                    padding: '6px 12px',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '0.75rem',
+                                                                    cursor: 'pointer',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '6px'
+                                                                }}
+                                                            >
+                                                                {aiAnalysis[ad.id]?.loading ? '🔄 Analyzing...' : '🤖 AI Analyze Metrics'}
+                                                            </button>
+                                                        )}
+
+                                                        {/* AI Analysis Results */}
+                                                        {aiAnalysis[ad.id]?.data && (
+                                                            <div style={{
+                                                                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.1))',
+                                                                border: '1px solid rgba(139, 92, 246, 0.3)',
+                                                                borderRadius: '8px',
+                                                                padding: '12px',
+                                                                marginTop: '8px'
+                                                            }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                                                    <span style={{ fontSize: '1rem' }}>🤖</span>
+                                                                    <strong style={{ fontSize: '0.875rem', color: '#a78bfa' }}>AI Analysis</strong>
+                                                                    <span style={{
+                                                                        background: aiAnalysis[ad.id]!.data!.overallScore >= 70 ? '#22c55e' : aiAnalysis[ad.id]!.data!.overallScore >= 50 ? '#f59e0b' : '#ef4444',
+                                                                        color: '#000',
+                                                                        padding: '2px 8px',
+                                                                        borderRadius: '10px',
+                                                                        fontSize: '0.6875rem',
+                                                                        fontWeight: 600
                                                                     }}>
-                                                                        <span style={{ color: '#888' }}>{action.type.replace(/_/g, ' ')}</span>
-                                                                        <span>
-                                                                            <strong>{action.value}</strong>
-                                                                            {costData && <span style={{ color: '#22c55e', marginLeft: '4px' }}>₱{costData.cost.toFixed(2)}</span>}
-                                                                        </span>
+                                                                        Score: {aiAnalysis[ad.id]!.data!.overallScore}
+                                                                    </span>
+                                                                </div>
+                                                                <p style={{ fontSize: '0.8125rem', marginBottom: '10px', color: 'var(--text-secondary)' }}>
+                                                                    {aiAnalysis[ad.id]!.data!.summary}
+                                                                </p>
+
+                                                                {/* AI Labeled Metrics */}
+                                                                <div style={{
+                                                                    display: 'grid',
+                                                                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                                                                    gap: '6px',
+                                                                    marginBottom: '10px'
+                                                                }}>
+                                                                    {aiAnalysis[ad.id]!.data!.labeledMetrics?.slice(0, 8).map((m, idx) => (
+                                                                        <div key={idx} style={{
+                                                                            background: m.assessment === 'good' ? 'rgba(34, 197, 94, 0.1)' : m.assessment === 'poor' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                                                            border: `1px solid ${m.assessment === 'good' ? 'rgba(34, 197, 94, 0.3)' : m.assessment === 'poor' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                                                                            borderRadius: '6px',
+                                                                            padding: '6px 8px',
+                                                                            fontSize: '0.6875rem'
+                                                                        }}>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                                <span>{m.emoji} {m.label}</span>
+                                                                                <strong>{m.value}</strong>
+                                                                            </div>
+                                                                            {m.cost !== null && <div style={{ color: '#22c55e', fontSize: '0.625rem' }}>₱{m.cost.toFixed(2)} each</div>}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+
+                                                                {/* Recommendations */}
+                                                                {aiAnalysis[ad.id]!.data!.recommendations?.length > 0 && (
+                                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                                        <strong style={{ color: 'var(--primary)' }}>💡 Recommendations:</strong>
+                                                                        <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                                                                            {aiAnalysis[ad.id]!.data!.recommendations.slice(0, 3).map((r, i) => (
+                                                                                <li key={i}>{r}</li>
+                                                                            ))}
+                                                                        </ul>
                                                                     </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </details>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Fallback: Raw Actions (collapsible) */}
+                                                        <details style={{ marginTop: '8px' }}>
+                                                            <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.625rem' }}>
+                                                                📋 Raw Facebook Actions ({ad.metrics.rawActions?.length} types)
+                                                            </summary>
+                                                            <div style={{
+                                                                display: 'grid',
+                                                                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                                                gap: '4px',
+                                                                padding: '8px',
+                                                                background: '#1a1a2e',
+                                                                borderRadius: '8px',
+                                                                marginTop: '4px',
+                                                                fontSize: '0.625rem'
+                                                            }}>
+                                                                {ad.metrics.rawActions?.map((action, idx) => {
+                                                                    const costData = ad.metrics?.rawCostPerAction?.find(c => c.type === action.type);
+                                                                    return (
+                                                                        <div key={idx} style={{
+                                                                            background: '#2a2a3e',
+                                                                            padding: '4px 8px',
+                                                                            borderRadius: '4px',
+                                                                            display: 'flex',
+                                                                            justifyContent: 'space-between'
+                                                                        }}>
+                                                                            <span style={{ color: '#888' }}>{action.type.replace(/_/g, ' ')}</span>
+                                                                            <span>
+                                                                                <strong>{action.value}</strong>
+                                                                                {costData && <span style={{ color: '#22c55e', marginLeft: '4px' }}>₱{costData.cost.toFixed(2)}</span>}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </details>
+                                                    </div>
                                                 )}
 
                                                 {/* Breakdowns - simplified */}

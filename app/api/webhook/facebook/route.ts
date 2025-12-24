@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { contactsStore, findOrCreateContact, adLinksStore } from '@/lib/contacts-store';
 
 // Webhook Verify Token - set this in environment variables
 const VERIFY_TOKEN = process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN || 'TEST_TOKEN';
@@ -126,10 +127,27 @@ async function handleMessagingEvent(pageId: string, event: MessagingEvent) {
             timestamp: new Date(timestamp).toISOString()
         };
 
-        // TODO: Store in database with multi-tenant support
-        // await storeWebhookEvent(pageId, 'message', messageData);
+        // Find or create contact by PSID
+        let contact = contactsStore.findByFacebookId(undefined, senderId);
+        if (!contact) {
+            // Create a new contact
+            contact = findOrCreateContact({
+                name: `Messenger User ${senderId.slice(-6)}`,
+                facebookPsid: senderId,
+            });
+        }
 
-        console.log('[Webhook] New message:', messageData);
+        // Add message to contact
+        if (contact && event.message.text) {
+            contactsStore.addMessage(contact.id, {
+                content: event.message.text,
+                direction: 'inbound',
+                timestamp: new Date(timestamp).toISOString(),
+                messageId: event.message.mid
+            });
+        }
+
+        console.log('[Webhook] New message stored for contact:', contact?.id);
     }
 
     if (event.postback) {
@@ -187,11 +205,17 @@ async function handleLeadgenEvent(pageId: string, leadData: LeadgenValue, timest
         adId: leadData.ad_id
     });
 
-    // In a real implementation, you would:
-    // 1. Look up which user/business owns this pageId
-    // 2. Fetch the full lead data from Facebook Graph API
-    // 3. Store it in your database
-    // 4. Optionally notify the user
+    // Find the pipeline linked to this ad
+    const adLink = adLinksStore.getByAdId(leadData.ad_id);
+
+    // Create contact from lead
+    const contact = findOrCreateContact({
+        name: `Lead ${leadData.leadgen_id.slice(-8)}`,
+        facebookLeadId: leadData.leadgen_id,
+        sourceAdId: leadData.ad_id,
+        pipelineId: adLink?.pipelineId,
+        stageId: adLink?.stageId,
+    });
 
     const leadEvent = {
         type: 'lead',
@@ -201,15 +225,9 @@ async function handleLeadgenEvent(pageId: string, leadData: LeadgenValue, timest
         adId: leadData.ad_id,
         adgroupId: leadData.adgroup_id,
         createdTime: new Date(leadData.created_time * 1000).toISOString(),
-        receivedAt: new Date().toISOString()
+        receivedAt: new Date().toISOString(),
+        contactId: contact.id
     };
 
-    // TODO: Implement multi-tenant storage
-    // const user = await findUserByPageId(pageId);
-    // if (user) {
-    //     await storeLeadForUser(user.id, leadEvent);
-    //     await notifyUser(user.id, 'new_lead', leadEvent);
-    // }
-
-    console.log('[Webhook] Lead event processed:', leadEvent);
+    console.log('[Webhook] Lead stored as contact:', contact.id, leadEvent);
 }
