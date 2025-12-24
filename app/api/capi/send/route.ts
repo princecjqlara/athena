@@ -14,11 +14,14 @@ export async function POST(request: NextRequest) {
             accessToken,
             eventName,
             eventTime,
+            eventId,
             leadId,
             email,
             phone,
             firstName,
             lastName,
+            clientIpAddress,
+            clientUserAgent,
             value,
             currency,
             customData
@@ -46,6 +49,22 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // event_id is REQUIRED for deduplication
+        if (!eventId) {
+            return NextResponse.json(
+                { success: false, error: 'event_id is required for deduplication (use unique conversion ID)' },
+                { status: 400 }
+            );
+        }
+
+        // event_time is REQUIRED for proper attribution
+        if (!eventTime) {
+            return NextResponse.json(
+                { success: false, error: 'event_time is required (Unix timestamp of when action occurred)' },
+                { status: 400 }
+            );
+        }
+
         // At least one identifier is needed for matching
         if (!leadId && !email && !phone) {
             return NextResponse.json(
@@ -57,12 +76,15 @@ export async function POST(request: NextRequest) {
         // Send the event
         const result = await sendCAPIEvent(datasetId, accessToken, {
             eventName,
-            eventTime,  // Unix timestamp (optional - defaults to now)
+            eventTime,
+            eventId,
             leadId,
             email,
             phone,
             firstName,
             lastName,
+            clientIpAddress,
+            clientUserAgent,
             value,
             currency,
             customData
@@ -101,15 +123,23 @@ export async function GET() {
         documentation: 'https://developers.facebook.com/docs/marketing-api/conversions-api/',
         usage: {
             method: 'POST',
-            body: {
+            required: {
                 datasetId: 'Your Facebook Dataset ID',
                 accessToken: 'Your CAPI Access Token',
                 eventName: 'Purchase | Lead | CompleteRegistration | etc.',
-                leadId: 'Facebook lead_id from webhook (best for matching)',
+                eventId: 'Unique conversion ID for deduplication',
+                eventTime: 'Unix timestamp (seconds) when action occurred'
+            },
+            identifiers: {
+                leadId: 'Facebook lead_id from webhook (best - 100% match rate)',
                 email: 'User email (will be hashed)',
-                phone: 'User phone (will be hashed)',
-                firstName: 'User first name (optional, will be hashed)',
-                lastName: 'User last name (optional, will be hashed)',
+                phone: 'User phone (will be hashed)'
+            },
+            optional: {
+                firstName: 'User first name (will be hashed)',
+                lastName: 'User last name (will be hashed)',
+                clientIpAddress: 'User IP address (improves iOS matching)',
+                clientUserAgent: 'User agent string (improves matching)',
                 value: 'Numeric value of conversion',
                 currency: 'USD (default)'
             }

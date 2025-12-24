@@ -43,12 +43,15 @@ export function normalizeEmail(email: string): string {
 
 interface CAPIEventData {
     eventName: string;          // e.g., "Purchase", "Lead", "CompleteRegistration"
-    eventTime?: number;         // Unix timestamp, defaults to now
+    eventTime?: number;         // Unix timestamp (REQUIRED: when action happened)
+    eventId: string;            // REQUIRED: unique ID for deduplication
     leadId?: string;            // Facebook lead_id from webhook (BEST for matching)
     email?: string;             // Will be hashed
     phone?: string;             // Will be hashed
     firstName?: string;         // Will be hashed
     lastName?: string;          // Will be hashed
+    clientIpAddress?: string;   // Recommended: improves match quality
+    clientUserAgent?: string;   // Recommended: improves match quality
     value?: number;             // Conversion value
     currency?: string;          // Default: USD
     customData?: Record<string, any>;  // Additional custom data
@@ -94,10 +97,15 @@ export async function sendCAPIEvent(
         if (hashedFirstName) userData.fn = hashedFirstName;
         if (hashedLastName) userData.ln = hashedLastName;
 
+        // Add client context for improved matching (especially iOS)
+        if (eventData.clientIpAddress) userData.client_ip_address = eventData.clientIpAddress;
+        if (eventData.clientUserAgent) userData.client_user_agent = eventData.clientUserAgent;
+
         // Build the event payload
         const eventPayload = {
             event_name: eventData.eventName,
             event_time: eventData.eventTime || Math.floor(Date.now() / 1000),
+            event_id: eventData.eventId,  // Required for deduplication
             action_source: 'system_generated',
             user_data: userData,
             custom_data: {

@@ -272,16 +272,25 @@ Send conversion events to Facebook CAPI.
   "datasetId": "string",
   "accessToken": "string",
   "eventName": "Purchase | Lead | CompleteRegistration | ...",
-  "eventTime": 1703000000,   // Unix timestamp (optional)
-  "leadId": "string",        // Best for matching
-  "email": "user@email.com", // Will be hashed
-  "phone": "+1234567890",    // Will be hashed
-  "firstName": "John",       // Optional, will be hashed
-  "lastName": "Doe",         // Optional, will be hashed
+  "eventId": "unique-conversion-id",  // REQUIRED: for deduplication
+  "eventTime": 1703000000,             // REQUIRED: Unix timestamp (UTC)
+  "leadId": "string",                  // Best for matching (100% match rate)
+  "email": "user@email.com",           // Will be hashed
+  "phone": "+1234567890",              // Will be hashed
+  "firstName": "John",                 // Optional, will be hashed
+  "lastName": "Doe",                   // Optional, will be hashed
+  "clientIpAddress": "192.168.1.1",    // Recommended: improves iOS matching
+  "clientUserAgent": "Mozilla/5.0...", // Recommended: improves matching
   "value": 99.99,
   "currency": "USD"
 }
 ```
+
+> [!IMPORTANT]
+> **Required Fields:**
+> - `eventId` — Unique ID per conversion for deduplication (prevents double-counting from retries)
+> - `eventTime` — Unix timestamp (seconds) of when the action occurred (not when sent)
+> - At least one identifier: `leadId`, `email`, or `phone`
 
 **Available Event Names:**
 - `Purchase`, `Lead`, `CompleteRegistration`
@@ -358,6 +367,51 @@ All PII is SHA-256 hashed before sending:
 
 ### Best Practice: Lead ID
 When available, use `lead_id` from webhook - it provides 100% match rate vs ~40-60% for hashed email/phone.
+
+### Event ↔ Campaign Optimization Mapping
+
+> [!CAUTION]
+> The event you send **MUST** match the event the campaign optimizes for. Mismatched events are **silently ignored** by Meta.
+
+| Campaign Objective | Required Event | Athena Use Case |
+|--------------------|----------------|------------------|
+| **Leads** | `Lead` | New lead captured from ad |
+| **Complete Registration** | `CompleteRegistration` | User completed form/signup |
+| **Sales** | `Purchase` | Deal closed / payment received |
+| **Start Trial** | `StartTrial` | User began free trial |
+| **Subscribe** | `Subscribe` | User subscribed to service |
+| **Schedule** | `Schedule` | Appointment/call booked |
+| **Contact** | `Contact` | User initiated contact |
+
+### Attribution Windows
+
+> [!WARNING]
+> Conversions outside these windows will **never** be attributed, regardless of CAPI correctness.
+
+| Attribution Type | Window | Description |
+|------------------|--------|-------------|
+| **Click-through** | 7 days | User clicked ad → converted within 7 days |
+| **View-through** | 1 day | User saw ad → converted within 1 day |
+
+**Important Considerations:**
+- Long sales cycles (weeks/months) won't attribute to Meta ads
+- Set appropriate expectations with stakeholders
+- Consider using earlier funnel events (Lead, Contact) for attribution
+
+### Conversion Moment Definitions
+
+Each event type must fire at **one authoritative moment**. Meta expects immutable conversion events.
+
+| Event | When to Fire | Notes |
+|-------|--------------|-------|
+| `Lead` | Lead record created | First capture, not updates |
+| `CompleteRegistration` | Form submission confirmed | After validation |
+| `Contact` | First message received | Not per-message |
+| `Schedule` | Appointment confirmed | Not tentative |
+| `Purchase` | Payment successful | Not pending/failed |
+
+> [!NOTE]
+> Never update or re-send the same conversion event. Each `event_id` should be unique and sent only once.
 
 ---
 
