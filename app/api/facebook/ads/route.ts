@@ -171,6 +171,7 @@ export async function GET(request: NextRequest) {
                     const costPerPurchase = getCostPerAction('purchase');
                     const costPerLinkClick = getCostPerAction('link_click');
                     const costPerMessage = getCostPerAction('onsite_conversion.messaging_first_reply');
+                    const costPerMessageStarted = getCostPerAction('onsite_conversion.messaging_conversation_started_7d');
                     const costPerPageEngagement = getCostPerAction('page_engagement');
                     const costPerLandingPageView = getCostPerAction('landing_page_view');
                     const costPerAddToCart = getCostPerAction('add_to_cart');
@@ -199,15 +200,18 @@ export async function GET(request: NextRequest) {
                         primaryResult = purchases;
                         costPerResult = costPerPurchase;
                         resultType = 'purchases';
+                    } else if (onFacebookMessagesStarted > 0) {
+                        // Use messaging_conversation_started_7d as primary (this is what Facebook reports)
+                        primaryResult = onFacebookMessagesStarted;
+                        costPerResult = costPerMessageStarted;
+                        resultType = 'messages';
                     } else if (onFacebookMessages > 0) {
+                        // Fallback to messaging_first_reply
                         primaryResult = onFacebookMessages;
                         costPerResult = costPerMessage;
                         resultType = 'messages';
-                    } else if (linkClicks > 0) {
-                        primaryResult = linkClicks;
-                        costPerResult = costPerLinkClick;
-                        resultType = 'link_clicks';
                     }
+                    // NOTE: Removed link_clicks as a "result" - it's not a conversion action
 
                     // If no results, ensure costPerResult is 0
                     if (primaryResult === 0) {
