@@ -6,13 +6,14 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
-    const adAccountId = searchParams.get('adAccountId');
-    const accessToken = searchParams.get('accessToken');
+    // Use URL params first, then fall back to environment variables
+    const adAccountId = searchParams.get('adAccountId') || process.env.META_AD_ACCOUNT_ID;
+    const accessToken = searchParams.get('accessToken') || process.env.META_MARKETING_TOKEN;
     const status = searchParams.get('status') || 'all'; // 'active', 'paused', 'archived', 'all'
 
     if (!adAccountId || !accessToken) {
         return NextResponse.json(
-            { success: false, error: 'Missing adAccountId or accessToken' },
+            { success: false, error: 'Missing adAccountId or accessToken. Set them in URL params or environment variables (META_AD_ACCOUNT_ID, META_MARKETING_TOKEN)' },
             { status: 400 }
         );
     }

@@ -31,6 +31,18 @@ NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
 FACEBOOK_WEBHOOK_VERIFY_TOKEN=your-secret-verify-token
 ```
 
+### Meta Marketing API (for Ads Data)
+These enable fetching ads and insights from your Ad Account:
+
+```
+META_AD_ACCOUNT_ID=your_ad_account_id
+META_MARKETING_TOKEN=your_marketing_access_token
+```
+
+**How to get these:**
+1. **Ad Account ID**: Go to [Meta Business Suite](https://business.facebook.com) → Settings → Ad Accounts → Copy the ID (without `act_` prefix)
+2. **Marketing Token**: Go to [Meta for Developers](https://developers.facebook.com) → Your App → Tools → Access Token Tool → Generate a token with `ads_read` permission
+
 ### Webhook Setup
 Your webhook callback URL is:
 ```
