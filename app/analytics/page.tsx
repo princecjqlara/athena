@@ -345,7 +345,7 @@ export default function AnalyticsPage() {
 
                     <div className={styles.formGrid}>
                         <div className="form-group">
-                            <label className="form-label">Ad Spend ($)</label>
+                            <label className="form-label">Ad Spend (₱)</label>
                             <input
                                 type="number"
                                 className="form-input"
@@ -358,7 +358,7 @@ export default function AnalyticsPage() {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Revenue ($)</label>
+                            <label className="form-label">Revenue (₱)</label>
                             <input
                                 type="number"
                                 className="form-input"
@@ -380,7 +380,7 @@ export default function AnalyticsPage() {
                         <div className={styles.calculatedField}>
                             <span className={styles.calculatedLabel}>Net Profit</span>
                             <span className={`${styles.calculatedValue} ${form.revenue - form.ad_spend >= 0 ? styles.positive : styles.negative}`}>
-                                ${(form.revenue - form.ad_spend).toFixed(2)}
+                                ₱{(form.revenue - form.ad_spend).toFixed(2)}
                             </span>
                         </div>
                     </div>

@@ -544,7 +544,7 @@ export default function ImportPage() {
                                                     <span style={{ color: ad.metrics.ctr > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
                                                         <strong>{ad.metrics.ctr.toFixed(2)}%</strong> CTR
                                                     </span>
-                                                    <span><strong>${ad.metrics.spend.toFixed(2)}</strong> spent</span>
+                                                    <span><strong>₱{ad.metrics.spend.toFixed(2)}</strong> spent</span>
                                                     {ad.metrics.leads > 0 && <span style={{ color: 'var(--primary)' }}><strong>{ad.metrics.leads}</strong> leads</span>}
                                                     {ad.metrics.purchases > 0 && <span style={{ color: 'var(--success)' }}><strong>{ad.metrics.purchases}</strong> purchases</span>}
                                                 </>

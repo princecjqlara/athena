@@ -135,18 +135,18 @@ export default function Dashboard() {
           <div className={styles.revenueStats}>
             <div className={styles.revenueStat}>
               <span className={styles.revenueLabel}>Total Spend</span>
-              <span className={styles.revenueValue}>${stats.totalSpend.toLocaleString()}</span>
+              <span className={styles.revenueValue}>₱{stats.totalSpend.toLocaleString()}</span>
             </div>
             <div className={styles.revenueDivider}></div>
             <div className={styles.revenueStat}>
               <span className={styles.revenueLabel}>Total Revenue</span>
-              <span className={`${styles.revenueValue} ${styles.positive}`}>${stats.totalRevenue.toLocaleString()}</span>
+              <span className={`${styles.revenueValue} ${styles.positive}`}>₱{stats.totalRevenue.toLocaleString()}</span>
             </div>
             <div className={styles.revenueDivider}></div>
             <div className={styles.revenueStat}>
               <span className={styles.revenueLabel}>Net Profit</span>
               <span className={`${styles.revenueValue} ${styles.positive}`}>
-                ${(stats.totalRevenue - stats.totalSpend).toLocaleString()}
+                ₱{(stats.totalRevenue - stats.totalSpend).toLocaleString()}
               </span>
             </div>
           </div>

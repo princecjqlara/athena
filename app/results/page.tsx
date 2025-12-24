@@ -285,7 +285,7 @@ Comments mentioned they loved the hook.`}
                         <div className={styles.metricsGrid}>
                             <div className={styles.metricCard}>
                                 <span className={styles.metricLabel}>Ad Spend</span>
-                                <span className={styles.metricValue}>${extractedResults.adSpend?.toLocaleString()}</span>
+                                <span className={styles.metricValue}>₱{extractedResults.adSpend?.toLocaleString()}</span>
                             </div>
                             <div className={styles.metricCard}>
                                 <span className={styles.metricLabel}>Impressions</span>
@@ -304,7 +304,7 @@ Comments mentioned they loved the hook.`}
                             {extractedResults.revenue && (
                                 <div className={styles.metricCard}>
                                     <span className={styles.metricLabel}>Revenue</span>
-                                    <span className={styles.metricValue}>${extractedResults.revenue?.toLocaleString()}</span>
+                                    <span className={styles.metricValue}>₱{extractedResults.revenue?.toLocaleString()}</span>
                                 </div>
                             )}
                             {extractedResults.roas && (

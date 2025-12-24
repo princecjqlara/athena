@@ -952,7 +952,7 @@ CTA: "Link in bio to get 20% off"`}
                                         </div>
                                         <div>
                                             <span style={{ color: 'var(--text-muted)' }}>Cost/Result</span>
-                                            <div style={{ fontWeight: 600 }}>${adInsights.costPerResult}</div>
+                                            <div style={{ fontWeight: 600 }}>₱{adInsights.costPerResult}</div>
                                         </div>
                                     </div>
                                 </div>
