@@ -162,9 +162,12 @@ export async function GET(request: NextRequest) {
                     const videoViews = getAction('video_view');
                     const onFacebookMessages = getAction('onsite_conversion.messaging_first_reply');
                     const onFacebookMessagesStarted = getAction('onsite_conversion.messaging_conversation_started_7d');
+                    const newMessagingContacts = getAction('onsite_conversion.messaging_first_reply'); // New messaging contacts
+                    const totalMessagingContacts = getAction('onsite_conversion.total_messaging_connection');
                     const landingPageViews = getAction('landing_page_view');
                     const addToCart = getAction('add_to_cart');
                     const initiateCheckout = getAction('initiate_checkout');
+                    const outboundClicks = insights.outbound_clicks?.[0]?.value ? parseInt(insights.outbound_clicks[0].value) : 0;
 
                     // Cost per result calculations
                     const costPerLead = getCostPerAction('lead');
@@ -380,7 +383,13 @@ export async function GET(request: NextRequest) {
                             // Messages
                             messages: onFacebookMessages,
                             messagesStarted: onFacebookMessagesStarted,
+                            newMessagingContacts,
+                            totalMessagingContacts,
                             costPerMessage,
+                            costPerMessageStarted,
+
+                            // Cost per outbound click
+                            costPerOutboundClick: insights.cost_per_outbound_click?.[0]?.value ? parseFloat(insights.cost_per_outbound_click[0].value) : 0,
 
                             // Leads & Purchases
                             leads,
