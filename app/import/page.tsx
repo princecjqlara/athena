@@ -23,9 +23,12 @@ interface FacebookMetrics {
     costPerResult?: number;
     // Links
     linkClicks?: number;
+    uniqueLinkClicks?: number;
     inlineLinkClicks?: number;
     landingPageViews?: number;
     outboundClicks?: number;
+    costPerLinkClick?: number;
+    costPerLandingPageView?: number;
     // Engagement
     pageEngagement?: number;
     postEngagement?: number;
@@ -33,6 +36,8 @@ interface FacebookMetrics {
     postReactions?: number;
     postComments?: number;
     postShares?: number;
+    postSaves?: number;
+    pageLikes?: number;
     // Messages
     messages?: number;
     messagesStarted?: number;
@@ -42,15 +47,33 @@ interface FacebookMetrics {
     purchases?: number;
     addToCart?: number;
     initiateCheckout?: number;
+    contentViews?: number;
+    completeRegistration?: number;
+    phoneCalls?: number;
     costPerLead?: number;
     costPerPurchase?: number;
+    costPerAddToCart?: number;
+    costPerContentView?: number;
+    purchaseRoas?: number;
     // Video
     videoViews?: number;
     videoPlays?: number;
+    videoThruPlays?: number;
+    video2SecViews?: number;
     video25Watched?: number;
     video50Watched?: number;
     video75Watched?: number;
+    video95Watched?: number;
     video100Watched?: number;
+    videoAvgWatchTime?: number;
+    costPerThruPlay?: number;
+    // Quality Rankings
+    qualityRanking?: string;
+    engagementRateRanking?: string;
+    conversionRateRanking?: string;
+    // Ad Recall
+    estimatedAdRecallers?: number;
+    estimatedAdRecallRate?: number;
 }
 
 interface FacebookAd {
@@ -67,6 +90,8 @@ interface FacebookAd {
     demographics?: { age?: string; gender?: string; impressions?: number }[];
     placements?: { platform?: string; position?: string; impressions?: number; spend?: number }[];
     regions?: { country?: string; impressions?: number; spend?: number }[];
+    byDevice?: { device: string; impressions: number; clicks: number; spend: number }[];
+    byPlatform?: { platform: string; impressions: number; clicks: number; spend: number }[];
 }
 
 interface StoredAd {
@@ -622,123 +647,137 @@ export default function ImportPage() {
                                             </span>
                                         </div>
 
-                                        {/* Metrics */}
-                                        <div style={{
-                                            display: 'flex',
-                                            gap: 'var(--spacing-md)',
-                                            fontSize: '0.8125rem',
-                                            flexWrap: 'wrap',
-                                            marginBottom: 'var(--spacing-sm)'
-                                        }}>
-                                            {ad.metrics ? (
-                                                <>
-                                                    {/* Row 1: Core metrics */}
-                                                    <span><strong>{ad.metrics.impressions.toLocaleString()}</strong> impressions</span>
-                                                    <span><strong>{(ad.metrics.reach ?? 0).toLocaleString()}</strong> reach</span>
-                                                    <span><strong>{ad.metrics.clicks.toLocaleString()}</strong> clicks</span>
-                                                    <span style={{ color: ad.metrics.ctr > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
-                                                        <strong>{ad.metrics.ctr.toFixed(2)}%</strong> CTR
-                                                    </span>
-                                                    <span><strong>₱{ad.metrics.spend.toFixed(2)}</strong> spent</span>
-                                                    <span><strong>{(ad.metrics.frequency ?? 0).toFixed(2)}</strong> freq</span>
-                                                </>
-                                            ) : (
-                                                <span style={{ color: 'var(--text-muted)' }}>No metrics available yet</span>
-                                            )}
-                                        </div>
+                                        {/* Dynamic Metrics Display - Shows ALL available metrics */}
+                                        {ad.metrics ? (
+                                            <div style={{ fontSize: '0.75rem' }}>
+                                                {/* Render all metrics dynamically */}
+                                                <div style={{
+                                                    display: 'flex',
+                                                    gap: '8px',
+                                                    flexWrap: 'wrap',
+                                                    marginBottom: 'var(--spacing-sm)'
+                                                }}>
+                                                    {/* Core Performance */}
+                                                    {ad.metrics.impressions > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.impressions.toLocaleString()}</strong> impressions</span>}
+                                                    {(ad.metrics.reach ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.reach?.toLocaleString()}</strong> reach</span>}
+                                                    {ad.metrics.clicks > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.clicks.toLocaleString()}</strong> clicks</span>}
+                                                    {(ad.metrics.uniqueClicks ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.uniqueClicks?.toLocaleString()}</strong> unique clicks</span>}
+                                                    {ad.metrics.ctr > 0 && <span style={{ background: 'var(--success)', color: '#000', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.ctr.toFixed(2)}%</strong> CTR</span>}
+                                                    {(ad.metrics.uniqueCtr ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.uniqueCtr?.toFixed(2)}%</strong> unique CTR</span>}
+                                                    {ad.metrics.spend > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.spend.toFixed(2)}</strong> spent</span>}
+                                                    {(ad.metrics.frequency ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.frequency?.toFixed(2)}</strong> frequency</span>}
+                                                    {(ad.metrics.cpc ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.cpc?.toFixed(2)}</strong> CPC</span>}
+                                                    {(ad.metrics.cpm ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.cpm?.toFixed(2)}</strong> CPM</span>}
+                                                    {(ad.metrics.cpp ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.cpp?.toFixed(2)}</strong> CPP</span>}
 
-                                        {/* Row 2: Results & Conversions */}
-                                        {ad.metrics && (
-                                            <div style={{
-                                                display: 'flex',
-                                                gap: 'var(--spacing-md)',
-                                                fontSize: '0.75rem',
-                                                flexWrap: 'wrap',
-                                                marginBottom: 'var(--spacing-sm)',
-                                                color: 'var(--text-secondary)'
-                                            }}>
-                                                {(ad.metrics.results ?? 0) > 0 && (
-                                                    <span style={{ color: 'var(--primary)' }}>
-                                                        <strong>{ad.metrics.results}</strong> {ad.metrics.resultType ?? 'results'}
-                                                        {(ad.metrics.costPerResult ?? 0) > 0 && ` • ₱${ad.metrics.costPerResult?.toFixed(2)} CPR`}
-                                                    </span>
+                                                    {/* Results & CPR */}
+                                                    {(ad.metrics.results ?? 0) > 0 && <span style={{ background: 'var(--primary)', color: '#fff', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.results}</strong> {ad.metrics.resultType || 'results'}</span>}
+                                                    {(ad.metrics.costPerResult ?? 0) > 0 && <span style={{ background: 'var(--primary)', color: '#fff', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.costPerResult?.toFixed(2)}</strong> CPR</span>}
+
+                                                    {/* Links */}
+                                                    {(ad.metrics.linkClicks ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>🔗 <strong>{ad.metrics.linkClicks}</strong> link clicks</span>}
+                                                    {(ad.metrics.uniqueLinkClicks ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.uniqueLinkClicks}</strong> unique link clicks</span>}
+                                                    {(ad.metrics.inlineLinkClicks ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.inlineLinkClicks}</strong> inline link clicks</span>}
+                                                    {(ad.metrics.outboundClicks ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.outboundClicks}</strong> outbound clicks</span>}
+                                                    {(ad.metrics.landingPageViews ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>📄 <strong>{ad.metrics.landingPageViews}</strong> landing page views</span>}
+                                                    {(ad.metrics.costPerLinkClick ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.costPerLinkClick?.toFixed(2)}</strong> per link click</span>}
+                                                    {(ad.metrics.costPerLandingPageView ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.costPerLandingPageView?.toFixed(2)}</strong> per LPV</span>}
+
+                                                    {/* Engagement */}
+                                                    {(ad.metrics.pageEngagement ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>👍 <strong>{ad.metrics.pageEngagement}</strong> page engagement</span>}
+                                                    {(ad.metrics.postEngagement ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.postEngagement}</strong> post engagement</span>}
+                                                    {(ad.metrics.postReactions ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>❤️ <strong>{ad.metrics.postReactions}</strong> reactions</span>}
+                                                    {(ad.metrics.postComments ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>💬 <strong>{ad.metrics.postComments}</strong> comments</span>}
+                                                    {(ad.metrics.postShares ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>↗️ <strong>{ad.metrics.postShares}</strong> shares</span>}
+                                                    {(ad.metrics.postSaves ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>📌 <strong>{ad.metrics.postSaves}</strong> saves</span>}
+                                                    {(ad.metrics.pageLikes ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>👍 <strong>{ad.metrics.pageLikes}</strong> page likes</span>}
+
+                                                    {/* Messages */}
+                                                    {(ad.metrics.messages ?? 0) > 0 && <span style={{ background: 'var(--primary)', color: '#fff', padding: '2px 8px', borderRadius: '4px' }}>💬 <strong>{ad.metrics.messages}</strong> messages</span>}
+                                                    {(ad.metrics.messagesStarted ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.messagesStarted}</strong> conversations started</span>}
+                                                    {(ad.metrics.costPerMessage ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.costPerMessage?.toFixed(2)}</strong> per message</span>}
+
+                                                    {/* Leads */}
+                                                    {(ad.metrics.leads ?? 0) > 0 && <span style={{ background: 'var(--primary)', color: '#fff', padding: '2px 8px', borderRadius: '4px' }}>🎯 <strong>{ad.metrics.leads}</strong> leads</span>}
+                                                    {(ad.metrics.costPerLead ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.costPerLead?.toFixed(2)}</strong> CPL</span>}
+
+                                                    {/* Purchases & Commerce */}
+                                                    {(ad.metrics.purchases ?? 0) > 0 && <span style={{ background: 'var(--success)', color: '#000', padding: '2px 8px', borderRadius: '4px' }}>🛒 <strong>{ad.metrics.purchases}</strong> purchases</span>}
+                                                    {(ad.metrics.costPerPurchase ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.costPerPurchase?.toFixed(2)}</strong> per purchase</span>}
+                                                    {(ad.metrics.purchaseRoas ?? 0) > 0 && <span style={{ background: 'var(--success)', color: '#000', padding: '2px 8px', borderRadius: '4px' }}>📈 <strong>{ad.metrics.purchaseRoas?.toFixed(2)}x</strong> ROAS</span>}
+                                                    {(ad.metrics.addToCart ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>🛍️ <strong>{ad.metrics.addToCart}</strong> add to cart</span>}
+                                                    {(ad.metrics.costPerAddToCart ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.costPerAddToCart?.toFixed(2)}</strong> per ATC</span>}
+                                                    {(ad.metrics.initiateCheckout ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.initiateCheckout}</strong> checkouts</span>}
+
+                                                    {/* Content Views & Registration */}
+                                                    {(ad.metrics.contentViews ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>👁️ <strong>{ad.metrics.contentViews}</strong> content views</span>}
+                                                    {(ad.metrics.costPerContentView ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.costPerContentView?.toFixed(2)}</strong> per view</span>}
+                                                    {(ad.metrics.completeRegistration ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>✅ <strong>{ad.metrics.completeRegistration}</strong> registrations</span>}
+                                                    {(ad.metrics.phoneCalls ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>📞 <strong>{ad.metrics.phoneCalls}</strong> calls</span>}
+
+                                                    {/* Video Metrics */}
+                                                    {(ad.metrics.videoViews ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>▶️ <strong>{ad.metrics.videoViews}</strong> video views</span>}
+                                                    {(ad.metrics.videoPlays ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.videoPlays}</strong> video plays</span>}
+                                                    {(ad.metrics.videoThruPlays ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>🎬 <strong>{ad.metrics.videoThruPlays}</strong> ThruPlays</span>}
+                                                    {(ad.metrics.video2SecViews ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.video2SecViews}</strong> 2s views</span>}
+                                                    {(ad.metrics.video25Watched ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.video25Watched}</strong> 25% watched</span>}
+                                                    {(ad.metrics.video50Watched ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.video50Watched}</strong> 50% watched</span>}
+                                                    {(ad.metrics.video75Watched ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.video75Watched}</strong> 75% watched</span>}
+                                                    {(ad.metrics.video95Watched ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.video95Watched}</strong> 95% watched</span>}
+                                                    {(ad.metrics.video100Watched ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.video100Watched}</strong> 100% watched</span>}
+                                                    {(ad.metrics.videoAvgWatchTime ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.videoAvgWatchTime}s</strong> avg watch</span>}
+                                                    {(ad.metrics.costPerThruPlay ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>₱{ad.metrics.costPerThruPlay?.toFixed(2)}</strong> per ThruPlay</span>}
+
+                                                    {/* Quality Rankings */}
+                                                    {ad.metrics.qualityRanking && ad.metrics.qualityRanking !== 'N/A' && <span style={{ background: ad.metrics.qualityRanking === 'ABOVE_AVERAGE' ? 'var(--success)' : 'var(--bg-tertiary)', color: ad.metrics.qualityRanking === 'ABOVE_AVERAGE' ? '#000' : 'inherit', padding: '2px 8px', borderRadius: '4px' }}>Quality: <strong>{ad.metrics.qualityRanking}</strong></span>}
+                                                    {ad.metrics.engagementRateRanking && ad.metrics.engagementRateRanking !== 'N/A' && <span style={{ background: ad.metrics.engagementRateRanking === 'ABOVE_AVERAGE' ? 'var(--success)' : 'var(--bg-tertiary)', color: ad.metrics.engagementRateRanking === 'ABOVE_AVERAGE' ? '#000' : 'inherit', padding: '2px 8px', borderRadius: '4px' }}>Engagement: <strong>{ad.metrics.engagementRateRanking}</strong></span>}
+                                                    {ad.metrics.conversionRateRanking && ad.metrics.conversionRateRanking !== 'N/A' && <span style={{ background: ad.metrics.conversionRateRanking === 'ABOVE_AVERAGE' ? 'var(--success)' : 'var(--bg-tertiary)', color: ad.metrics.conversionRateRanking === 'ABOVE_AVERAGE' ? '#000' : 'inherit', padding: '2px 8px', borderRadius: '4px' }}>Conversion: <strong>{ad.metrics.conversionRateRanking}</strong></span>}
+
+                                                    {/* Ad Recall */}
+                                                    {(ad.metrics.estimatedAdRecallers ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}>🧠 <strong>{ad.metrics.estimatedAdRecallers?.toLocaleString()}</strong> ad recall</span>}
+                                                    {(ad.metrics.estimatedAdRecallRate ?? 0) > 0 && <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px' }}><strong>{ad.metrics.estimatedAdRecallRate?.toFixed(2)}%</strong> recall rate</span>}
+                                                </div>
+
+                                                {/* Breakdowns */}
+                                                {(ad.byPlatform?.length > 0 || ad.byDevice?.length > 0 || ad.demographics?.length > 0 || ad.regions?.length > 0) && (
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        gap: '6px',
+                                                        flexWrap: 'wrap',
+                                                        marginTop: 'var(--spacing-xs)',
+                                                        fontSize: '0.6875rem'
+                                                    }}>
+                                                        {ad.byPlatform?.length > 0 && (
+                                                            <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
+                                                                📱 {ad.byPlatform.map((p: { platform: string }) => p.platform).join(', ')}
+                                                            </span>
+                                                        )}
+                                                        {ad.byDevice?.length > 0 && (
+                                                            <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
+                                                                💻 {ad.byDevice.map((d: { device: string }) => d.device).join(', ')}
+                                                            </span>
+                                                        )}
+                                                        {ad.demographics?.length > 0 && (
+                                                            <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
+                                                                👥 {ad.demographics.slice(0, 3).map((d: { age: string; gender: string }) => `${d.age} ${d.gender}`).join(', ')}...
+                                                            </span>
+                                                        )}
+                                                        {ad.regions?.length > 0 && (
+                                                            <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
+                                                                🌍 {ad.regions.slice(0, 3).map((r: { country: string }) => r.country).join(', ')}
+                                                            </span>
+                                                        )}
+                                                        {ad.placements?.length > 0 && (
+                                                            <span style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
+                                                                📍 {ad.placements.slice(0, 3).map((p: { position: string }) => p.position).join(', ')}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 )}
-                                                {(ad.metrics.messages ?? 0) > 0 && <span>💬 <strong>{ad.metrics.messages}</strong> messages</span>}
-                                                {(ad.metrics.leads ?? 0) > 0 && <span style={{ color: 'var(--primary)' }}>🎯 <strong>{ad.metrics.leads}</strong> leads</span>}
-                                                {(ad.metrics.purchases ?? 0) > 0 && <span style={{ color: 'var(--success)' }}>🛒 <strong>{ad.metrics.purchases}</strong> purchases</span>}
-                                                {(ad.metrics.landingPageViews ?? 0) > 0 && <span>📄 <strong>{ad.metrics.landingPageViews}</strong> LPV</span>}
-                                                {(ad.metrics.linkClicks ?? 0) > 0 && <span>🔗 <strong>{ad.metrics.linkClicks}</strong> link clicks</span>}
                                             </div>
-                                        )}
-
-                                        {/* Row 3: Engagement & Video */}
-                                        {ad.metrics && (
-                                            <div style={{
-                                                display: 'flex',
-                                                gap: 'var(--spacing-md)',
-                                                fontSize: '0.75rem',
-                                                flexWrap: 'wrap',
-                                                marginBottom: 'var(--spacing-sm)',
-                                                color: 'var(--text-secondary)'
-                                            }}>
-                                                {(ad.metrics.pageEngagement ?? 0) > 0 && <span>👍 <strong>{ad.metrics.pageEngagement}</strong> engagements</span>}
-                                                {(ad.metrics.postReactions ?? 0) > 0 && <span>❤️ <strong>{ad.metrics.postReactions}</strong> reactions</span>}
-                                                {(ad.metrics.postComments ?? 0) > 0 && <span>💬 <strong>{ad.metrics.postComments}</strong> comments</span>}
-                                                {(ad.metrics.postShares ?? 0) > 0 && <span>↗️ <strong>{ad.metrics.postShares}</strong> shares</span>}
-                                                {(ad.metrics.videoViews ?? 0) > 0 && <span>▶️ <strong>{ad.metrics.videoViews}</strong> video views</span>}
-                                                {(ad.metrics.videoThruPlays ?? 0) > 0 && <span>🎬 <strong>{ad.metrics.videoThruPlays}</strong> ThruPlays</span>}
-                                            </div>
-                                        )}
-
-                                        {/* Row 4: Quality & Rankings */}
-                                        {ad.metrics && (ad.metrics.qualityRanking || ad.metrics.purchaseRoas) && (
-                                            <div style={{
-                                                display: 'flex',
-                                                gap: 'var(--spacing-md)',
-                                                fontSize: '0.6875rem',
-                                                flexWrap: 'wrap',
-                                                marginBottom: 'var(--spacing-sm)',
-                                                color: 'var(--text-muted)'
-                                            }}>
-                                                {ad.metrics.qualityRanking && ad.metrics.qualityRanking !== 'N/A' && (
-                                                    <span>Quality: <strong>{ad.metrics.qualityRanking}</strong></span>
-                                                )}
-                                                {ad.metrics.engagementRateRanking && ad.metrics.engagementRateRanking !== 'N/A' && (
-                                                    <span>Engagement: <strong>{ad.metrics.engagementRateRanking}</strong></span>
-                                                )}
-                                                {ad.metrics.conversionRateRanking && ad.metrics.conversionRateRanking !== 'N/A' && (
-                                                    <span>Conversion: <strong>{ad.metrics.conversionRateRanking}</strong></span>
-                                                )}
-                                                {(ad.metrics.purchaseRoas ?? 0) > 0 && (
-                                                    <span style={{ color: 'var(--success)' }}>ROAS: <strong>{ad.metrics.purchaseRoas?.toFixed(2)}x</strong></span>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Breakdowns summary */}
-                                        {(ad.byDevice?.length > 0 || ad.byPlatform?.length > 0 || ad.demographics?.length > 0) && (
-                                            <div style={{
-                                                display: 'flex',
-                                                gap: 'var(--spacing-sm)',
-                                                fontSize: '0.6875rem',
-                                                flexWrap: 'wrap',
-                                                marginBottom: 'var(--spacing-sm)'
-                                            }}>
-                                                {ad.byPlatform?.length > 0 && (
-                                                    <span style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                        📱 {ad.byPlatform.map((p: { platform: string }) => p.platform).join(', ')}
-                                                    </span>
-                                                )}
-                                                {ad.byDevice?.length > 0 && (
-                                                    <span style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                        💻 {ad.byDevice.map((d: { device: string }) => d.device).join(', ')}
-                                                    </span>
-                                                )}
-                                                {ad.regions?.length > 0 && (
-                                                    <span style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                        🌍 {ad.regions.slice(0, 3).map((r: { country: string }) => r.country).join(', ')}
-                                                    </span>
-                                                )}
+                                        ) : (
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                No metrics available yet
                                             </div>
                                         )}
 
