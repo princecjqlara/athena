@@ -461,6 +461,11 @@ export interface AdEntry {
   thumbnailUrl?: string;
   mediaType: MediaType;
 
+  // For imported ads
+  name?: string;
+  facebookAdId?: string;
+  importedFromFacebook?: boolean;
+
   // Documents (raw input)
   contentDocument: string;
   resultsDocument?: string;
