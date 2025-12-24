@@ -128,6 +128,70 @@ export default function ImportPage() {
 
     const [importProgress, setImportProgress] = useState<{ total: number; imported: number } | null>(null);
 
+    // Metric Insight Modal State
+    const [metricModal, setMetricModal] = useState<{
+        open: boolean;
+        metric: string;
+        value: number | string;
+        adName: string;
+    } | null>(null);
+
+    // Metric definitions with benchmarks
+    const metricInfo: Record<string, { name: string; description: string; good: string; average: string; poor: string; benchmark: (v: number) => 'good' | 'average' | 'poor' }> = {
+        ctr: {
+            name: 'Click-Through Rate (CTR)',
+            description: 'The percentage of people who clicked your ad after seeing it. CTR = (Clicks ÷ Impressions) × 100',
+            good: 'Above 2% is excellent for most industries',
+            average: 'Between 0.9% - 2% is typical',
+            poor: 'Below 0.9% may need creative optimization',
+            benchmark: (v) => v >= 2 ? 'good' : v >= 0.9 ? 'average' : 'poor'
+        },
+        cpc: {
+            name: 'Cost Per Click (CPC)',
+            description: 'The average amount you pay for each click on your ad.',
+            good: 'Below ₱10 is great for Philippine market',
+            average: 'Between ₱10 - ₱30 is typical',
+            poor: 'Above ₱30 may need audience refinement',
+            benchmark: (v) => v < 10 ? 'good' : v < 30 ? 'average' : 'poor'
+        },
+        cpm: {
+            name: 'Cost Per 1,000 Impressions (CPM)',
+            description: 'The cost to show your ad 1,000 times. Lower CPM means more efficient reach.',
+            good: 'Below ₱100 is efficient',
+            average: 'Between ₱100 - ₱300 is typical',
+            poor: 'Above ₱300 may indicate high competition',
+            benchmark: (v) => v < 100 ? 'good' : v < 300 ? 'average' : 'poor'
+        },
+        costPerResult: {
+            name: 'Cost Per Result (CPR)',
+            description: 'The average cost for each conversion/result from your ad. This depends on your campaign objective.',
+            good: 'Below ₱50 for messages/leads is excellent',
+            average: 'Between ₱50 - ₱150 is typical',
+            poor: 'Above ₱150 may need optimization',
+            benchmark: (v) => v < 50 ? 'good' : v < 150 ? 'average' : 'poor'
+        },
+        frequency: {
+            name: 'Frequency',
+            description: 'Average number of times each person has seen your ad. High frequency can cause ad fatigue.',
+            good: 'Between 1 - 2 is ideal for awareness',
+            average: 'Between 2 - 4 is acceptable',
+            poor: 'Above 4 may cause ad fatigue',
+            benchmark: (v) => v < 2 ? 'good' : v < 4 ? 'average' : 'poor'
+        },
+        results: {
+            name: 'Results',
+            description: 'The number of times people took the action your campaign was optimized for (messages, leads, purchases, etc.)',
+            good: 'More results = better performance',
+            average: 'Compare with your historical average',
+            poor: 'Zero results may indicate targeting issues',
+            benchmark: (v) => v > 10 ? 'good' : v > 0 ? 'average' : 'poor'
+        }
+    };
+
+    const showMetricInsight = (metric: string, value: number | string, adName: string) => {
+        setMetricModal({ open: true, metric, value, adName });
+    };
+
     // Load saved credentials
     useEffect(() => {
         const savedAccountId = localStorage.getItem('meta_ad_account_id');
@@ -673,7 +737,11 @@ export default function ImportPage() {
                                                         </span>
                                                     )}
                                                     {ad.metrics.ctr > 0 && (
-                                                        <span title="Click-Through Rate = (Clicks / Impressions) × 100" style={{ background: '#22c55e', color: '#000', padding: '3px 10px', borderRadius: '6px', fontWeight: 600, cursor: 'help' }}>
+                                                        <span
+                                                            onClick={() => showMetricInsight('ctr', ad.metrics?.ctr || 0, ad.name)}
+                                                            title="Click for details"
+                                                            style={{ background: '#22c55e', color: '#000', padding: '3px 10px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
+                                                        >
                                                             {ad.metrics.ctr.toFixed(2)}% CTR
                                                         </span>
                                                     )}
@@ -690,7 +758,7 @@ export default function ImportPage() {
                                                 </div>
 
                                                 {/* Results Row - Primary conversion metrics */}
-                                                {((ad.metrics.results ?? 0) > 0 || (ad.metrics.messages ?? 0) > 0 || (ad.metrics.leads ?? 0) > 0 || (ad.metrics.purchases ?? 0) > 0) && (
+                                                {((ad.metrics.results ?? 0) > 0 || ((ad.metrics.messages ?? 0) > 0 && ad.metrics.resultType !== 'messages') || (ad.metrics.leads ?? 0) > 0 || (ad.metrics.purchases ?? 0) > 0) && (
                                                     <div style={{
                                                         display: 'flex',
                                                         gap: '6px',
@@ -698,26 +766,37 @@ export default function ImportPage() {
                                                         marginBottom: '8px'
                                                     }}>
                                                         {(ad.metrics.results ?? 0) > 0 && (
-                                                            <span title="Primary result based on your campaign objective" style={{ background: '#8b5cf6', color: '#fff', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
+                                                            <span
+                                                                onClick={() => showMetricInsight('results', ad.metrics?.results || 0, ad.name)}
+                                                                title="Click for details"
+                                                                style={{ background: '#8b5cf6', color: '#fff', padding: '3px 10px', borderRadius: '6px', cursor: 'pointer' }}
+                                                            >
                                                                 <strong>{ad.metrics.results}</strong> {ad.metrics.resultType || 'results'}
                                                             </span>
                                                         )}
                                                         {(ad.metrics.costPerResult ?? 0) > 0 && (
-                                                            <span title="Cost Per Result = Spend / Results" style={{ background: '#8b5cf6', color: '#fff', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
+                                                            <span
+                                                                onClick={() => showMetricInsight('costPerResult', ad.metrics?.costPerResult || 0, ad.name)}
+                                                                title="Click for details"
+                                                                style={{ background: '#8b5cf6', color: '#fff', padding: '3px 10px', borderRadius: '6px', cursor: 'pointer' }}
+                                                            >
                                                                 <strong>₱{ad.metrics.costPerResult?.toFixed(2)}</strong> CPR
                                                             </span>
                                                         )}
-                                                        {(ad.metrics.messages ?? 0) > 0 && (
+                                                        {/* Only show separate messages if resultType is NOT messages (to avoid duplication) */}
+                                                        {(ad.metrics.messages ?? 0) > 0 && ad.metrics.resultType !== 'messages' && (
                                                             <span title="New messaging conversations started" style={{ background: '#3b82f6', color: '#fff', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
                                                                 💬 <strong>{ad.metrics.messages}</strong> messages
                                                             </span>
                                                         )}
-                                                        {(ad.metrics.leads ?? 0) > 0 && (
+                                                        {/* Only show separate leads if resultType is NOT leads */}
+                                                        {(ad.metrics.leads ?? 0) > 0 && ad.metrics.resultType !== 'leads' && (
                                                             <span title="Leads generated from your ad" style={{ background: '#f59e0b', color: '#000', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
                                                                 🎯 <strong>{ad.metrics.leads}</strong> leads
                                                             </span>
                                                         )}
-                                                        {(ad.metrics.purchases ?? 0) > 0 && (
+                                                        {/* Only show separate purchases if resultType is NOT purchases */}
+                                                        {(ad.metrics.purchases ?? 0) > 0 && ad.metrics.resultType !== 'purchases' && (
                                                             <span title="Completed purchases attributed to your ad" style={{ background: '#22c55e', color: '#000', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
                                                                 🛒 <strong>{ad.metrics.purchases}</strong> purchases
                                                             </span>
@@ -972,6 +1051,114 @@ export default function ImportPage() {
                         <li>✅ Tag traits for AI learning</li>
                         <li>✅ Sync results anytime to update algorithm</li>
                     </ul>
+                </div>
+            )}
+
+            {/* Metric Insight Modal */}
+            {metricModal && metricModal.open && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.8)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000
+                    }}
+                    onClick={() => setMetricModal(null)}
+                >
+                    <div
+                        style={{
+                            background: 'var(--bg-secondary)',
+                            borderRadius: '16px',
+                            padding: '24px',
+                            maxWidth: '500px',
+                            width: '90%',
+                            border: '1px solid var(--border-primary)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {(() => {
+                            const info = metricInfo[metricModal.metric];
+                            const numValue = typeof metricModal.value === 'number' ? metricModal.value : parseFloat(metricModal.value) || 0;
+                            const rating = info?.benchmark(numValue);
+                            const ratingColor = rating === 'good' ? '#22c55e' : rating === 'average' ? '#f59e0b' : '#ef4444';
+                            const ratingEmoji = rating === 'good' ? '✅' : rating === 'average' ? '⚡' : '⚠️';
+
+                            return info ? (
+                                <>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                        <h3 style={{ margin: 0 }}>{info.name}</h3>
+                                        <button
+                                            onClick={() => setMetricModal(null)}
+                                            style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                        >×</button>
+                                    </div>
+
+                                    <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                                        {info.description}
+                                    </p>
+
+                                    <div style={{
+                                        background: 'var(--bg-tertiary)',
+                                        padding: '16px',
+                                        borderRadius: '12px',
+                                        marginBottom: '16px',
+                                        textAlign: 'center'
+                                    }}>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                            Current Value for &quot;{metricModal.adName}&quot;
+                                        </div>
+                                        <div style={{ fontSize: '2rem', fontWeight: 700 }}>
+                                            {typeof metricModal.value === 'number'
+                                                ? (metricModal.metric.includes('ctr') || metricModal.metric.includes('frequency')
+                                                    ? `${metricModal.value.toFixed(2)}${metricModal.metric === 'ctr' ? '%' : ''}`
+                                                    : `₱${metricModal.value.toFixed(2)}`)
+                                                : metricModal.value
+                                            }
+                                        </div>
+                                        <div style={{
+                                            display: 'inline-block',
+                                            marginTop: '8px',
+                                            padding: '4px 12px',
+                                            borderRadius: '20px',
+                                            background: ratingColor,
+                                            color: '#000',
+                                            fontWeight: 600,
+                                            fontSize: '0.875rem'
+                                        }}>
+                                            {ratingEmoji} {rating?.toUpperCase()} PERFORMANCE
+                                        </div>
+                                    </div>
+
+                                    <div style={{ fontSize: '0.875rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#22c55e' }}></span>
+                                            <span><strong>Good:</strong> {info.good}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f59e0b' }}></span>
+                                            <span><strong>Average:</strong> {info.average}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }}></span>
+                                            <span><strong>Needs Work:</strong> {info.poor}</span>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div>
+                                    <h3>{metricModal.metric}</h3>
+                                    <p>Value: {metricModal.value}</p>
+                                    <button onClick={() => setMetricModal(null)} className="btn">Close</button>
+                                </div>
+                            );
+                        })()}
+                    </div>
                 </div>
             )}
         </div>
