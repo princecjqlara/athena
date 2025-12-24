@@ -14,6 +14,8 @@ export interface Message {
     direction: 'inbound' | 'outbound';
     timestamp: string;
     messageId?: string; // Facebook message ID
+    attachments?: Array<{ type: string; url?: string }>;
+    metadata?: Record<string, any>;
 }
 
 export interface Contact {
@@ -21,9 +23,12 @@ export interface Contact {
     name: string;
     email?: string;
     phone?: string;
+    profilePic?: string;       // Facebook profile picture URL
     // Source tracking
     sourceAdId?: string;       // Facebook Ad ID that generated this contact
     sourceAdName?: string;     // Ad name for display
+    sourceAdTitle?: string;    // Ad title from referral
+    source?: 'ad' | 'organic' | 'lead_form' | 'unknown';
     facebookLeadId?: string;   // Lead ID from Facebook webhook
     facebookPsid?: string;     // Page-Scoped User ID for Messenger
     // Pipeline tracking
@@ -32,6 +37,13 @@ export interface Contact {
     // Conversation
     messages: Message[];
     lastMessageAt?: string;
+    firstMessageAt?: string;
+    messageCount?: number;
+    // Opt-in tracking
+    optedIn?: boolean;
+    optinRef?: string;
+    // Lead form data (for lead ads)
+    leadFormData?: Record<string, string>;
     // AI Analysis
     aiAnalysis?: {
         sentiment: 'positive' | 'neutral' | 'negative';
@@ -277,26 +289,40 @@ export function findOrCreateContact(data: {
     name: string;
     email?: string;
     phone?: string;
+    profilePic?: string;
     sourceAdId?: string;
     sourceAdName?: string;
+    sourceAdTitle?: string;
+    source?: 'ad' | 'organic' | 'lead_form' | 'unknown';
     facebookLeadId?: string;
     facebookPsid?: string;
     pipelineId?: string;
     stageId?: string;
+    firstMessageAt?: string;
+    createdAt?: string;
+    leadFormData?: Record<string, string>;
 }): Contact {
     // Try to find existing contact
     const existing = contactsStore.findByFacebookId(data.facebookLeadId, data.facebookPsid);
     if (existing) {
         // Update with any new info
         contactsStore.update(existing.id, {
+            name: data.name || existing.name,
             email: data.email || existing.email,
             phone: data.phone || existing.phone,
+            profilePic: data.profilePic || existing.profilePic,
             sourceAdId: data.sourceAdId || existing.sourceAdId,
             sourceAdName: data.sourceAdName || existing.sourceAdName,
+            sourceAdTitle: data.sourceAdTitle || existing.sourceAdTitle,
+            source: data.source || existing.source,
+            leadFormData: data.leadFormData || existing.leadFormData,
         });
         return contactsStore.getById(existing.id)!;
     }
 
     // Create new contact
-    return contactsStore.create(data);
+    return contactsStore.create({
+        ...data,
+        source: data.source || 'unknown',
+    });
 }

@@ -3,6 +3,7 @@ import { contactsStore, findOrCreateContact, adLinksStore } from '@/lib/contacts
 
 // Webhook Verify Token - set this in environment variables
 const VERIFY_TOKEN = process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN || 'TEST_TOKEN';
+const PAGE_ACCESS_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
 
 // Types for webhook events
 interface WebhookEntry {
@@ -18,11 +19,36 @@ interface MessagingEvent {
     timestamp: number;
     message?: {
         mid: string;
-        text: string;
+        text?: string;
+        attachments?: Array<{
+            type: string;
+            payload: { url?: string };
+        }>;
+        is_echo?: boolean;
     };
     postback?: {
         title: string;
         payload: string;
+        referral?: ReferralData;
+    };
+    referral?: ReferralData;
+    optin?: {
+        ref: string;
+        user_ref?: string;
+    };
+}
+
+interface ReferralData {
+    ref?: string;
+    source?: string;
+    type?: string;
+    ad_id?: string;
+    ads_context_data?: {
+        ad_title?: string;
+        photo_url?: string;
+        video_url?: string;
+        post_id?: string;
+        product_id?: string;
     };
 }
 
@@ -38,6 +64,14 @@ interface LeadgenValue {
     created_time: number;
     page_id: string;
     adgroup_id: string;
+}
+
+interface FacebookUserProfile {
+    id: string;
+    first_name?: string;
+    last_name?: string;
+    name?: string;
+    profile_pic?: string;
 }
 
 // GET - Webhook Verification (Facebook verifies your endpoint)
@@ -102,66 +136,192 @@ export async function POST(request: NextRequest) {
     }
 }
 
+// Fetch user profile from Facebook Graph API
+async function fetchUserProfile(psid: string): Promise<FacebookUserProfile | null> {
+    if (!PAGE_ACCESS_TOKEN) {
+        console.log('[Webhook] No PAGE_ACCESS_TOKEN, skipping profile fetch');
+        return null;
+    }
+
+    try {
+        const url = `https://graph.facebook.com/v24.0/${psid}?fields=first_name,last_name,name,profile_pic&access_token=${PAGE_ACCESS_TOKEN}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            console.error('[Webhook] Failed to fetch profile:', response.status);
+            return null;
+        }
+
+        const profile = await response.json();
+        console.log('[Webhook] Fetched user profile:', profile);
+        return profile;
+    } catch (error) {
+        console.error('[Webhook] Error fetching profile:', error);
+        return null;
+    }
+}
+
+// Find matching ad in localStorage by Facebook Ad ID
+function findImportedAdByFacebookId(adId: string): { id: string; name: string } | null {
+    // This would need to be done client-side or through a database
+    // For now, we'll store the ad_id for later matching
+    console.log('[Webhook] Looking for imported ad with Facebook ID:', adId);
+    return null; // Will be enhanced with database lookup
+}
+
 // Handle Messenger/Instagram messaging events
 async function handleMessagingEvent(pageId: string, event: MessagingEvent) {
     const senderId = event.sender.id;
     const recipientId = event.recipient.id;
     const timestamp = event.timestamp;
 
+    // Skip echo messages (messages sent by your page)
+    if (event.message?.is_echo) {
+        console.log('[Webhook] Skipping echo message');
+        return;
+    }
+
     console.log('[Webhook] Messaging event:', {
         pageId,
         senderId,
         recipientId,
         hasMessage: !!event.message,
-        hasPostback: !!event.postback
+        hasPostback: !!event.postback,
+        hasReferral: !!event.referral,
+        hasOptin: !!event.optin
     });
 
-    if (event.message) {
-        // Handle incoming message
-        const messageData = {
-            type: 'message',
-            pageId,
-            senderId,
-            messageId: event.message.mid,
-            text: event.message.text,
-            timestamp: new Date(timestamp).toISOString()
-        };
+    // Check for ad referral (user came from an ad)
+    let sourceAdId: string | undefined;
+    let adTitle: string | undefined;
+    let referralSource: string | undefined;
 
-        // Find or create contact by PSID
-        let contact = contactsStore.findByFacebookId(undefined, senderId);
-        if (!contact) {
-            // Create a new contact
-            contact = findOrCreateContact({
-                name: `Messenger User ${senderId.slice(-6)}`,
-                facebookPsid: senderId,
-            });
-        }
+    // Referral can come from direct referral, postback, or optin
+    const referral = event.referral || event.postback?.referral;
+    if (referral) {
+        sourceAdId = referral.ad_id;
+        adTitle = referral.ads_context_data?.ad_title;
+        referralSource = referral.source;
 
-        // Add message to contact
-        if (contact && event.message.text) {
-            contactsStore.addMessage(contact.id, {
-                content: event.message.text,
-                direction: 'inbound',
-                timestamp: new Date(timestamp).toISOString(),
-                messageId: event.message.mid
-            });
-        }
-
-        console.log('[Webhook] New message stored for contact:', contact?.id);
+        console.log('[Webhook] 🎯 USER CAME FROM AD:', {
+            adId: sourceAdId,
+            adTitle,
+            source: referralSource,
+            type: referral.type
+        });
     }
 
-    if (event.postback) {
-        // Handle postback (button click)
-        const postbackData = {
-            type: 'postback',
-            pageId,
-            senderId,
-            title: event.postback.title,
-            payload: event.postback.payload,
-            timestamp: new Date(timestamp).toISOString()
-        };
+    // Find or create contact
+    let contact = contactsStore.findByFacebookId(undefined, senderId);
+    let isNewContact = false;
 
-        console.log('[Webhook] Postback:', postbackData);
+    if (!contact) {
+        isNewContact = true;
+
+        // Try to fetch user profile from Facebook
+        const profile = await fetchUserProfile(senderId);
+        const userName = profile?.name || profile?.first_name || `Messenger User ${senderId.slice(-6)}`;
+
+        // Find pipeline linked to this ad (if referral exists)
+        const adLink = sourceAdId ? adLinksStore.getByAdId(sourceAdId) : null;
+
+        // Create new contact
+        contact = findOrCreateContact({
+            name: userName,
+            facebookPsid: senderId,
+            profilePic: profile?.profile_pic,
+            sourceAdId: sourceAdId,
+            sourceAdTitle: adTitle,
+            source: sourceAdId ? 'ad' : 'organic',
+            pipelineId: adLink?.pipelineId,
+            stageId: adLink?.stageId,
+            firstMessageAt: new Date(timestamp).toISOString(),
+        });
+
+        console.log('[Webhook] ✨ NEW CONTACT CREATED:', {
+            id: contact.id,
+            name: userName,
+            fromAd: !!sourceAdId,
+            adId: sourceAdId
+        });
+    } else if (sourceAdId && !contact.sourceAdId) {
+        // Update existing contact with ad source if not already set
+        const updated = contactsStore.update(contact.id, {
+            sourceAdId,
+            sourceAdTitle: adTitle,
+            source: 'ad'
+        });
+        if (updated) contact = updated;
+        console.log('[Webhook] Updated contact with ad source:', contact?.id);
+    }
+
+    // Handle incoming message
+    if (event.message && contact) {
+        const messageContent = event.message.text || '[Attachment]';
+        const attachments = event.message.attachments?.map(att => ({
+            type: att.type,
+            url: att.payload.url
+        }));
+
+        // Add message to contact
+        contactsStore.addMessage(contact.id, {
+            content: messageContent,
+            direction: 'inbound',
+            timestamp: new Date(timestamp).toISOString(),
+            messageId: event.message.mid,
+            attachments: attachments
+        });
+
+        // Update last message timestamp
+        contactsStore.update(contact.id, {
+            lastMessageAt: new Date(timestamp).toISOString(),
+            messageCount: (contact.messageCount || 0) + 1
+        });
+
+        console.log('[Webhook] 💬 Message stored:', {
+            contactId: contact.id,
+            contactName: contact.name,
+            preview: messageContent.substring(0, 50),
+            fromAd: !!contact.sourceAdId
+        });
+    }
+
+    // Handle postback (button click)
+    if (event.postback && contact) {
+        contactsStore.addMessage(contact.id, {
+            content: `[Button Click: ${event.postback.title}]`,
+            direction: 'inbound',
+            timestamp: new Date(timestamp).toISOString(),
+            metadata: {
+                type: 'postback',
+                payload: event.postback.payload
+            }
+        });
+
+        console.log('[Webhook] 🔘 Postback recorded:', event.postback.title);
+    }
+
+    // Handle optin (Get Started, checkbox plugin, etc.)
+    if (event.optin) {
+        console.log('[Webhook] ✅ User opted in:', event.optin);
+
+        if (contact) {
+            contactsStore.update(contact.id, {
+                optedIn: true,
+                optinRef: event.optin.ref
+            });
+        }
+    }
+
+    // If this is a new contact from an ad, log it for analytics
+    if (isNewContact && sourceAdId) {
+        console.log('[Webhook] 📊 NEW MESSENGER LEAD FROM AD:', {
+            contactId: contact?.id,
+            contactName: contact?.name,
+            adId: sourceAdId,
+            adTitle,
+            timestamp: new Date(timestamp).toISOString()
+        });
     }
 }
 
@@ -187,8 +347,13 @@ async function handleChangeEvent(pageId: string, change: ChangeEvent, timestamp:
             break;
 
         case 'messages':
-            // Message updates
+            // Message updates (for Instagram)
             console.log('[Webhook] Message update:', value);
+            break;
+
+        case 'messaging_handovers':
+            // Handover protocol events
+            console.log('[Webhook] Handover event:', value);
             break;
 
         default:
@@ -196,9 +361,9 @@ async function handleChangeEvent(pageId: string, change: ChangeEvent, timestamp:
     }
 }
 
-// Handle Lead Generation events
+// Handle Lead Generation events (from Lead Ads forms)
 async function handleLeadgenEvent(pageId: string, leadData: LeadgenValue, timestamp: number) {
-    console.log('[Webhook] New lead received:', {
+    console.log('[Webhook] 📋 New lead form submission:', {
         pageId,
         leadgenId: leadData.leadgen_id,
         formId: leadData.form_id,
@@ -213,21 +378,44 @@ async function handleLeadgenEvent(pageId: string, leadData: LeadgenValue, timest
         name: `Lead ${leadData.leadgen_id.slice(-8)}`,
         facebookLeadId: leadData.leadgen_id,
         sourceAdId: leadData.ad_id,
+        source: 'lead_form',
         pipelineId: adLink?.pipelineId,
         stageId: adLink?.stageId,
+        createdAt: new Date(leadData.created_time * 1000).toISOString(),
     });
 
-    const leadEvent = {
-        type: 'lead',
-        pageId,
-        leadgenId: leadData.leadgen_id,
-        formId: leadData.form_id,
-        adId: leadData.ad_id,
-        adgroupId: leadData.adgroup_id,
-        createdTime: new Date(leadData.created_time * 1000).toISOString(),
-        receivedAt: new Date().toISOString(),
-        contactId: contact.id
-    };
+    // Optionally fetch lead data from Facebook (requires additional permissions)
+    if (PAGE_ACCESS_TOKEN) {
+        try {
+            const leadUrl = `https://graph.facebook.com/v24.0/${leadData.leadgen_id}?access_token=${PAGE_ACCESS_TOKEN}`;
+            const leadResponse = await fetch(leadUrl);
 
-    console.log('[Webhook] Lead stored as contact:', contact.id, leadEvent);
+            if (leadResponse.ok) {
+                const leadDetails = await leadResponse.json();
+                console.log('[Webhook] Lead form data:', leadDetails);
+
+                // Extract field data (name, email, phone, etc.)
+                if (leadDetails.field_data) {
+                    const fields: Record<string, string> = {};
+                    for (const field of leadDetails.field_data) {
+                        fields[field.name] = field.values?.[0] || '';
+                    }
+
+                    // Update contact with lead data
+                    contactsStore.update(contact.id, {
+                        name: fields.full_name || fields.first_name || contact.name,
+                        email: fields.email,
+                        phone: fields.phone_number || fields.phone,
+                        leadFormData: fields
+                    });
+
+                    console.log('[Webhook] Lead contact updated with form data:', fields);
+                }
+            }
+        } catch (error) {
+            console.error('[Webhook] Error fetching lead data:', error);
+        }
+    }
+
+    console.log('[Webhook] ✅ Lead stored as contact:', contact.id);
 }
