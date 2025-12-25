@@ -178,6 +178,14 @@ export default function PipelineDetailPage() {
         setNewLead({ name: '', email: '', phone: '', source: 'Manual' });
     };
 
+    // Delete a lead
+    const handleDeleteLead = (leadId: string, leadName: string) => {
+        if (!confirm(`Delete "${leadName}"?\n\nThis will permanently remove this lead.`)) return;
+
+        const updatedLeads = leads.filter(l => l.id !== leadId);
+        saveLeads(updatedLeads);
+    };
+
     const handleDragStart = (lead: Lead) => {
         setDraggedLead(lead);
     };
@@ -201,7 +209,7 @@ export default function PipelineDetailPage() {
         moveLead(draggedLead.id, stageId);
     };
 
-    const moveLead = (leadId: string, stageId: string, convValue?: number) => {
+    const moveLead = (leadId: string, stageId: string, convValue?: number, convertedAt?: string) => {
         const updatedLeads = leads.map(lead =>
             lead.id === leadId
                 ? {
@@ -210,7 +218,7 @@ export default function PipelineDetailPage() {
                     lastActivity: new Date().toISOString(),
                     ...(convValue !== undefined && {
                         conversionValue: convValue,
-                        convertedAt: new Date().toISOString()
+                        convertedAt: convertedAt || new Date().toISOString()
                     })
                 }
                 : lead
@@ -224,7 +232,15 @@ export default function PipelineDetailPage() {
         if (!draggedLead || !pendingGoalStageId) return;
 
         const value = parseFloat(conversionValue) || 0;
-        moveLead(draggedLead.id, pendingGoalStageId, value);
+
+        // Use conversion date if provided, otherwise NOW
+        // This is the ACTUAL time the conversion happened (for Meta attribution)
+        const actualConversionTime = conversionDate
+            ? new Date(conversionDate).toISOString()
+            : new Date().toISOString();
+
+        // Move lead with the actual conversion time
+        moveLead(draggedLead.id, pendingGoalStageId, value, actualConversionTime);
 
         // Send to Facebook CAPI
         setSendingCapi(true);
@@ -233,10 +249,12 @@ export default function PipelineDetailPage() {
             const capiToken = localStorage.getItem('meta_capi_token');
 
             if (datasetId && capiToken) {
-                // Calculate event_time - use conversion date if provided, otherwise NOW
-                const eventTime = conversionDate
-                    ? Math.floor(new Date(conversionDate).getTime() / 1000)
-                    : Math.floor(Date.now() / 1000);
+                // event_time = when the conversion ACTUALLY happened (not when we send it)
+                // Meta uses this for attribution - must be Unix timestamp in seconds
+                const eventTime = Math.floor(new Date(actualConversionTime).getTime() / 1000);
+
+                // event_id = unique ID for deduplication (required by CAPI)
+                const eventId = `conv_${draggedLead.id}_${Date.now()}`;
 
                 const response = await fetch('/api/capi/send', {
                     method: 'POST',
@@ -245,7 +263,8 @@ export default function PipelineDetailPage() {
                         datasetId,
                         accessToken: capiToken,
                         eventName: pipeline?.goal || 'Purchase',
-                        eventTime: eventTime,
+                        eventTime: eventTime, // When conversion HAPPENED
+                        eventId: eventId, // Required for deduplication
                         leadId: draggedLead.facebookLeadId,
                         email: draggedLead.email,
                         phone: draggedLead.phone,
@@ -338,11 +357,6 @@ export default function PipelineDetailPage() {
         setShowConversionModal(false);
         setConversionValue('');
         setPendingGoalStageId(null);
-    };
-
-    const handleDeleteLead = (leadId: string) => {
-        const updatedLeads = leads.filter(l => l.id !== leadId);
-        saveLeads(updatedLeads);
     };
 
     const getLeadsForStage = (stageId: string) => {
@@ -478,7 +492,11 @@ export default function PipelineDetailPage() {
                                         <span className={styles.leadName}>{lead.name}</span>
                                         <button
                                             className={styles.leadDelete}
-                                            onClick={() => handleDeleteLead(lead.id)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteLead(lead.id, lead.name);
+                                            }}
+                                            title="Delete lead"
                                         >
                                             ×
                                         </button>
