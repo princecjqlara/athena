@@ -133,6 +133,10 @@ export default function ImportPage() {
     const [facebookAds, setFacebookAds] = useState<FacebookAd[]>([]);
     const [selectedAds, setSelectedAds] = useState<Set<string>>(new Set());
 
+    // Pipeline selection for importing leads
+    const [pipelines, setPipelines] = useState<Array<{ id: string; name: string; stages: Array<{ id: string; name: string }> }>>([]);
+    const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
+
     // Traits for each selected ad
     const [adTraits, setAdTraits] = useState<Record<string, {
         categories: string[];
@@ -384,6 +388,12 @@ export default function ImportPage() {
         const savedToken = localStorage.getItem('meta_marketing_token');
         if (savedAccountId) setAdAccountId(savedAccountId);
         if (savedToken) setAccessToken(savedToken);
+
+        // Load pipelines
+        const savedPipelines = localStorage.getItem('pipelines');
+        if (savedPipelines) {
+            setPipelines(JSON.parse(savedPipelines));
+        }
     }, []);
 
     // Fetch ads from Facebook
@@ -851,39 +861,62 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
         const allAds = [...existingAds, ...newAds];
         localStorage.setItem('ads', JSON.stringify(allAds));
 
-        // Auto-create contacts from ads with messaging results
-        const existingContactsStr = localStorage.getItem('pipeline_contacts');
-        const existingContacts = existingContactsStr ? JSON.parse(existingContactsStr) : [];
-        let contactsCreated = 0;
+        // Auto-create leads from ads with messaging results
+        let leadsCreated = 0;
 
-        // For each ad with messaging results, create placeholder contacts
+        // For each ad with messaging results, create leads
         newAds.forEach((ad: any) => {
             const metrics = ad.adInsights;
             const messagesStarted = metrics?.messagesStarted || 0;
+            const leads = metrics?.leads || 0;
+            const totalLeads = Math.max(messagesStarted, leads);
 
-            // If ad has messaging results, create contacts based on the count
-            // (These are placeholder contacts - real names come from webhook)
-            if (messagesStarted > 0) {
-                for (let i = 0; i < Math.min(messagesStarted, 10); i++) { // Cap at 10 per ad
-                    const contactId = `contact-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                    existingContacts.push({
-                        id: contactId,
-                        name: `Lead from "${ad.name?.substring(0, 30) || 'Ad'}" #${i + 1}`,
-                        sourceAdId: ad.facebookAdId || ad.id,
-                        sourceAdName: ad.name,
-                        source: 'ad',
-                        messages: [],
+            // If ad has leads/messages, create lead entries
+            if (totalLeads > 0) {
+                // Get ad name parts for better lead naming
+                const adName = ad.name || 'Unknown Ad';
+                const adId = ad.facebookAdId || ad.id;
+
+                for (let i = 0; i < Math.min(totalLeads, 50); i++) { // Cap at 50 per ad
+                    const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                    const leadData = {
+                        id: leadId,
+                        name: `${adName.substring(0, 40)} - Lead #${i + 1}`,
+                        sourceAdId: adId,
+                        sourceAdName: adName,
+                        source: 'Facebook Ad',
+                        stageId: 'new-lead',
+                        pipelineId: selectedPipelineId || undefined,
                         createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
-                    });
-                    contactsCreated++;
+                        lastActivity: new Date().toISOString(),
+                        facebookAdId: adId,
+                    };
+
+                    // Save to pipeline-specific storage if pipeline selected
+                    if (selectedPipelineId) {
+                        const pipelineLeadsKey = `leads_${selectedPipelineId}`;
+                        const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
+                        existingLeads.push(leadData);
+                        localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
+
+                        // Update pipeline lead count
+                        const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
+                        const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
+                        if (pIndex !== -1) {
+                            pipelinesData[pIndex].leadCount = (pipelinesData[pIndex].leadCount || 0) + 1;
+                            localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
+                        }
+                    } else {
+                        // Save to general contacts if no pipeline selected
+                        const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
+                        existingContacts.push(leadData);
+                        localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
+                    }
+
+                    leadsCreated++;
                 }
             }
         });
-
-        if (contactsCreated > 0) {
-            localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
-        }
 
         // Reset state
         setTimeout(() => {
@@ -892,12 +925,17 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
             setFacebookAds([]);
 
             let message = `✅ Successfully imported ${newAds.length} ads!`;
-            if (contactsCreated > 0) {
-                message += `\n📱 Created ${contactsCreated} lead contacts from messaging ads!`;
+            if (leadsCreated > 0) {
+                const pipelineName = pipelines.find(p => p.id === selectedPipelineId)?.name;
+                if (pipelineName) {
+                    message += `\n📱 Added ${leadsCreated} leads to "${pipelineName}" pipeline!`;
+                } else {
+                    message += `\n📱 Created ${leadsCreated} leads (no pipeline selected)`;
+                }
             }
             message += '\n\nYour ads are now available in the Algorithm and My Ads pages.';
-            if (contactsCreated > 0) {
-                message += '\nContacts are available in the Pipeline page.';
+            if (leadsCreated > 0 && selectedPipelineId) {
+                message += '\nGo to Pipeline page to view your leads!';
             }
             alert(message);
         }, 500);
@@ -1079,13 +1117,34 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                                     datePreset}
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
                             <button className="btn btn-ghost btn-sm" onClick={selectAllAds}>
                                 ✓ Select All
                             </button>
                             <button className="btn btn-ghost btn-sm" onClick={() => setSelectedAds(new Set())}>
                                 ✗ Clear Selection
                             </button>
+
+                            {/* Pipeline Selector */}
+                            <select
+                                className="form-select"
+                                value={selectedPipelineId}
+                                onChange={(e) => setSelectedPipelineId(e.target.value)}
+                                style={{
+                                    minWidth: '200px',
+                                    padding: '8px 12px',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: '1px solid var(--border-primary)',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)'
+                                }}
+                            >
+                                <option value="">📋 Select Pipeline for Leads...</option>
+                                {pipelines.map(p => (
+                                    <option key={p.id} value={p.id}>🎯 {p.name}</option>
+                                ))}
+                            </select>
+
                             <button
                                 className="btn btn-primary"
                                 onClick={handleImportAds}
