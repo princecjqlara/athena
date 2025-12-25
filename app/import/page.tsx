@@ -652,7 +652,7 @@ ${m.messagesStarted ? `• Messages Started: ${m.messagesStarted}` : ''}
     };
 
     // Import selected ads
-    const handleImportAds = () => {
+    const handleImportAds = async () => {
         if (selectedAds.size === 0) {
             setError('Please select at least one ad to import');
             return;
@@ -861,45 +861,93 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
         const allAds = [...existingAds, ...newAds];
         localStorage.setItem('ads', JSON.stringify(allAds));
 
-        // Auto-create leads from ads with messaging results
+        // Auto-create leads from ads - try to fetch actual lead data first
         let leadsCreated = 0;
 
-        // For each ad with messaging results, create leads
-        newAds.forEach((ad: any) => {
-            const metrics = ad.adInsights;
+        // For each ad, try to fetch actual leads from Facebook Lead Ads API
+        for (const ad of newAds) {
+            const metrics = (ad as any).adInsights;
             const messagesStarted = metrics?.messagesStarted || 0;
-            const leads = metrics?.leads || 0;
-            const totalLeads = Math.max(messagesStarted, leads);
+            const leadCount = metrics?.leads || 0;
+            const adName = (ad as any).name || 'Unknown Ad';
+            const adId = (ad as any).facebookAdId || (ad as any).id;
 
-            // If ad has leads/messages, create lead entries
+            // Try to fetch actual lead data from Facebook Lead Ads API
+            try {
+                const leadsResponse = await fetch(`/api/facebook/leads?adId=${adId}&accessToken=${accessToken}`);
+                const leadsData = await leadsResponse.json();
+
+                if (leadsData.success && leadsData.data && leadsData.data.length > 0) {
+                    // We have actual leads with names!
+                    for (const fbLead of leadsData.data) {
+                        const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                        const leadData = {
+                            id: leadId,
+                            name: fbLead.fullName || fbLead.firstName || fbLead.email?.split('@')[0] || `Lead from ${adName.substring(0, 20)}`,
+                            email: fbLead.email,
+                            phone: fbLead.phone,
+                            sourceAdId: adId,
+                            sourceAdName: adName,
+                            facebookLeadId: fbLead.id,
+                            facebookAdId: adId,
+                            source: 'Facebook Lead Ad',
+                            stageId: 'new-lead',
+                            pipelineId: selectedPipelineId || undefined,
+                            createdAt: fbLead.createdAt || new Date().toISOString(),
+                            lastActivity: new Date().toISOString(),
+                        };
+
+                        // Save to appropriate storage
+                        if (selectedPipelineId) {
+                            const pipelineLeadsKey = `leads_${selectedPipelineId}`;
+                            const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
+                            existingLeads.push(leadData);
+                            localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
+
+                            const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
+                            const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
+                            if (pIndex !== -1) {
+                                pipelinesData[pIndex].leadCount = (pipelinesData[pIndex].leadCount || 0) + 1;
+                                localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
+                            }
+                        } else {
+                            const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
+                            existingContacts.push(leadData);
+                            localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
+                        }
+                        leadsCreated++;
+                    }
+                    continue; // Skip placeholder creation since we got real leads
+                }
+            } catch (err) {
+                console.log('Could not fetch actual leads for ad, using placeholders:', err);
+            }
+
+            // Fallback: Create placeholder leads based on metrics count
+            const totalLeads = Math.max(messagesStarted, leadCount);
             if (totalLeads > 0) {
-                // Get ad name parts for better lead naming
-                const adName = ad.name || 'Unknown Ad';
-                const adId = ad.facebookAdId || ad.id;
-
-                for (let i = 0; i < Math.min(totalLeads, 50); i++) { // Cap at 50 per ad
+                for (let i = 0; i < Math.min(totalLeads, 50); i++) {
                     const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                     const leadData = {
                         id: leadId,
-                        name: `${adName.substring(0, 40)} - Lead #${i + 1}`,
+                        name: `Lead #${i + 1}`,
                         sourceAdId: adId,
                         sourceAdName: adName,
+                        facebookAdId: adId,
                         source: 'Facebook Ad',
                         stageId: 'new-lead',
                         pipelineId: selectedPipelineId || undefined,
                         createdAt: new Date().toISOString(),
                         lastActivity: new Date().toISOString(),
-                        facebookAdId: adId,
+                        isPlaceholder: true, // Mark as placeholder (no real data)
                     };
 
-                    // Save to pipeline-specific storage if pipeline selected
                     if (selectedPipelineId) {
                         const pipelineLeadsKey = `leads_${selectedPipelineId}`;
                         const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
                         existingLeads.push(leadData);
                         localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
 
-                        // Update pipeline lead count
                         const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
                         const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
                         if (pIndex !== -1) {
@@ -907,16 +955,14 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                             localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
                         }
                     } else {
-                        // Save to general contacts if no pipeline selected
                         const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
                         existingContacts.push(leadData);
                         localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
                     }
-
                     leadsCreated++;
                 }
             }
-        });
+        }
 
         // Reset state
         setTimeout(() => {

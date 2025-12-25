@@ -68,9 +68,14 @@ export default function PipelinePage() {
     const [allContacts, setAllContacts] = useState<Array<{
         id: string;
         name: string;
+        email?: string;
+        phone?: string;
         sourceAdName?: string;
+        sourceAdId?: string;
+        facebookAdId?: string;
         source?: string;
         createdAt: string;
+        isPlaceholder?: boolean;
     }>>([]);
 
     // Load pipelines and contacts from localStorage
@@ -387,12 +392,30 @@ export default function PipelinePage() {
                                     ×
                                 </button>
                                 <div style={{ fontWeight: 600, paddingRight: '20px' }}>{contact.name}</div>
+                                {contact.email && (
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                        📧 {contact.email}
+                                    </div>
+                                )}
+                                {contact.phone && (
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                        📱 {contact.phone}
+                                    </div>
+                                )}
                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                    {contact.sourceAdName && `From: ${contact.sourceAdName.substring(0, 30)}...`}
+                                    {contact.sourceAdName && `Ad: ${contact.sourceAdName.substring(0, 25)}...`}
                                 </div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                    {contact.source === 'ad' && <span style={{ background: 'var(--accent-gradient)', color: 'white', padding: '2px 6px', borderRadius: '10px' }}>📣 Ad Lead</span>}
-                                    {' '}
+                                {contact.facebookAdId && (
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'monospace' }}>
+                                        ID: {contact.facebookAdId}
+                                    </div>
+                                )}
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                    {contact.isPlaceholder ? (
+                                        <span style={{ background: 'rgba(156, 163, 175, 0.3)', color: 'var(--text-muted)', padding: '2px 6px', borderRadius: '10px' }}>⏳ Placeholder</span>
+                                    ) : (
+                                        <span style={{ background: 'var(--accent-gradient)', color: 'white', padding: '2px 6px', borderRadius: '10px' }}>📣 Real Lead</span>
+                                    )}
                                     {new Date(contact.createdAt).toLocaleDateString()}
                                 </div>
                             </div>
