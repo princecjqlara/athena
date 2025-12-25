@@ -1,0 +1,104 @@
+/* Organizer-specific styles */
+.impersonation-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(90deg, #f59e0b, #ef4444);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    z-index: 9999;
+    font-weight: 500;
+}
+
+.impersonation-banner button {
+    padding: 4px 12px;
+    background: white;
+    color: #ef4444;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.organizer-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.stat-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.search-input {
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    width: 250px;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.btn-view {
+    padding: 4px 12px;
+    background: rgba(102, 126, 234, 0.2);
+    color: #667eea;
+    border: 1px solid #667eea;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.75rem;
+}
+
+@media (max-width: 768px) {
+    .organizer-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .content-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .search-input {
+        width: 100%;
+    }
+}

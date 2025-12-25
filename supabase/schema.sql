@@ -380,3 +380,215 @@ CREATE INDEX IF NOT EXISTS idx_user_contributions_feature ON user_contributions(
 CREATE INDEX IF NOT EXISTS idx_user_contributions_date ON user_contributions(contributed_at);
 CREATE INDEX IF NOT EXISTS idx_user_ci_settings_user ON user_ci_settings(user_id);
 
+-- ============================================
+-- RBAC (Role-Based Access Control) TABLES
+-- ============================================
+
+-- ORGANIZATIONS TABLE
+CREATE TABLE IF NOT EXISTS organizations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  settings JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- USER PROFILES TABLE - Extends Supabase auth.users
+CREATE TABLE IF NOT EXISTS user_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  
+  -- Organization membership
+  org_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
+  
+  -- Role and status
+  role TEXT NOT NULL DEFAULT 'marketer' CHECK (role IN ('marketer', 'client', 'admin', 'organizer')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('active', 'pending', 'suspended', 'inactive')),
+  
+  -- Profile info
+  full_name TEXT,
+  avatar_url TEXT,
+  
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  last_login_at TIMESTAMPTZ
+);
+
+-- ACCESS REQUESTS TABLE - For users requesting org access
+CREATE TABLE IF NOT EXISTS access_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Who is requesting
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  
+  -- What they're requesting
+  org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  requested_role TEXT NOT NULL DEFAULT 'marketer' CHECK (requested_role IN ('marketer', 'client')),
+  
+  -- Status
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'denied')),
+  reviewed_by UUID REFERENCES auth.users(id),
+  reviewed_at TIMESTAMPTZ,
+  denial_reason TEXT,
+  
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  UNIQUE(user_id, org_id)
+);
+
+-- AUDIT LOGS TABLE - For tracking sensitive actions (especially impersonation)
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Who performed the action
+  actor_id UUID NOT NULL REFERENCES auth.users(id),
+  actor_role TEXT NOT NULL,
+  
+  -- Impersonation context (if applicable)
+  impersonating_user_id UUID REFERENCES auth.users(id),
+  
+  -- What happened
+  action TEXT NOT NULL,  -- 'impersonate_start', 'impersonate_end', 'user_suspend', 'access_approve', etc.
+  resource_type TEXT,    -- 'user', 'organization', 'pipeline', etc.
+  resource_id TEXT,
+  
+  -- Additional context
+  details JSONB DEFAULT '{}',
+  ip_address INET,
+  user_agent TEXT,
+  
+  -- Timestamp
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- PIPELINE ASSIGNMENTS TABLE - For assigning pipeline items to clients
+CREATE TABLE IF NOT EXISTS pipeline_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- What is assigned
+  pipeline_id TEXT NOT NULL,
+  lead_id TEXT,  -- Optional: specific lead within pipeline
+  
+  -- Who owns and who is assigned
+  owner_id UUID NOT NULL REFERENCES auth.users(id),
+  assigned_to UUID NOT NULL REFERENCES auth.users(id),
+  
+  -- Assignment details
+  permissions TEXT[] DEFAULT ARRAY['view', 'advance', 'pause'],
+  
+  -- Timestamps
+  assigned_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ,
+  
+  UNIQUE(pipeline_id, assigned_to)
+);
+
+-- Enable RLS for RBAC tables
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE access_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pipeline_assignments ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for organizations
+CREATE POLICY "Users can view their organization" ON organizations 
+  FOR SELECT USING (
+    id IN (SELECT org_id FROM user_profiles WHERE id = auth.uid())
+    OR EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND role = 'organizer')
+  );
+
+CREATE POLICY "Admins can update their organization" ON organizations 
+  FOR UPDATE USING (
+    id IN (SELECT org_id FROM user_profiles WHERE id = auth.uid() AND role IN ('admin', 'organizer'))
+  );
+
+-- RLS Policies for user_profiles
+CREATE POLICY "Users can view profiles in their org" ON user_profiles 
+  FOR SELECT USING (
+    org_id IN (SELECT org_id FROM user_profiles WHERE id = auth.uid())
+    OR id = auth.uid()
+    OR EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND role = 'organizer')
+  );
+
+CREATE POLICY "Users can update their own profile" ON user_profiles 
+  FOR UPDATE USING (id = auth.uid());
+
+CREATE POLICY "Admins can update org profiles" ON user_profiles 
+  FOR UPDATE USING (
+    org_id IN (SELECT org_id FROM user_profiles WHERE id = auth.uid() AND role IN ('admin', 'organizer'))
+  );
+
+CREATE POLICY "Allow profile creation" ON user_profiles 
+  FOR INSERT WITH CHECK (id = auth.uid());
+
+-- RLS Policies for access_requests
+CREATE POLICY "Users can view their own requests" ON access_requests 
+  FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Admins can view org requests" ON access_requests 
+  FOR SELECT USING (
+    org_id IN (SELECT org_id FROM user_profiles WHERE id = auth.uid() AND role IN ('admin', 'organizer'))
+  );
+
+CREATE POLICY "Users can create requests" ON access_requests 
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Admins can update requests" ON access_requests 
+  FOR UPDATE USING (
+    org_id IN (SELECT org_id FROM user_profiles WHERE id = auth.uid() AND role IN ('admin', 'organizer'))
+  );
+
+-- RLS Policies for audit_logs (read-only for admins/organizers)
+CREATE POLICY "Admins can view org audit logs" ON audit_logs 
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND role IN ('admin', 'organizer'))
+  );
+
+CREATE POLICY "System can insert audit logs" ON audit_logs 
+  FOR INSERT WITH CHECK (true);
+
+-- RLS Policies for pipeline_assignments
+CREATE POLICY "Users can view their assignments" ON pipeline_assignments 
+  FOR SELECT USING (
+    assigned_to = auth.uid() 
+    OR owner_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND role IN ('admin', 'organizer'))
+  );
+
+CREATE POLICY "Owners can manage assignments" ON pipeline_assignments 
+  FOR ALL USING (owner_id = auth.uid());
+
+-- Indexes for RBAC tables
+CREATE INDEX IF NOT EXISTS idx_user_profiles_org ON user_profiles(org_id);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_role ON user_profiles(role);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_status ON user_profiles(status);
+CREATE INDEX IF NOT EXISTS idx_access_requests_org ON access_requests(org_id);
+CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_pipeline_assignments_assigned ON pipeline_assignments(assigned_to);
+
+-- Function to create user profile on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, full_name, role, status)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
+    'marketer',
+    'pending'
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger for auto-creating profile on signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
