@@ -253,10 +253,15 @@ export default function OrganizerDashboard() {
                     <span className="stat-label">Marketers</span>
                 </div>
                 <div className="stat-card">
+                    <span className="stat-value">{users.filter(u => u.role === 'client').length}</span>
+                    <span className="stat-label">Clients</span>
+                </div>
+                <div className="stat-card">
                     <span className="stat-value">{totalDataSize}</span>
                     <span className="stat-label">Total Ads</span>
                 </div>
             </div>
+
 
             {/* Admin Code Generator */}
             <div className="code-generator">
