@@ -592,3 +592,65 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- ============================================
+-- INVITE CODES TABLE
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS invite_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Code details
+  code TEXT UNIQUE NOT NULL,
+  code_type TEXT NOT NULL CHECK (code_type IN ('client', 'marketer', 'admin')),
+  
+  -- Who created it
+  created_by UUID NOT NULL REFERENCES auth.users(id),
+  org_id UUID REFERENCES organizations(id),
+  
+  -- Usage tracking
+  used_by UUID REFERENCES auth.users(id),
+  used_at TIMESTAMPTZ,
+  
+  -- Expiration (10 minutes default)
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '10 minutes'),
+  is_used BOOLEAN DEFAULT FALSE,
+  
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE invite_codes ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE POLICY "Users can view their own codes" ON invite_codes 
+  FOR SELECT USING (created_by = auth.uid());
+
+CREATE POLICY "Users can create codes" ON invite_codes 
+  FOR INSERT WITH CHECK (created_by = auth.uid());
+
+CREATE POLICY "Organizers can view all codes" ON invite_codes 
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND role = 'organizer')
+  );
+
+-- Index for code lookup
+CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_type ON invite_codes(code_type);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_created_by ON invite_codes(created_by);
+
+-- Function to generate a random invite code
+CREATE OR REPLACE FUNCTION generate_invite_code()
+RETURNS TEXT AS $$
+DECLARE
+  chars TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  result TEXT := '';
+  i INTEGER;
+BEGIN
+  FOR i IN 1..8 LOOP
+    result := result || substr(chars, floor(random() * length(chars) + 1)::integer, 1);
+  END LOOP;
+  RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+
