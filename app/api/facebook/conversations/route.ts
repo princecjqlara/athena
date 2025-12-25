@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/facebook/conversations
- * Import selected conversations as contacts into the pipeline
+ * Import selected conversations as contacts into Supabase
  */
 export async function POST(request: NextRequest) {
     try {
@@ -162,41 +162,55 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Import contacts - this will be handled client-side by storing to localStorage
-        // But we return the processed contacts ready for storage
-        const processedContacts = contacts.map((contact: any) => ({
-            id: `contact-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            name: contact.name,
-            email: contact.email,
-            facebookPsid: contact.facebookPsid,
-            sourceAdId: contact.isFromAd ? 'messenger_ad' : undefined,
-            source: contact.isFromAd ? 'ad' : 'organic',
-            pipelineId: pipelineId || undefined,
-            stageId: stageId || undefined,
-            messages: contact.messages?.map((m: any) => ({
-                id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                content: m.content,
-                direction: m.fromId === contact.facebookPsid ? 'inbound' : 'outbound',
-                timestamp: m.timestamp,
-                messageId: m.id
-            })) || [],
-            firstMessageAt: contact.firstMessageAt,
-            lastMessageAt: contact.lastMessageAt,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        }));
+        // Import to Supabase (dynamic import to avoid client-side issues)
+        const { supabaseContactsStore, supabaseMessagesStore } = await import('@/lib/supabase-contacts');
+
+        const importedContacts = [];
+
+        for (const contact of contacts) {
+            // Create contact in Supabase
+            const newContact = await supabaseContactsStore.create({
+                name: contact.name || 'Unknown',
+                email: contact.email,
+                phone: contact.phone,
+                facebook_psid: contact.facebookPsid,
+                source_ad_id: contact.isFromAd ? 'messenger_ad' : undefined,
+                source_ad_name: contact.isFromAd ? 'Messenger Ad' : 'Organic',
+                pipeline_id: pipelineId,
+                stage_id: stageId || 'new-lead',
+                last_message_at: contact.lastMessageAt,
+            });
+
+            if (newContact) {
+                // Also save messages if available
+                if (contact.messages && Array.isArray(contact.messages)) {
+                    for (const msg of contact.messages) {
+                        await supabaseMessagesStore.add({
+                            contact_id: newContact.id!,
+                            content: msg.content || msg.message || '',
+                            direction: msg.fromId === contact.facebookPsid ? 'inbound' : 'outbound',
+                            message_id: msg.id,
+                            timestamp: msg.timestamp,
+                        });
+                    }
+                }
+                importedContacts.push(newContact);
+            }
+        }
+
+        console.log(`[Conversations] Imported ${importedContacts.length} contacts to Supabase`);
 
         return NextResponse.json({
             success: true,
-            contacts: processedContacts,
-            count: processedContacts.length,
-            message: `${processedContacts.length} contacts ready to import`
+            contacts: importedContacts,
+            count: importedContacts.length,
+            message: `${importedContacts.length} contacts imported to Supabase!`
         });
 
     } catch (error) {
         console.error('[Conversations] Import error:', error);
         return NextResponse.json(
-            { error: 'Failed to process contacts', details: String(error) },
+            { error: 'Failed to import contacts', details: String(error) },
             { status: 500 }
         );
     }
