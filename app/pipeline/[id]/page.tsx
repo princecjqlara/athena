@@ -643,7 +643,7 @@ export default function PipelineDetailPage() {
                             </p>
 
                             <div className="form-group">
-                                <label className="form-label">Conversion Value (Revenue)</label>
+                                <label className="form-label">💰 Purchase Value (for Meta ROAS)</label>
                                 <div style={{ position: 'relative' }}>
                                     <span style={{
                                         position: 'absolute',
@@ -664,7 +664,7 @@ export default function PipelineDetailPage() {
                                     />
                                 </div>
                                 <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                    Enter the revenue from this conversion for ROAS calculation
+                                    This value is sent to Meta for ROAS calculation (Return on Ad Spend)
                                 </small>
                             </div>
                             <div className="form-group">

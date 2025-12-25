@@ -189,6 +189,23 @@ export default function PipelinePage() {
         alert(`✅ Imported ${contacts.length} contacts!`);
     };
 
+    // Delete a contact from the Imported Leads section
+    const handleDeleteContact = (contactId: string, contactName: string) => {
+        if (!confirm(`Delete "${contactName}"?\n\nThis will permanently remove this lead.`)) return;
+
+        const updated = allContacts.filter(c => c.id !== contactId);
+        setAllContacts(updated);
+        localStorage.setItem('pipeline_contacts', JSON.stringify(updated));
+    };
+
+    // Delete all imported contacts
+    const handleDeleteAllContacts = () => {
+        if (!confirm(`Delete ALL ${allContacts.length} imported leads?\n\nThis cannot be undone.`)) return;
+
+        setAllContacts([]);
+        localStorage.setItem('pipeline_contacts', JSON.stringify([]));
+    };
+
     const handleCreatePipeline = () => {
         if (!newPipelineName || !selectedGoal) return;
 
@@ -321,9 +338,18 @@ export default function PipelinePage() {
             {/* All Imported Contacts */}
             {allContacts.length > 0 && (
                 <div className="glass-card" style={{ marginBottom: 'var(--spacing-xl)' }}>
-                    <h3 style={{ marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        📱 Imported Leads ({allContacts.length})
-                    </h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                            📱 Imported Leads ({allContacts.length})
+                        </h3>
+                        <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={handleDeleteAllContacts}
+                            style={{ color: 'var(--error)' }}
+                        >
+                            🗑️ Clear All
+                        </button>
+                    </div>
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
@@ -336,10 +362,31 @@ export default function PipelinePage() {
                                     background: 'var(--bg-secondary)',
                                     padding: 'var(--spacing-md)',
                                     borderRadius: 'var(--radius-lg)',
-                                    border: '1px solid var(--border-primary)'
+                                    border: '1px solid var(--border-primary)',
+                                    position: 'relative'
                                 }}
                             >
-                                <div style={{ fontWeight: 600 }}>{contact.name}</div>
+                                <button
+                                    onClick={() => handleDeleteContact(contact.id, contact.name)}
+                                    style={{
+                                        position: 'absolute',
+                                        top: '8px',
+                                        right: '8px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-muted)',
+                                        fontSize: '1.2rem',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px'
+                                    }}
+                                    onMouseOver={e => e.currentTarget.style.color = 'var(--error)'}
+                                    onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                                    title="Delete lead"
+                                >
+                                    ×
+                                </button>
+                                <div style={{ fontWeight: 600, paddingRight: '20px' }}>{contact.name}</div>
                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                                     {contact.sourceAdName && `From: ${contact.sourceAdName.substring(0, 30)}...`}
                                 </div>
