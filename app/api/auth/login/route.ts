@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
             .eq('id', result.user?.id)
             .single();
 
-        return NextResponse.json({
+        // Create response with cookies
+        const response = NextResponse.json({
             success: true,
             user: {
                 id: result.user?.id,
@@ -46,6 +47,29 @@ export async function POST(request: NextRequest) {
                 profile,
             },
         });
+
+        // Set session cookies for middleware to read
+        if (result.session) {
+            response.cookies.set('sb-access-token', result.session.access_token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: result.session.expires_in || 3600,
+                path: '/',
+            });
+
+            if (result.session.refresh_token) {
+                response.cookies.set('sb-refresh-token', result.session.refresh_token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'lax',
+                    maxAge: 60 * 60 * 24 * 7, // 7 days
+                    path: '/',
+                });
+            }
+        }
+
+        return response;
 
     } catch (error) {
         console.error('[Auth] Login error:', error);

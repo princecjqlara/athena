@@ -6,6 +6,9 @@ import { FeatureWeight, WeightAdjustmentEvent, PredictionRecord, ExtractedAdData
 const WEIGHTS_KEY = 'ml_feature_weights';
 const ADJUSTMENTS_KEY = 'ml_weight_adjustments';
 
+// Flag to prevent circular imports - recalculation import is dynamic
+let recalculationEnabled = true;
+
 // Default feature weights
 const DEFAULT_WEIGHTS: FeatureWeight[] = [
     // Hook Types
@@ -151,6 +154,16 @@ export function adjustWeightsForError(
 
     // Save updated weights
     saveFeatureWeights(weights);
+
+    // Trigger score recalculation for all ads
+    if (recalculationEnabled && adjustments.length > 0) {
+        // Dynamic import to avoid circular dependency
+        import('./score-recalculation').then(({ triggerRecalculationOnWeightChange }) => {
+            triggerRecalculationOnWeightChange();
+        }).catch(err => {
+            console.warn('[WEIGHT ADJUST] Could not trigger recalculation:', err);
+        });
+    }
 
     // Create adjustment event
     const event: WeightAdjustmentEvent = {

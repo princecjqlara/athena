@@ -37,6 +37,7 @@ export function Sidebar() {
         <NavItem href="/results" icon="chart" label="Add Results" collapsed={isCollapsed} />
         <NavItem href="/mindmap" icon="mindmap" label="Algorithm" collapsed={isCollapsed} />
         <NavItem href="/pipeline" icon="pipeline" label="AI Pipeline" collapsed={isCollapsed} />
+        <NavItem href="/marketplace" icon="marketplace" label="Marketplace" collapsed={isCollapsed} />
         <NavItem href="/myads" icon="ads" label="My Ads" collapsed={isCollapsed} />
         <NavItem href="/settings" icon="settings" label="Settings" collapsed={isCollapsed} />
       </nav>
@@ -263,6 +264,12 @@ function NavItem({ href, icon, label, collapsed }: { href: string; icon: string;
         <path d="M14 7L16.5 10.5" />
         <path d="M7.5 13.5L10 17" />
         <path d="M14 17L16.5 13.5" />
+      </svg>
+    ),
+    marketplace: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
       </svg>
     ),
     settings: (
