@@ -64,11 +64,26 @@ export default function PipelinePage() {
     const [showFetchModal, setShowFetchModal] = useState(false);
     const [fetchError, setFetchError] = useState('');
 
-    // Load pipelines from localStorage
+    // All contacts from pipeline_contacts
+    const [allContacts, setAllContacts] = useState<Array<{
+        id: string;
+        name: string;
+        sourceAdName?: string;
+        source?: string;
+        createdAt: string;
+    }>>([]);
+
+    // Load pipelines and contacts from localStorage
     useEffect(() => {
         const saved = localStorage.getItem('pipelines');
         if (saved) {
             setPipelines(JSON.parse(saved));
+        }
+
+        // Load all contacts
+        const savedContacts = localStorage.getItem('pipeline_contacts');
+        if (savedContacts) {
+            setAllContacts(JSON.parse(savedContacts));
         }
     }, []);
 
@@ -302,6 +317,47 @@ export default function PipelinePage() {
                     </div>
                 </div>
             </div>
+
+            {/* All Imported Contacts */}
+            {allContacts.length > 0 && (
+                <div className="glass-card" style={{ marginBottom: 'var(--spacing-xl)' }}>
+                    <h3 style={{ marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        📱 Imported Leads ({allContacts.length})
+                    </h3>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                        gap: 'var(--spacing-md)'
+                    }}>
+                        {allContacts.slice(0, 20).map(contact => (
+                            <div
+                                key={contact.id}
+                                style={{
+                                    background: 'var(--bg-secondary)',
+                                    padding: 'var(--spacing-md)',
+                                    borderRadius: 'var(--radius-lg)',
+                                    border: '1px solid var(--border-primary)'
+                                }}
+                            >
+                                <div style={{ fontWeight: 600 }}>{contact.name}</div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                    {contact.sourceAdName && `From: ${contact.sourceAdName.substring(0, 30)}...`}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                    {contact.source === 'ad' && <span style={{ background: 'var(--accent-gradient)', color: 'white', padding: '2px 6px', borderRadius: '10px' }}>📣 Ad Lead</span>}
+                                    {' '}
+                                    {new Date(contact.createdAt).toLocaleDateString()}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {allContacts.length > 20 && (
+                        <p style={{ marginTop: 'var(--spacing-md)', color: 'var(--text-muted)', textAlign: 'center' }}>
+                            Showing 20 of {allContacts.length} leads
+                        </p>
+                    )}
+                </div>
+            )}
 
             {/* Pipelines Grid */}
             {pipelines.length === 0 ? (
