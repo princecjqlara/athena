@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { contactsStore, findOrCreateContact, adLinksStore } from '@/lib/contacts-store';
+import { supabaseContactsStore, supabaseMessagesStore, findOrCreateSupabaseContact } from '@/lib/supabase-contacts';
+import { adLinksStore } from '@/lib/contacts-store';
 
 // Webhook Verify Token - set this in environment variables
 const VERIFY_TOKEN = process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN || 'TEST_TOKEN';
@@ -251,8 +252,8 @@ async function handleMessagingEvent(pageId: string, event: MessagingEvent) {
         });
     }
 
-    // Find or create contact
-    let contact = contactsStore.findByFacebookId(undefined, senderId);
+    // Find or create contact in Supabase
+    let contact = await supabaseContactsStore.findByFacebookId(undefined, senderId);
     let isNewContact = false;
 
     if (!contact) {
@@ -265,31 +266,27 @@ async function handleMessagingEvent(pageId: string, event: MessagingEvent) {
         // Find pipeline linked to this ad (if referral exists)
         const adLink = sourceAdId ? adLinksStore.getByAdId(sourceAdId) : null;
 
-        // Create new contact
-        contact = findOrCreateContact({
+        // Create new contact in Supabase
+        contact = await findOrCreateSupabaseContact({
             name: userName,
             facebookPsid: senderId,
-            profilePic: profile?.profile_pic,
             sourceAdId: sourceAdId,
-            sourceAdTitle: adTitle,
-            source: sourceAdId ? 'ad' : 'organic',
+            sourceAdName: adTitle,
             pipelineId: adLink?.pipelineId,
             stageId: adLink?.stageId,
-            firstMessageAt: new Date(timestamp).toISOString(),
         });
 
-        console.log('[Webhook] ✨ NEW CONTACT CREATED:', {
-            id: contact.id,
+        console.log('[Webhook] ✨ NEW CONTACT CREATED IN SUPABASE:', {
+            id: contact?.id,
             name: userName,
             fromAd: !!sourceAdId,
             adId: sourceAdId
         });
-    } else if (sourceAdId && !contact.sourceAdId) {
+    } else if (sourceAdId && !contact.source_ad_id) {
         // Update existing contact with ad source if not already set
-        const updated = contactsStore.update(contact.id, {
-            sourceAdId,
-            sourceAdTitle: adTitle,
-            source: 'ad'
+        const updated = await supabaseContactsStore.update(contact.id!, {
+            source_ad_id: sourceAdId,
+            source_ad_name: adTitle,
         });
         if (updated) contact = updated;
         console.log('[Webhook] Updated contact with ad source:', contact?.id);
@@ -303,39 +300,35 @@ async function handleMessagingEvent(pageId: string, event: MessagingEvent) {
             url: att.payload.url
         }));
 
-        // Add message to contact
-        contactsStore.addMessage(contact.id, {
+        // Add message to contact in Supabase
+        await supabaseMessagesStore.add({
+            contact_id: contact.id!,
             content: messageContent,
             direction: 'inbound',
             timestamp: new Date(timestamp).toISOString(),
-            messageId: event.message.mid,
-            attachments: attachments
+            message_id: event.message.mid,
         });
 
         // Update last message timestamp
-        contactsStore.update(contact.id, {
-            lastMessageAt: new Date(timestamp).toISOString(),
-            messageCount: (contact.messageCount || 0) + 1
+        await supabaseContactsStore.update(contact.id!, {
+            last_message_at: new Date(timestamp).toISOString(),
         });
 
         console.log('[Webhook] 💬 Message stored:', {
             contactId: contact.id,
             contactName: contact.name,
             preview: messageContent.substring(0, 50),
-            fromAd: !!contact.sourceAdId
+            fromAd: !!contact.source_ad_id
         });
     }
 
     // Handle postback (button click)
     if (event.postback && contact) {
-        contactsStore.addMessage(contact.id, {
+        await supabaseMessagesStore.add({
+            contact_id: contact.id!,
             content: `[Button Click: ${event.postback.title}]`,
             direction: 'inbound',
             timestamp: new Date(timestamp).toISOString(),
-            metadata: {
-                type: 'postback',
-                payload: event.postback.payload
-            }
         });
 
         console.log('[Webhook] 🔘 Postback recorded:', event.postback.title);
@@ -346,10 +339,8 @@ async function handleMessagingEvent(pageId: string, event: MessagingEvent) {
         console.log('[Webhook] ✅ User opted in:', event.optin);
 
         if (contact) {
-            contactsStore.update(contact.id, {
-                optedIn: true,
-                optinRef: event.optin.ref
-            });
+            // Note: opted fields not in Supabase schema, just log for now
+            console.log('[Webhook] User opted in with ref:', event.optin.ref);
         }
     }
 
@@ -413,15 +404,13 @@ async function handleLeadgenEvent(pageId: string, leadData: LeadgenValue, timest
     // Find the pipeline linked to this ad
     const adLink = adLinksStore.getByAdId(leadData.ad_id);
 
-    // Create contact from lead
-    const contact = findOrCreateContact({
+    // Create contact from lead in Supabase
+    const contact = await findOrCreateSupabaseContact({
         name: `Lead ${leadData.leadgen_id.slice(-8)}`,
         facebookLeadId: leadData.leadgen_id,
         sourceAdId: leadData.ad_id,
-        source: 'lead_form',
         pipelineId: adLink?.pipelineId,
         stageId: adLink?.stageId,
-        createdAt: new Date(leadData.created_time * 1000).toISOString(),
     });
 
     // Optionally fetch lead data from Facebook (requires additional permissions)
@@ -441,12 +430,11 @@ async function handleLeadgenEvent(pageId: string, leadData: LeadgenValue, timest
                         fields[field.name] = field.values?.[0] || '';
                     }
 
-                    // Update contact with lead data
-                    contactsStore.update(contact.id, {
-                        name: fields.full_name || fields.first_name || contact.name,
+                    // Update contact with lead data in Supabase
+                    await supabaseContactsStore.update(contact!.id!, {
+                        name: fields.full_name || fields.first_name || contact!.name,
                         email: fields.email,
                         phone: fields.phone_number || fields.phone,
-                        leadFormData: fields
                     });
 
                     console.log('[Webhook] Lead contact updated with form data:', fields);
@@ -457,5 +445,5 @@ async function handleLeadgenEvent(pageId: string, leadData: LeadgenValue, timest
         }
     }
 
-    console.log('[Webhook] ✅ Lead stored as contact:', contact.id);
+    console.log('[Webhook] ✅ Lead stored as contact:', contact?.id);
 }

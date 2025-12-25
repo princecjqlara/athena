@@ -78,18 +78,54 @@ export default function PipelinePage() {
         isPlaceholder?: boolean;
     }>>([]);
 
-    // Load pipelines and contacts from localStorage
+    // Load pipelines from localStorage and contacts from Supabase
     useEffect(() => {
         const saved = localStorage.getItem('pipelines');
         if (saved) {
             setPipelines(JSON.parse(saved));
         }
 
-        // Load all contacts
-        const savedContacts = localStorage.getItem('pipeline_contacts');
-        if (savedContacts) {
-            setAllContacts(JSON.parse(savedContacts));
-        }
+        // Load contacts from Supabase API (or fallback to localStorage)
+        const fetchContacts = async () => {
+            try {
+                const response = await fetch('/api/contacts');
+                const data = await response.json();
+
+                if (data.success && data.data.length > 0) {
+                    // Map Supabase snake_case to camelCase for display
+                    const mappedContacts = data.data.map((c: any) => ({
+                        id: c.id,
+                        name: c.name,
+                        email: c.email,
+                        phone: c.phone,
+                        sourceAdName: c.source_ad_name,
+                        sourceAdId: c.source_ad_id,
+                        facebookAdId: c.source_ad_id, // Same as sourceAdId for display
+                        source: c.source_ad_id ? 'ad' : 'organic',
+                        createdAt: c.created_at,
+                        isPlaceholder: false, // From Supabase = real data
+                    }));
+                    setAllContacts(mappedContacts);
+                    console.log('[Pipeline] Loaded', mappedContacts.length, 'contacts from Supabase');
+                } else {
+                    // Fallback to localStorage for existing data
+                    const savedContacts = localStorage.getItem('pipeline_contacts');
+                    if (savedContacts) {
+                        setAllContacts(JSON.parse(savedContacts));
+                        console.log('[Pipeline] Loaded contacts from localStorage (fallback)');
+                    }
+                }
+            } catch (err) {
+                console.error('[Pipeline] Error fetching contacts:', err);
+                // Fallback to localStorage
+                const savedContacts = localStorage.getItem('pipeline_contacts');
+                if (savedContacts) {
+                    setAllContacts(JSON.parse(savedContacts));
+                }
+            }
+        };
+
+        fetchContacts();
     }, []);
 
     // Fetch Messenger contacts from Facebook
