@@ -1,0 +1,312 @@
+.ci-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.ci-loading {
+    text-align: center;
+    padding: 4rem;
+    color: var(--text-muted);
+}
+
+.ci-header {
+    margin-bottom: 2rem;
+}
+
+.ci-back-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    display: inline-block;
+    margin-bottom: 1rem;
+    transition: color 0.2s;
+}
+
+.ci-back-link:hover {
+    color: var(--text-primary);
+}
+
+.ci-header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.ci-subtitle {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* Sections */
+.ci-section {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.ci-section h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+/* Mode Options */
+.ci-mode-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ci-mode-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ci-mode-option:hover {
+    border-color: var(--accent-color);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.ci-mode-option.selected {
+    border-color: var(--accent-color);
+    background: rgba(var(--accent-rgb), 0.1);
+}
+
+.ci-mode-option input {
+    margin-top: 4px;
+}
+
+.ci-mode-content {
+    flex: 1;
+}
+
+.ci-mode-title {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.ci-mode-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.ci-mode-recommended {
+    display: inline-block;
+    margin-top: 0.5rem;
+    padding: 2px 8px;
+    background: var(--accent-gradient);
+    color: white;
+    font-size: 0.75rem;
+    border-radius: 4px;
+}
+
+/* Blend Stats */
+.ci-blend-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.ci-blend-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.ci-stat {
+    text-align: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+
+.ci-stat-value {
+    display: block;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ci-stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+.ci-progress-container {
+    padding: 0 0.5rem;
+}
+
+.ci-progress-bar {
+    height: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.ci-progress-fill {
+    height: 100%;
+    background: var(--accent-gradient);
+    border-radius: 6px;
+    transition: width 0.3s ease;
+}
+
+.ci-progress-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.ci-blend-explanation {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+}
+
+/* Insights */
+.ci-insights {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.ci-insights-header {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.ci-top-features h3,
+.ci-surprises h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.ci-top-features ul,
+.ci-surprises ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ci-top-features li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.ci-feature-rank {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    width: 20px;
+}
+
+.ci-feature-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.ci-feature-lift {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.ci-feature-icon {
+    font-size: 1.25rem;
+}
+
+.ci-no-data {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.ci-surprises li {
+    padding: 0.5rem 0;
+    color: var(--text-secondary);
+}
+
+/* Privacy Section */
+.ci-privacy {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.ci-privacy-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+.ci-privacy-shared h4,
+.ci-privacy-never h4 {
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+}
+
+.ci-privacy-shared ul,
+.ci-privacy-never ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.ci-privacy-shared li,
+.ci-privacy-never li {
+    padding: 0.25rem 0;
+}
+
+.ci-privacy-shared li::before {
+    content: "• ";
+    color: #10b981;
+}
+
+.ci-privacy-never li::before {
+    content: "• ";
+    color: #ef4444;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .ci-page {
+        padding: 1rem;
+    }
+
+    .ci-blend-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .ci-privacy-content {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .ci-insights-header {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
