@@ -4,3 +4,4 @@
 export * from './anonymizer';
 export * from './contribution';
 export * from './patterns';
+export * from './share';

@@ -80,6 +80,9 @@ export default function MarketplacePage() {
         format: '',
     });
 
+    // Search state
+    const [searchQuery, setSearchQuery] = useState('');
+
     // Request modal state
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [selectedPool, setSelectedPool] = useState<DataPool | null>(null);
@@ -191,6 +194,18 @@ export default function MarketplacePage() {
         return num.toString();
     };
 
+    // Filter pools by search query
+    const filteredPools = pools.filter(pool => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        return (
+            pool.name.toLowerCase().includes(query) ||
+            pool.description?.toLowerCase().includes(query) ||
+            pool.industry?.toLowerCase().includes(query) ||
+            pool.platform?.toLowerCase().includes(query)
+        );
+    });
+
     return (
         <main className={styles.container}>
             <div className={styles.header}>
@@ -200,6 +215,17 @@ export default function MarketplacePage() {
                         Browse and request access to public ad performance data pools
                     </p>
                 </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className={styles.searchContainer}>
+                <input
+                    type="search"
+                    placeholder="🔍 Search pools by name, description, industry..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className={styles.searchInput}
+                />
             </div>
 
             {/* Filters */}
@@ -259,13 +285,13 @@ export default function MarketplacePage() {
                     <div className={styles.spinner}></div>
                     <span>Loading data pools...</span>
                 </div>
-            ) : pools.length === 0 ? (
+            ) : filteredPools.length === 0 ? (
                 <div className={styles.empty}>
-                    <p>No data pools found matching your filters.</p>
+                    <p>{searchQuery ? 'No pools match your search.' : 'No data pools found matching your filters.'}</p>
                 </div>
             ) : (
                 <div className={styles.grid}>
-                    {pools.map((pool) => {
+                    {filteredPools.map((pool) => {
                         const statusBadge = getStatusBadge(pool.accessStatus);
                         const canRequest = pool.accessStatus === 'none' || pool.accessStatus === 'denied' || pool.accessStatus === 'revoked';
 

@@ -36,19 +36,55 @@ interface ImpersonationSession {
     startedAt: string;
 }
 
+interface DataPool {
+    id: string;
+    name: string;
+    slug: string;
+    description: string;
+    industry: string;
+    platform: string;
+    data_points: number;
+    contributors: number;
+    pending_requests: number;
+    approved_requests: number;
+}
+
+interface AccessRequest {
+    id: string;
+    user_email: string;
+    pool_id: string;
+    reason: string;
+    intended_use: string;
+    status: string;
+    created_at: string;
+    data_pools: { name: string };
+}
+
 export default function OrganizerDashboard() {
     const [users, setUsers] = useState<User[]>([]);
     const [teams, setTeams] = useState<TeamStats[]>([]);
+    const [pools, setPools] = useState<DataPool[]>([]);
+    const [requests, setRequests] = useState<AccessRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [impersonating, setImpersonating] = useState<ImpersonationSession | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy' | 'marketplace'>('users');
     const [inviteCode, setInviteCode] = useState<string | null>(null);
+
+    // Marketplace modal state
+    const [showCreatePool, setShowCreatePool] = useState(false);
+    const [newPool, setNewPool] = useState({ name: '', description: '', industry: '', platform: '' });
 
     useEffect(() => {
         fetchData();
         checkImpersonation();
     }, []);
+
+    useEffect(() => {
+        if (activeTab === 'marketplace') {
+            fetchMarketplace();
+        }
+    }, [activeTab]);
 
     const fetchData = async () => {
         try {
@@ -70,6 +106,26 @@ export default function OrganizerDashboard() {
             console.error('Error fetching data:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchMarketplace = async () => {
+        try {
+            const [poolsRes, requestsRes] = await Promise.all([
+                fetch('/api/organizer/marketplace'),
+                fetch('/api/organizer/marketplace/requests?status=pending'),
+            ]);
+
+            if (poolsRes.ok) {
+                const data = await poolsRes.json();
+                setPools(data.data || []);
+            }
+            if (requestsRes.ok) {
+                const data = await requestsRes.json();
+                setRequests(data.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching marketplace:', error);
         }
     };
 
@@ -123,6 +179,39 @@ export default function OrganizerDashboard() {
             }
         } catch (error) {
             console.error('Error generating code:', error);
+        }
+    };
+
+    const createPool = async () => {
+        if (!newPool.name) return;
+        try {
+            const res = await fetch('/api/organizer/marketplace', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newPool),
+            });
+            if (res.ok) {
+                setShowCreatePool(false);
+                setNewPool({ name: '', description: '', industry: '', platform: '' });
+                fetchMarketplace();
+            }
+        } catch (error) {
+            console.error('Error creating pool:', error);
+        }
+    };
+
+    const handleRequest = async (requestId: string, action: 'approve' | 'deny') => {
+        try {
+            const res = await fetch('/api/organizer/marketplace/requests', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requestId, action }),
+            });
+            if (res.ok) {
+                fetchMarketplace();
+            }
+        } catch (error) {
+            console.error('Error handling request:', error);
         }
     };
 
@@ -196,6 +285,12 @@ export default function OrganizerDashboard() {
                     onClick={() => setActiveTab('teams')}
                 >
                     📊 Team Performance
+                </button>
+                <button
+                    className={`tab ${activeTab === 'marketplace' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('marketplace')}
+                >
+                    🛒 Marketplace
                 </button>
                 <button
                     className={`tab ${activeTab === 'galaxy' ? 'active' : ''}`}
@@ -336,6 +431,115 @@ export default function OrganizerDashboard() {
                                 <span className="label">Avg Confidence</span>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'marketplace' && (
+                    <div className="marketplace-panel">
+                        <div className="panel-header">
+                            <h2>🛒 Data Marketplace Management</h2>
+                            <button className="create-btn" onClick={() => setShowCreatePool(true)}>
+                                + Create Pool
+                            </button>
+                        </div>
+
+                        {/* Pending Access Requests */}
+                        {requests.length > 0 && (
+                            <div className="requests-section">
+                                <h3>⏳ Pending Access Requests ({requests.length})</h3>
+                                <div className="requests-list">
+                                    {requests.map(req => (
+                                        <div key={req.id} className="request-card">
+                                            <div className="request-info">
+                                                <strong>{req.user_email}</strong>
+                                                <span>wants access to <em>{req.data_pools?.name}</em></span>
+                                                <span className="request-reason">{req.reason || 'No reason provided'}</span>
+                                            </div>
+                                            <div className="request-actions">
+                                                <button className="approve-btn" onClick={() => handleRequest(req.id, 'approve')}>✓ Approve</button>
+                                                <button className="deny-btn" onClick={() => handleRequest(req.id, 'deny')}>✗ Deny</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Data Pools */}
+                        <div className="pools-section">
+                            <h3>📊 Data Pools ({pools.length})</h3>
+                            {pools.length === 0 ? (
+                                <p className="no-data">No data pools created yet.</p>
+                            ) : (
+                                <div className="pools-grid">
+                                    {pools.map(pool => (
+                                        <div key={pool.id} className="pool-card">
+                                            <h4>{pool.name}</h4>
+                                            <p>{pool.description || 'No description'}</p>
+                                            <div className="pool-stats">
+                                                <span>📈 {pool.data_points} data points</span>
+                                                <span>👥 {pool.contributors} contributors</span>
+                                                <span>⏳ {pool.pending_requests} pending</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Create Pool Modal */}
+                        {showCreatePool && (
+                            <div className="modal-overlay" onClick={() => setShowCreatePool(false)}>
+                                <div className="modal" onClick={e => e.stopPropagation()}>
+                                    <h3>Create New Data Pool</h3>
+                                    <div className="form-group">
+                                        <label>Pool Name *</label>
+                                        <input
+                                            type="text"
+                                            value={newPool.name}
+                                            onChange={e => setNewPool({ ...newPool, name: e.target.value })}
+                                            placeholder="e.g., E-commerce Fashion Insights"
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Description</label>
+                                        <textarea
+                                            value={newPool.description}
+                                            onChange={e => setNewPool({ ...newPool, description: e.target.value })}
+                                            placeholder="Describe what data this pool contains..."
+                                        />
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Industry</label>
+                                            <select value={newPool.industry} onChange={e => setNewPool({ ...newPool, industry: e.target.value })}>
+                                                <option value="">Select...</option>
+                                                <option value="ecommerce">E-commerce</option>
+                                                <option value="saas">SaaS</option>
+                                                <option value="finance">Finance</option>
+                                                <option value="health">Health</option>
+                                                <option value="local_services">Local Services</option>
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Platform</label>
+                                            <select value={newPool.platform} onChange={e => setNewPool({ ...newPool, platform: e.target.value })}>
+                                                <option value="">Select...</option>
+                                                <option value="facebook">Facebook</option>
+                                                <option value="instagram">Instagram</option>
+                                                <option value="tiktok">TikTok</option>
+                                                <option value="youtube">YouTube</option>
+                                                <option value="multi">Multi-platform</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="modal-actions">
+                                        <button className="cancel-btn" onClick={() => setShowCreatePool(false)}>Cancel</button>
+                                        <button className="submit-btn" onClick={createPool}>Create Pool</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

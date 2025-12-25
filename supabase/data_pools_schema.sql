@@ -142,3 +142,77 @@
 
     -- Note: No sample data - pools are created by users/admins
 
+-- ============================================
+-- POOL CONTRIBUTIONS TABLE
+-- Tracks user data shares to pools
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS pool_contributions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Who is sharing
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  
+  -- What pool they're sharing to
+  pool_id UUID NOT NULL REFERENCES data_pools(id) ON DELETE CASCADE,
+  
+  -- What ad they're sharing
+  ad_id UUID NOT NULL,
+  
+  -- Shared metrics (anonymized aggregated data)
+  success_score INTEGER,
+  ctr DECIMAL(10,4),
+  roas DECIMAL(10,2),
+  impressions INTEGER,
+  spend DECIMAL(12,2),
+  conversions INTEGER,
+  
+  -- Shared traits for pattern analysis
+  traits JSONB,         -- Array of traits like ['ugc', 'curiosity_hook', 'tiktok']
+  industry TEXT,
+  platform TEXT,
+  creative_format TEXT,
+  
+  -- Timestamps
+  shared_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  UNIQUE(user_id, pool_id, ad_id)  -- User can only share each ad to a pool once
+);
+
+-- Enable RLS
+ALTER TABLE pool_contributions ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for pool_contributions
+CREATE POLICY "Users can view their own contributions" ON pool_contributions 
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can create contributions" ON pool_contributions 
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can delete their own contributions" ON pool_contributions 
+  FOR DELETE USING (true);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_pool_contributions_user ON pool_contributions(user_id);
+CREATE INDEX IF NOT EXISTS idx_pool_contributions_pool ON pool_contributions(pool_id);
+CREATE INDEX IF NOT EXISTS idx_pool_contributions_ad ON pool_contributions(ad_id);
+
+-- ============================================
+-- RECALCULATE POOL STATS FUNCTION
+-- Updates pool averages when contributions change
+-- ============================================
+
+CREATE OR REPLACE FUNCTION recalculate_pool_stats(p_pool_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE data_pools SET
+    data_points = (SELECT COUNT(*) FROM pool_contributions WHERE pool_id = p_pool_id),
+    contributors = (SELECT COUNT(DISTINCT user_id) FROM pool_contributions WHERE pool_id = p_pool_id),
+    avg_success_rate = (SELECT AVG(success_score) FROM pool_contributions WHERE pool_id = p_pool_id),
+    avg_ctr = (SELECT AVG(ctr) FROM pool_contributions WHERE pool_id = p_pool_id),
+    avg_roas = (SELECT AVG(roas) FROM pool_contributions WHERE pool_id = p_pool_id),
+    updated_at = NOW()
+  WHERE id = p_pool_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+

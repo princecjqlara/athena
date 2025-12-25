@@ -26,6 +26,33 @@
     font-size: 1rem;
 }
 
+/* Search */
+.searchContainer {
+    margin-bottom: var(--spacing-lg);
+}
+
+.searchInput {
+    width: 100%;
+    max-width: 500px;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-xl);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.searchInput:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(200, 245, 96, 0.1);
+}
+
+.searchInput::placeholder {
+    color: var(--text-muted);
+}
+
 /* Filters */
 .filters {
     display: flex;
