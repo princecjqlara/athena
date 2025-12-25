@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sidebar } from "@/components/Sidebar";
-import ChatBot from "@/components/ChatBot";
+import { AppWrapper } from "@/components/AppWrapper";
 
 export const metadata: Metadata = {
   title: "Athena - Smart Ad Video Analytics",
@@ -22,13 +21,9 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <div className="app-wrapper">
-          <Sidebar />
-          <main className="main-content">
-            {children}
-          </main>
-          <ChatBot />
-        </div>
+        <AppWrapper>
+          {children}
+        </AppWrapper>
       </body>
     </html>
   );
