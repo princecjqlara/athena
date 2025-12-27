@@ -265,7 +265,14 @@ export async function GET(request: NextRequest) {
             contacts,
             count: contacts.length,
             hasMore: !!data.paging?.next,
-            nextCursor: data.paging?.cursors?.after
+            nextCursor: data.paging?.cursors?.after,
+            // Debug info
+            debug: {
+                pageIdUsed: pageId,
+                rawConversationsCount: data.data?.length || 0,
+                tokenType: pageAccessToken ? 'page_access_token' : userAccessToken ? 'user_token_exchanged' : 'unknown',
+                rawResponse: data.data?.length === 0 ? data : undefined // Only include if empty to debug
+            }
         });
 
     } catch (error) {

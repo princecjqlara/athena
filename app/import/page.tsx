@@ -902,7 +902,8 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                         console.log(`[Import] Conversations response:`, {
                             success: convoData.success,
                             count: convoData.contacts?.length || 0,
-                            error: convoData.error
+                            error: convoData.error,
+                            debug: convoData.debug // This will show pageIdUsed, rawConversationsCount, rawResponse
                         });
 
                         if (convoData.success && convoData.contacts?.length > 0) {
