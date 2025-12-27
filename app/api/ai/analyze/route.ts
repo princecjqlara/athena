@@ -1,23 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Default stages to create if pipeline has minimal stages
+// Default stages - AI will only suggest these if pipeline has very few stages
 const DEFAULT_JOURNEY_STAGES = [
-    { id: 'new-lead', name: 'New Lead', isGoal: false },
     { id: 'contacted', name: 'Contacted', isGoal: false },
     { id: 'interested', name: 'Interested', isGoal: false },
     { id: 'negotiating', name: 'Negotiating', isGoal: false },
-    { id: 'converted', name: 'Converted', isGoal: true },
 ];
 
 /**
  * POST /api/ai/analyze
  * Analyze conversations with AI to extract:
- * - Contact info (email, phone, name) - ONLY from messages, never from page
+ * - Contact info (email, phone, name) - ONLY from customer messages
  * - Sentiment (positive, neutral, negative)
- * - Intent (buying, inquiry, complaint, etc.)
+ * - Intent (new, inquiry, interested, negotiating, etc.)
  * - Lead score (1-100)
- * - Suggested stage based on conversation journey
- * - Create missing stages if needed
+ * - Suggested stage based on ACTUAL conversation content
  */
 export async function POST(request: NextRequest) {
     try {
@@ -30,170 +27,168 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // Determine stages to use (existing or create suggestions)
+        // Get existing stages
         let stagesToUse = pipelineStages || [];
         const suggestedNewStages: Array<{ id: string; name: string; isGoal: boolean }> = [];
 
-        // Check if pipeline already has a goal stage
+        // Check if pipeline already has a goal
         const hasGoal = stagesToUse.some((s: any) => s.isGoal);
 
-        // If pipeline has minimal stages, suggest adding journey stages
-        if (stagesToUse.length < 4) {
+        // Only suggest new stages if pipeline has very few (< 3)
+        if (stagesToUse.length < 3) {
             for (const defaultStage of DEFAULT_JOURNEY_STAGES) {
-                // Skip if already exists by name or id
                 const exists = stagesToUse.some((s: any) =>
-                    s.name.toLowerCase() === defaultStage.name.toLowerCase() ||
+                    s.name.toLowerCase().includes(defaultStage.name.toLowerCase()) ||
                     s.id === defaultStage.id
                 );
-                if (exists) continue;
-
-                // Don't add Converted goal if pipeline already has a goal
-                if (defaultStage.isGoal && hasGoal) continue;
-
-                suggestedNewStages.push({
-                    ...defaultStage,
-                    // Only mark as goal if no existing goal
-                    isGoal: defaultStage.isGoal && !hasGoal
-                });
+                if (!exists) {
+                    suggestedNewStages.push(defaultStage);
+                }
             }
         }
 
-        // Combine existing + suggested stages for assignment
         const allAvailableStages = [...stagesToUse, ...suggestedNewStages];
 
-        // Analyze each conversation
+        // Analyze each conversation INDIVIDUALLY
         const analyzedLeads = await Promise.all(conversations.map(async (conv: any) => {
             const messages = conv.messages || [];
-            const allText = messages.map((m: any) => m.content || '').join('\n');
 
-            // ONLY extract contact info from messages - NEVER use conv.email/phone
-            const emailMatch = allText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-            const phoneMatch = allText.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+            // Get ONLY customer messages (not page responses)
+            const customerPsid = conv.facebookPsid;
+            const customerMessages = messages.filter((m: any) => m.fromId === customerPsid);
+            const customerText = customerMessages.map((m: any) => m.content || '').join('\n').toLowerCase();
+            const allText = messages.map((m: any) => m.content || '').join('\n').toLowerCase();
 
-            // Try to extract name if mentioned
-            const namePatterns = [
-                /(?:my name is|i'm|i am|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i,
-                /(?:name:?)\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i
-            ];
-            let extractedName = null;
-            for (const pattern of namePatterns) {
-                const match = allText.match(pattern);
-                if (match) {
-                    extractedName = match[1];
-                    break;
-                }
-            }
+            // Count customer messages vs page messages
+            const customerMsgCount = customerMessages.length;
+            const pageMsgCount = messages.length - customerMsgCount;
 
-            // Simple sentiment analysis based on keywords
-            const positiveWords = ['love', 'great', 'amazing', 'excellent', 'thank', 'interested', 'want', 'buy', 'order', 'yes', 'please', 'good', 'perfect', 'nice'];
-            const negativeWords = ['hate', 'terrible', 'awful', 'never', 'no', 'cancel', 'refund', 'complaint', 'problem', 'issue', 'bad', 'wrong'];
+            // Extract contact info from CUSTOMER messages only
+            const emailMatch = customerText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            const phoneMatch = customerText.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
 
-            const textLower = allText.toLowerCase();
-            let positiveCount = positiveWords.filter(w => textLower.includes(w)).length;
-            let negativeCount = negativeWords.filter(w => textLower.includes(w)).length;
+            // Sentiment analysis
+            const positiveWords = ['thank', 'thanks', 'great', 'perfect', 'love', 'excellent', 'yes', 'sure', 'okay', 'ok'];
+            const negativeWords = ['no', 'not', 'cancel', 'refund', 'problem', 'issue', 'wrong', 'bad'];
+
+            let positiveCount = positiveWords.filter(w => customerText.includes(w)).length;
+            let negativeCount = negativeWords.filter(w => customerText.includes(w)).length;
 
             let sentiment: 'positive' | 'neutral' | 'negative' = 'neutral';
             if (positiveCount > negativeCount) sentiment = 'positive';
             if (negativeCount > positiveCount) sentiment = 'negative';
 
-            // Determine intent with better keywords
-            const intents = {
-                'buying': ['buy', 'purchase', 'order', 'how much', 'price', 'cost', 'payment', 'pay', 'checkout', 'delivery', 'ship'],
-                'interested': ['interested', 'want to know', 'tell me more', 'learn more', 'information', 'details', 'yes', 'please'],
-                'inquiry': ['question', 'ask', 'wondering', 'info', 'what is', 'how does'],
-                'negotiating': ['discount', 'deal', 'offer', 'lower price', 'negotiate', 'budget'],
-                'complaint': ['problem', 'issue', 'broken', 'refund', 'not working', 'bad'],
-                'support': ['help', 'support', 'assist', 'having trouble']
-            };
+            // Determine conversation stage based on ACTUAL content
+            // Be conservative - don't assume high intent without evidence
+            let stage: 'new' | 'contacted' | 'interested' | 'negotiating' | 'ready' = 'new';
+            let intent = 'inquiry';
 
-            let intent = 'general';
-            let maxMatches = 0;
-            for (const [key, keywords] of Object.entries(intents)) {
-                const matches = keywords.filter(k => textLower.includes(k)).length;
-                if (matches > maxMatches) {
-                    maxMatches = matches;
-                    intent = key;
-                }
+            // Check for STRONG buying signals (not just questions)
+            const buyingPhrases = ['i want to buy', 'i will buy', 'ill take', "i'll take", 'i want to order', 'place order', 'confirm order', 'proceed with', 'ready to pay'];
+            const negotiatingPhrases = ['discount', 'lower price', 'best price', 'final price', 'deal', 'negotiate', 'can you give'];
+            const interestedPhrases = ['interested', 'tell me more', 'how does it work', 'more info', 'send details', 'im interested', "i'm interested"];
+            const inquiryPhrases = ['how much', 'price', 'cost', 'available', 'what is', 'do you have'];
+
+            // Check customer text for intent signals
+            const hasBuyingSignal = buyingPhrases.some(p => customerText.includes(p));
+            const hasNegotiating = negotiatingPhrases.some(p => customerText.includes(p));
+            const hasInterested = interestedPhrases.some(p => customerText.includes(p));
+            const hasInquiry = inquiryPhrases.some(p => customerText.includes(p));
+
+            // Determine stage based on strongest signal
+            if (hasBuyingSignal) {
+                stage = 'ready';
+                intent = 'buying';
+            } else if (hasNegotiating) {
+                stage = 'negotiating';
+                intent = 'negotiating';
+            } else if (hasInterested) {
+                stage = 'interested';
+                intent = 'interested';
+            } else if (customerMsgCount >= 2 || hasInquiry) {
+                stage = 'contacted';
+                intent = 'inquiry';
+            } else if (customerMsgCount >= 1) {
+                stage = 'contacted';
+                intent = 'inquiry';
             }
+            // If no customer messages at all, stays as 'new'
 
-            // Calculate lead score (basic heuristic)
-            let leadScore = 50;
-            if (sentiment === 'positive') leadScore += 15;
-            if (sentiment === 'negative') leadScore -= 15;
-            if (intent === 'buying') leadScore += 30;
-            if (intent === 'interested') leadScore += 20;
-            if (intent === 'negotiating') leadScore += 25;
-            if (intent === 'inquiry') leadScore += 10;
-            if (intent === 'complaint') leadScore -= 15;
+            // Calculate lead score based on actual engagement
+            let leadScore = 30; // Base score
+            leadScore += customerMsgCount * 5; // +5 per customer message
+            leadScore += Math.min(pageMsgCount * 2, 10); // +2 per page response, max +10
+            if (sentiment === 'positive') leadScore += 10;
+            if (sentiment === 'negative') leadScore -= 10;
+            if (hasBuyingSignal) leadScore += 30;
+            if (hasNegotiating) leadScore += 20;
+            if (hasInterested) leadScore += 15;
+            if (hasInquiry) leadScore += 5;
             if (emailMatch) leadScore += 5;
             if (phoneMatch) leadScore += 5;
-            if (messages.length > 3) leadScore += 5;
-            if (messages.length > 6) leadScore += 5;
             leadScore = Math.max(0, Math.min(100, leadScore));
 
-            // Suggest stage based on conversation journey
-            let suggestedStage = 'new-lead';
+            // Map stage to actual pipeline stage ID
+            let suggestedStageId = 'new-lead';
 
-            // Determine stage based on intent and score
-            if (intent === 'buying' || leadScore >= 80) {
-                const convStage = allAvailableStages.find((s: any) =>
-                    s.name.toLowerCase().includes('negotiat') ||
+            if (stage === 'ready') {
+                const match = allAvailableStages.find((s: any) =>
+                    s.name.toLowerCase().includes('ready') ||
                     s.name.toLowerCase().includes('hot') ||
-                    s.name.toLowerCase().includes('ready')
+                    s.name.toLowerCase().includes('qualified')
                 );
-                suggestedStage = convStage?.id || 'negotiating';
-            } else if (intent === 'negotiating') {
-                const negStage = allAvailableStages.find((s: any) =>
-                    s.name.toLowerCase().includes('negotiat')
+                suggestedStageId = match?.id || 'negotiating';
+            } else if (stage === 'negotiating') {
+                const match = allAvailableStages.find((s: any) =>
+                    s.name.toLowerCase().includes('negotiat') ||
+                    s.name.toLowerCase().includes('quote')
                 );
-                suggestedStage = negStage?.id || 'negotiating';
-            } else if (intent === 'interested' || leadScore >= 60) {
-                const intStage = allAvailableStages.find((s: any) =>
+                suggestedStageId = match?.id || 'negotiating';
+            } else if (stage === 'interested') {
+                const match = allAvailableStages.find((s: any) =>
                     s.name.toLowerCase().includes('interest') ||
-                    s.name.toLowerCase().includes('qualif') ||
                     s.name.toLowerCase().includes('warm')
                 );
-                suggestedStage = intStage?.id || 'interested';
-            } else if (messages.length > 2 || leadScore >= 40) {
-                const contStage = allAvailableStages.find((s: any) =>
+                suggestedStageId = match?.id || 'interested';
+            } else if (stage === 'contacted') {
+                const match = allAvailableStages.find((s: any) =>
                     s.name.toLowerCase().includes('contact') ||
-                    s.name.toLowerCase().includes('engaged')
+                    s.name.toLowerCase().includes('engaged') ||
+                    s.name.toLowerCase().includes('new')
                 );
-                suggestedStage = contStage?.id || 'contacted';
+                suggestedStageId = match?.id || 'new-lead';
             }
 
             // Generate summary
             let summary = '';
-            if (messages.length > 0) {
-                if (intent === 'buying') {
-                    summary = `Ready to buy. ${sentiment === 'positive' ? 'Very engaged.' : 'May need follow-up.'}`;
-                } else if (intent === 'negotiating') {
-                    summary = `Negotiating terms. Close to conversion.`;
-                } else if (intent === 'interested') {
-                    summary = `Showing interest. Good lead potential.`;
-                } else if (intent === 'inquiry') {
-                    summary = `Asking questions. Needs more information.`;
-                } else if (intent === 'complaint') {
-                    summary = `Has a concern that needs addressing.`;
-                } else {
-                    summary = `${messages.length} messages. ${sentiment === 'positive' ? 'Positive interaction.' : 'Standard inquiry.'}`;
-                }
+            if (customerMsgCount === 0) {
+                summary = 'No customer messages yet.';
+            } else if (hasBuyingSignal) {
+                summary = `Ready to buy. ${customerMsgCount} messages from customer.`;
+            } else if (hasNegotiating) {
+                summary = `Discussing pricing/terms. ${customerMsgCount} messages.`;
+            } else if (hasInterested) {
+                summary = `Showing interest. ${customerMsgCount} messages.`;
+            } else {
+                summary = `Initial inquiry. ${customerMsgCount} customer messages.`;
             }
+
+            console.log(`[AI] Lead "${conv.name}": stage=${stage}, intent=${intent}, score=${leadScore}, customerMsgs=${customerMsgCount}`);
 
             return {
                 ...conv,
-                // IMPORTANT: Only use extracted data - NEVER fall back to conv.email/phone
-                name: extractedName || conv.name || 'Unknown',
-                email: emailMatch ? emailMatch[0] : null, // NULL if not found, never page email
-                phone: phoneMatch ? phoneMatch[0] : null, // NULL if not found, never page phone
-                // AI analysis results
+                // ONLY use extracted values - NULL if not found
+                name: conv.name || 'Unknown',
+                email: emailMatch ? emailMatch[0] : null,
+                phone: phoneMatch ? phoneMatch[0] : null,
                 aiAnalysis: {
                     sentiment,
                     intent,
+                    stage,
                     leadScore,
-                    suggestedStage,
+                    suggestedStage: suggestedStageId,
                     summary,
-                    extractedName,
+                    customerMessageCount: customerMsgCount,
                     extractedEmail: emailMatch ? emailMatch[0] : null,
                     extractedPhone: phoneMatch ? phoneMatch[0] : null,
                     analyzedAt: new Date().toISOString()
@@ -201,20 +196,25 @@ export async function POST(request: NextRequest) {
             };
         }));
 
-        console.log(`[AI Analysis] Analyzed ${analyzedLeads.length} conversations`);
-        console.log(`[AI Analysis] Suggested new stages:`, suggestedNewStages.map(s => s.name));
+        // Log distribution
+        const stageDistribution = analyzedLeads.reduce((acc: any, l) => {
+            const stage = l.aiAnalysis?.stage || 'unknown';
+            acc[stage] = (acc[stage] || 0) + 1;
+            return acc;
+        }, {});
+        console.log(`[AI Analysis] Stage distribution:`, stageDistribution);
 
         return NextResponse.json({
             success: true,
             leads: analyzedLeads,
             count: analyzedLeads.length,
-            // Return suggested stages to create
             suggestedStages: suggestedNewStages,
             summary: {
                 positive: analyzedLeads.filter(l => l.aiAnalysis?.sentiment === 'positive').length,
                 neutral: analyzedLeads.filter(l => l.aiAnalysis?.sentiment === 'neutral').length,
                 negative: analyzedLeads.filter(l => l.aiAnalysis?.sentiment === 'negative').length,
-                avgScore: Math.round(analyzedLeads.reduce((sum, l) => sum + (l.aiAnalysis?.leadScore || 0), 0) / analyzedLeads.length)
+                avgScore: Math.round(analyzedLeads.reduce((sum, l) => sum + (l.aiAnalysis?.leadScore || 0), 0) / analyzedLeads.length),
+                stageDistribution
             }
         });
 
