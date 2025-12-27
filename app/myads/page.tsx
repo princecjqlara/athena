@@ -28,6 +28,9 @@ interface Ad {
         purchases?: number;
     };
     importedFromFacebook?: boolean;
+    // Campaign/AdSet hierarchy
+    campaign?: { id?: string; name?: string };
+    adset?: { id?: string; name?: string };
     // Common fields
     thumbnail?: string;
     thumbnailUrl?: string;
@@ -137,6 +140,8 @@ export default function MyAdsPage() {
     });
     const [adDescription, setAdDescription] = useState('');  // Document-style input
     const [isAnalyzing, setIsAnalyzing] = useState(false);  // AI analysis state
+    const [viewMode, setViewMode] = useState<'grid' | 'folders'>('grid');  // View mode toggle
+    const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());  // Expanded folder state
 
     // Load ads from localStorage
     useEffect(() => {
@@ -366,6 +371,37 @@ Ad description: ${adDescription}`,
         totalSpend: ads.reduce((sum, a) => sum + getAdSpend(a), 0),
     };
 
+    // Group ads by campaign > adset for folder view
+    const groupedByCampaign = filteredAds.reduce((acc, ad) => {
+        const campaignName = ad.campaign?.name || 'Uncategorized';
+        const adsetName = ad.adset?.name || 'Default Ad Set';
+
+        if (!acc[campaignName]) {
+            acc[campaignName] = { adsets: {}, totalAds: 0, totalSpend: 0 };
+        }
+        if (!acc[campaignName].adsets[adsetName]) {
+            acc[campaignName].adsets[adsetName] = [];
+        }
+        acc[campaignName].adsets[adsetName].push(ad);
+        acc[campaignName].totalAds++;
+        acc[campaignName].totalSpend += getAdSpend(ad);
+
+        return acc;
+    }, {} as Record<string, { adsets: Record<string, Ad[]>, totalAds: number, totalSpend: number }>);
+
+    // Toggle campaign folder expansion
+    const toggleCampaign = (campaignName: string) => {
+        setExpandedCampaigns(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(campaignName)) {
+                newSet.delete(campaignName);
+            } else {
+                newSet.add(campaignName);
+            }
+            return newSet;
+        });
+    };
+
     return (
         <div className={styles.page}>
             <header className={styles.header}>
@@ -465,9 +501,34 @@ Ad description: ${adDescription}`,
                         <option value="spend">Spend</option>
                     </select>
                 </div>
+
+                {/* View Mode Toggle */}
+                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginLeft: 'auto' }}>
+                    <button
+                        className={`btn btn-sm ${viewMode === 'grid' ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setViewMode('grid')}
+                        title="Grid View"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="7" height="7" />
+                            <rect x="14" y="3" width="7" height="7" />
+                            <rect x="14" y="14" width="7" height="7" />
+                            <rect x="3" y="14" width="7" height="7" />
+                        </svg>
+                    </button>
+                    <button
+                        className={`btn btn-sm ${viewMode === 'folders' ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setViewMode('folders')}
+                        title="Folder View"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
-            {/* Ads Grid */}
+            {/* Ads Display (Grid or Folder View) */}
             {isLoading ? (
                 <div className={styles.videoGrid}>
                     {[1, 2, 3, 4, 5, 6].map(i => (
@@ -493,7 +554,95 @@ Ad description: ${adDescription}`,
                         </div>
                     )}
                 </div>
+            ) : viewMode === 'folders' ? (
+                /* Folder View */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                    {Object.entries(groupedByCampaign).map(([campaignName, campaign]) => (
+                        <div key={campaignName} className="glass-card" style={{ overflow: 'hidden' }}>
+                            {/* Campaign Header (expandable) */}
+                            <div
+                                onClick={() => toggleCampaign(campaignName)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 'var(--spacing-sm)',
+                                    padding: 'var(--spacing-md)',
+                                    cursor: 'pointer',
+                                    background: 'rgba(59, 130, 246, 0.1)',
+                                    borderBottom: expandedCampaigns.has(campaignName) ? '1px solid var(--border)' : 'none'
+                                }}
+                            >
+                                <svg
+                                    width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                                    style={{ transform: expandedCampaigns.has(campaignName) ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                                >
+                                    <polyline points="9 18 15 12 9 6" />
+                                </svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2">
+                                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                                </svg>
+                                <span style={{ fontWeight: 600, flex: 1 }}>{campaignName}</span>
+                                <span className="tag">{campaign.totalAds} ads</span>
+                                <span className="tag tag-secondary">₱{campaign.totalSpend.toLocaleString()}</span>
+                            </div>
+
+                            {/* Campaign Content (Ad Sets) */}
+                            {expandedCampaigns.has(campaignName) && (
+                                <div style={{ padding: 'var(--spacing-md)' }}>
+                                    {Object.entries(campaign.adsets).map(([adsetName, adsInSet]) => (
+                                        <div key={adsetName} style={{ marginBottom: 'var(--spacing-md)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)', color: 'var(--text-muted)' }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                                                    <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" />
+                                                </svg>
+                                                <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{adsetName}</span>
+                                                <span style={{ fontSize: '0.8rem' }}>({adsInSet.length})</span>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-sm)', marginLeft: 'var(--spacing-lg)' }}>
+                                                {adsInSet.map(ad => (
+                                                    <div
+                                                        key={ad.id}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: 'var(--spacing-sm)',
+                                                            padding: 'var(--spacing-sm)',
+                                                            background: 'var(--bg-tertiary)',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            border: '1px solid var(--border)'
+                                                        }}
+                                                    >
+                                                        <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                            {ad.thumbnailUrl ? (
+                                                                <img src={ad.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-sm)' }} />
+                                                            ) : (
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                    <polygon points="5 3 19 12 5 21 5 3" />
+                                                                </svg>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getAdName(ad)}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                                CTR: {getAdCtr(ad).toFixed(1)}% • ₱{getAdSpend(ad).toFixed(0)}
+                                                            </div>
+                                                        </div>
+                                                        {ad.successScore && (
+                                                            <span className="tag tag-primary" style={{ fontSize: '0.7rem' }}>{ad.successScore}%</span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
             ) : (
+                /* Grid View (existing) */
                 <div className={styles.videoGrid}>
                     {filteredAds.map(ad => (
                         <div key={ad.id} className={`glass-card ${styles.videoCard}`}>
@@ -512,7 +661,7 @@ Ad description: ${adDescription}`,
                                     </svg>
                                 )}
                                 <div className={`${styles.statusBadge} ${styles[getAdStatus(ad)]}`}>
-                                    {ad.importedFromFacebook ? '📥 Imported' : getAdStatus(ad)}
+                                    {ad.importedFromFacebook ? 'Imported' : getAdStatus(ad)}
                                 </div>
                             </div>
 
@@ -527,14 +676,14 @@ Ad description: ${adDescription}`,
                                         value={getDisplayStatus(ad)}
                                         onChange={(e) => handleStatusChange(ad.id, e.target.value)}
                                         style={{
-                                            padding: '4px 8px',
                                             fontSize: '0.75rem',
-                                            borderRadius: 'var(--radius-sm)',
-                                            background: STATUS_OPTIONS.find(s => s.value === getDisplayStatus(ad))?.color || 'var(--bg-secondary)',
+                                            padding: '0.25rem 0.5rem',
+                                            minWidth: 'auto',
+                                            background: STATUS_OPTIONS.find(s => s.value === getDisplayStatus(ad))?.color || 'var(--bg-tertiary)',
                                             color: 'white',
                                             border: 'none',
-                                            cursor: 'pointer',
-                                            minWidth: '100px'
+                                            borderRadius: 'var(--radius-sm)',
+                                            cursor: 'pointer'
                                         }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
@@ -544,18 +693,8 @@ Ad description: ${adDescription}`,
                                     </select>
                                 </div>
 
-                                <div className={styles.videoDate}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                        <line x1="16" y1="2" x2="16" y2="6" />
-                                        <line x1="8" y1="2" x2="8" y2="6" />
-                                        <line x1="3" y1="10" x2="21" y2="10" />
-                                    </svg>
-                                    {getAdDate(ad)}
-                                </div>
-
                                 {/* Show metrics if available */}
-                                {(getAdImpressions(ad) > 0 || getAdCtr(ad) > 0) && (
+                                {(getAdImpressions(ad) > 0 || ad.importedFromFacebook) && (
                                     <div className={styles.videoStats}>
                                         <div className={styles.videoStat}>
                                             <span className={styles.videoStatLabel}>CTR</span>
