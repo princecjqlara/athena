@@ -959,9 +959,15 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                     continue; // Skip placeholder creation since we got real leads
                 }
 
-                // If this is a Messages/Messenger ad (not a Lead Ad), try to fetch conversations
-                if (leadsData.isLeadAd === false && messagesStarted > 0) {
-                    console.log(`[Import] ${adName} is a Messages ad - fetching conversations...`);
+                // If this is a Messages/Messenger ad OR a Lead Ad with 0 leads, try to fetch conversations
+                // We attempt conversation fetch when:
+                // 1. isLeadAd is explicitly false (not a lead ad) AND has messages
+                // 2. OR leads returned 0 results AND has messages (might be a Messenger ad)
+                const shouldFetchConversations = messagesStarted > 0 &&
+                    (leadsData.isLeadAd === false || (leadsData.data?.length || 0) === 0);
+
+                if (shouldFetchConversations) {
+                    console.log(`[Import] ${adName} - attempting conversation fetch (isLeadAd: ${leadsData.isLeadAd}, leadsCount: ${leadsData.data?.length || 0}, messagesStarted: ${messagesStarted})`);
 
                     // First get the user's pages to find the right one
                     try {
