@@ -937,52 +937,85 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                         });
 
                         if (convoData.success && convoData.contacts?.length > 0) {
-                            console.log(`[Import] ✅ Found ${convoData.contacts.length} real conversations with names!`);
+                            console.log(`[Import] ✅ Found ${convoData.contacts.length} real conversations!`);
 
-                            const contactsToImport = convoData.contacts.slice(0, messagesStarted);
-
-                            for (const contact of contactsToImport) {
-                                const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                                const leadData = {
-                                    id: leadId,
-                                    name: contact.name || 'Unknown',
-                                    email: contact.email,
-                                    phone: contact.phone,
-                                    sourceAdId: adId,
-                                    sourceAdName: adName,
-                                    facebookPsid: contact.facebookPsid,
-                                    facebookAdId: adId,
-                                    source: 'Facebook Messenger',
-                                    stageId: 'new-lead',
-                                    pipelineId: selectedPipelineId || undefined,
-                                    createdAt: contact.firstMessageAt || new Date().toISOString(),
-                                    lastActivity: contact.lastMessageAt || new Date().toISOString(),
-                                    isPlaceholder: false,
-                                    isRealLead: true,
-                                    lastMessage: contact.lastMessage,
-                                };
-
-                                if (selectedPipelineId) {
-                                    const pipelineLeadsKey = `leads_${selectedPipelineId}`;
-                                    const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
-                                    existingLeads.push(leadData);
-                                    localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
-
-                                    const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
-                                    const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
-                                    if (pIndex !== -1) {
-                                        pipelinesData[pIndex].leadCount = (pipelinesData[pIndex].leadCount || 0) + 1;
-                                        localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
-                                    }
-                                } else {
-                                    const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
-                                    existingContacts.push(leadData);
-                                    localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
+                            // Get pipeline stages for AI to suggest appropriate stage
+                            let pipelineStages: Array<{ id: string; name: string }> = [];
+                            if (selectedPipelineId) {
+                                const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
+                                const pipeline = pipelinesData.find((p: any) => p.id === selectedPipelineId);
+                                if (pipeline?.stages) {
+                                    pipelineStages = pipeline.stages;
                                 }
-                                leadsCreated++;
-                                realLeadsCount++;
                             }
-                            console.log(`[Import] Created ${contactsToImport.length} leads from Messenger conversations`);
+
+                            // Call AI to analyze conversations before import
+                            console.log(`[Import] 🤖 Running AI analysis on ${convoData.contacts.length} conversations...`);
+                            try {
+                                const aiResponse = await fetch('/api/ai/analyze', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        conversations: convoData.contacts.slice(0, messagesStarted),
+                                        pipelineStages
+                                    })
+                                });
+                                const aiData = await aiResponse.json();
+
+                                if (aiData.success && aiData.leads?.length > 0) {
+                                    console.log(`[Import] 🤖 AI Analysis complete:`, aiData.summary);
+
+                                    for (const contact of aiData.leads) {
+                                        const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                        const leadData = {
+                                            id: leadId,
+                                            name: contact.name || 'Unknown',
+                                            email: contact.email, // From AI extraction (not PSID!)
+                                            phone: contact.phone, // From AI extraction
+                                            sourceAdId: adId,
+                                            sourceAdName: adName,
+                                            facebookPsid: contact.facebookPsid,
+                                            facebookAdId: adId,
+                                            source: 'Facebook Messenger',
+                                            stageId: contact.aiAnalysis?.suggestedStage || 'new-lead',
+                                            pipelineId: selectedPipelineId || undefined,
+                                            createdAt: contact.firstMessageAt || new Date().toISOString(),
+                                            lastActivity: contact.lastMessageAt || new Date().toISOString(),
+                                            isPlaceholder: false,
+                                            isRealLead: true,
+                                            lastMessage: contact.lastMessage,
+                                            // Store AI analysis with lead
+                                            aiAnalysis: contact.aiAnalysis,
+                                            messages: contact.messages, // Store full messages for detail view
+                                        };
+
+                                        if (selectedPipelineId) {
+                                            const pipelineLeadsKey = `leads_${selectedPipelineId}`;
+                                            const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
+                                            existingLeads.push(leadData);
+                                            localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
+
+                                            const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
+                                            const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
+                                            if (pIndex !== -1) {
+                                                pipelinesData[pIndex].leadCount = (pipelinesData[pIndex].leadCount || 0) + 1;
+                                                localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
+                                            }
+                                        } else {
+                                            const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
+                                            existingContacts.push(leadData);
+                                            localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
+                                        }
+                                        leadsCreated++;
+                                        realLeadsCount++;
+                                    }
+                                    console.log(`[Import] Created ${aiData.leads.length} leads from Messenger conversations (AI analyzed)`);
+                                } else {
+                                    console.log(`[Import] ⚠️ AI analysis returned no leads`);
+                                }
+                            } catch (aiErr) {
+                                console.error('[Import] ❌ AI analysis error:', aiErr);
+                            }
                             continue; // Done with this ad, skip to next
                         } else {
                             console.log(`[Import] ⚠️ No conversations returned. Error:`, convoData.error || 'none');

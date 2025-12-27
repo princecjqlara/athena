@@ -35,13 +35,35 @@ interface Lead {
     conversionValue?: number;
     convertedAt?: string;
     facebookLeadId?: string;  // From Facebook webhook for CAPI matching
+    facebookPsid?: string;    // Page-scoped user ID from Messenger
     sourceAdId?: string;      // Facebook Ad ID that generated this lead
     sourceAdName?: string;    // Name of the ad that generated this lead
     isPlaceholder?: boolean;  // True if this is placeholder data without real details
     isRealLead?: boolean;     // True if this has actual lead form data
+    lastMessage?: string;     // Preview of last message
     city?: string;
     state?: string;
     country?: string;
+    // AI Analysis results
+    aiAnalysis?: {
+        sentiment?: 'positive' | 'neutral' | 'negative';
+        intent?: string;
+        leadScore?: number;
+        suggestedStage?: string;
+        summary?: string;
+        extractedName?: string;
+        extractedEmail?: string;
+        extractedPhone?: string;
+        analyzedAt?: string;
+    };
+    // Full conversation messages
+    messages?: Array<{
+        id: string;
+        content: string;
+        from: string;
+        fromId?: string;
+        timestamp: string;
+    }>;
 }
 
 interface Pipeline {
@@ -79,6 +101,10 @@ export default function PipelineDetailPage() {
     const [showLinkAdModal, setShowLinkAdModal] = useState(false);
     const [selectedStageForLinking, setSelectedStageForLinking] = useState<string | null>(null);
     const [selectedAdToLink, setSelectedAdToLink] = useState<string>('');
+
+    // Lead detail modal state
+    const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+    const [showLeadDetailModal, setShowLeadDetailModal] = useState(false);
 
     useEffect(() => {
         // Load pipeline from localStorage
@@ -650,6 +676,11 @@ export default function PipelineDetailPage() {
                                     className={`${styles.leadCard} ${selectedLeads.has(lead.id) ? styles.leadCardSelected : ''}`}
                                     draggable={selectedLeads.size === 0}
                                     onDragStart={() => selectedLeads.size === 0 && handleDragStart(lead)}
+                                    onClick={() => {
+                                        setSelectedLead(lead);
+                                        setShowLeadDetailModal(true);
+                                    }}
+                                    style={{ cursor: 'pointer' }}
                                 >
                                     <div className={styles.leadHeader}>
                                         <div className={styles.leadHeaderLeft}>
@@ -1069,7 +1100,6 @@ export default function PipelineDetailPage() {
                 </div>
             )}
 
-            {/* View Contacts Button - fixed position */}
             <Link
                 href={`/pipeline/${params.id}/contacts`}
                 className={styles.viewContactsBtn}
@@ -1077,6 +1107,113 @@ export default function PipelineDetailPage() {
             >
                 👥 View Contacts
             </Link>
+
+            {/* Lead Detail Modal */}
+            {showLeadDetailModal && selectedLead && (
+                <div className={styles.modalOverlay} onClick={() => setShowLeadDetailModal(false)}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '80vh', overflow: 'auto' }}>
+                        <div className={styles.modalHeader}>
+                            <h2>{selectedLead.name}</h2>
+                            <button className={styles.closeBtn} onClick={() => setShowLeadDetailModal(false)}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className={styles.modalBody}>
+                            {/* Contact Info */}
+                            <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+                                <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>Contact Info</h4>
+                                {selectedLead.email && <p>📧 <strong>Email:</strong> {selectedLead.email}</p>}
+                                {selectedLead.phone && <p>📱 <strong>Phone:</strong> {selectedLead.phone}</p>}
+                                {selectedLead.facebookPsid && <p>🔗 <strong>Facebook ID:</strong> {selectedLead.facebookPsid}</p>}
+                                {selectedLead.source && <p>📍 <strong>Source:</strong> {selectedLead.source}</p>}
+                                {selectedLead.sourceAdName && <p>📊 <strong>Ad:</strong> {selectedLead.sourceAdName}</p>}
+                                <p>📅 <strong>Created:</strong> {new Date(selectedLead.createdAt).toLocaleString()}</p>
+                            </div>
+
+                            {/* AI Analysis */}
+                            {selectedLead.aiAnalysis && (
+                                <div style={{
+                                    marginBottom: 'var(--spacing-lg)',
+                                    padding: 'var(--spacing-md)',
+                                    background: 'rgba(59, 130, 246, 0.1)',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: '1px solid rgba(59, 130, 246, 0.2)'
+                                }}>
+                                    <h4 style={{ marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        🤖 AI Analysis
+                                        <span style={{
+                                            fontSize: '0.75rem',
+                                            padding: '2px 8px',
+                                            borderRadius: '12px',
+                                            background: selectedLead.aiAnalysis.sentiment === 'positive' ? 'rgba(16, 185, 129, 0.2)' :
+                                                selectedLead.aiAnalysis.sentiment === 'negative' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(156, 163, 175, 0.2)',
+                                            color: selectedLead.aiAnalysis.sentiment === 'positive' ? 'var(--success)' :
+                                                selectedLead.aiAnalysis.sentiment === 'negative' ? 'var(--error)' : 'var(--text-secondary)'
+                                        }}>
+                                            {selectedLead.aiAnalysis.sentiment}
+                                        </span>
+                                    </h4>
+                                    {selectedLead.aiAnalysis.summary && <p style={{ marginBottom: '8px' }}>{selectedLead.aiAnalysis.summary}</p>}
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap', fontSize: '0.875rem' }}>
+                                        {selectedLead.aiAnalysis.intent && <span>🎯 Intent: <strong>{selectedLead.aiAnalysis.intent}</strong></span>}
+                                        {selectedLead.aiAnalysis.leadScore !== undefined && (
+                                            <span>📊 Score: <strong style={{
+                                                color:
+                                                    selectedLead.aiAnalysis.leadScore >= 70 ? 'var(--success)' :
+                                                        selectedLead.aiAnalysis.leadScore >= 40 ? 'var(--warning)' : 'var(--error)'
+                                            }}>{selectedLead.aiAnalysis.leadScore}</strong>/100</span>
+                                        )}
+                                    </div>
+                                    {selectedLead.aiAnalysis.extractedEmail && <p style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>📧 Extracted: {selectedLead.aiAnalysis.extractedEmail}</p>}
+                                    {selectedLead.aiAnalysis.extractedPhone && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📱 Extracted: {selectedLead.aiAnalysis.extractedPhone}</p>}
+                                </div>
+                            )}
+
+                            {/* Messages */}
+                            {selectedLead.messages && selectedLead.messages.length > 0 && (
+                                <div>
+                                    <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>
+                                        💬 Messages ({selectedLead.messages.length})
+                                    </h4>
+                                    <div style={{
+                                        maxHeight: '300px',
+                                        overflow: 'auto',
+                                        background: 'var(--bg-tertiary)',
+                                        borderRadius: 'var(--radius-md)',
+                                        padding: 'var(--spacing-sm)'
+                                    }}>
+                                        {selectedLead.messages.map((msg, idx) => (
+                                            <div key={msg.id || idx} style={{
+                                                marginBottom: 'var(--spacing-sm)',
+                                                padding: 'var(--spacing-sm)',
+                                                background: 'var(--bg-secondary)',
+                                                borderRadius: 'var(--radius-sm)'
+                                            }}>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                                    <strong>{msg.from}</strong> • {new Date(msg.timestamp).toLocaleString()}
+                                                </div>
+                                                <div style={{ fontSize: '0.875rem' }}>{msg.content || '(No content)'}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* No messages fallback */}
+                            {(!selectedLead.messages || selectedLead.messages.length === 0) && selectedLead.lastMessage && (
+                                <div>
+                                    <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>💬 Last Message</h4>
+                                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{selectedLead.lastMessage}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

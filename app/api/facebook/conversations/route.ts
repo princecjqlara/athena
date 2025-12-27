@@ -247,11 +247,20 @@ export async function GET(request: NextRequest) {
                 conv.link.includes('referral')
             )));
 
+            // Extract email and phone from messages using regex
+            const allMessageText = messages.map(m => m.message || '').join(' ');
+            const emailMatch = allMessageText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            const phoneMatch = allMessageText.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+
+            const extractedEmail = emailMatch ? emailMatch[0] : null;
+            const extractedPhone = phoneMatch ? phoneMatch[0] : null;
+
             return {
                 conversationId: conv.id,
                 facebookPsid: customer?.id,
                 name: customerName,
-                email: customer?.email,
+                email: extractedEmail, // Extracted from messages, not from participant object
+                phone: extractedPhone, // Extracted from messages
                 link: conv.link,
                 adId: adIdFromLink,
                 isFromAd,
