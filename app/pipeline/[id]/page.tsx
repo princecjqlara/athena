@@ -279,6 +279,39 @@ export default function PipelineDetailPage() {
         setEditingStage(null);
     };
 
+    // Add new stage
+    const handleAddStage = () => {
+        if (!pipeline || !newStageName.trim()) return;
+
+        const newStage: Stage = {
+            id: `stage-${Date.now()}`,
+            name: newStageName.trim(),
+            description: '',
+            facebookEvent: '',
+            isGoal: false,
+            isAutoCreated: false,
+            leadCount: 0
+        };
+
+        const updatedStages = [...pipeline.stages, newStage];
+        const updatedPipeline = { ...pipeline, stages: updatedStages };
+        setPipeline(updatedPipeline);
+
+        // Save to localStorage
+        const savedPipelines = localStorage.getItem('pipelines');
+        if (savedPipelines) {
+            const pipelines = JSON.parse(savedPipelines);
+            const idx = pipelines.findIndex((p: Pipeline) => p.id === params.id);
+            if (idx !== -1) {
+                pipelines[idx] = updatedPipeline;
+                localStorage.setItem('pipelines', JSON.stringify(pipelines));
+            }
+        }
+
+        setShowAddStageModal(false);
+        setNewStageName('');
+    };
+
     // Stage reordering functions
     const moveStage = (stageId: string, direction: 'up' | 'down') => {
         if (!pipeline) return;
@@ -799,6 +832,17 @@ export default function PipelineDetailPage() {
                         >
                             {isReanalyzing ? 'Analyzing...' : 'Re-analyze Leads'}
                         </button>
+                        <button
+                            className="btn btn-secondary"
+                            onClick={() => setShowAddStageModal(true)}
+                            title="Add a new stage to the pipeline"
+                        >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            Add Stage
+                        </button>
                         <button className="btn btn-primary" onClick={() => setShowAddLeadModal(true)}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <line x1="12" y1="5" x2="12" y2="19" />
@@ -1093,6 +1137,53 @@ export default function PipelineDetailPage() {
                     </div>
                 )
             }
+
+            {/* Add Stage Modal */}
+            {showAddStageModal && (
+                <div className={styles.modalOverlay} onClick={() => setShowAddStageModal(false)}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h2>Add New Stage</h2>
+                            <button className={styles.closeBtn} onClick={() => setShowAddStageModal(false)}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className={styles.modalBody}>
+                            <div className="form-group">
+                                <label className="form-label">Stage Name *</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="e.g., Qualified, Proposal Sent, Negotiating"
+                                    value={newStageName}
+                                    onChange={e => setNewStageName(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 'var(--spacing-sm)' }}>
+                                The new stage will be added at the end. You can reorder stages after creation.
+                            </p>
+                        </div>
+
+                        <div className={styles.modalFooter}>
+                            <button className="btn btn-secondary" onClick={() => setShowAddStageModal(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleAddStage}
+                                disabled={!newStageName.trim()}
+                            >
+                                Add Stage
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Conversion Value Modal */}
             {
