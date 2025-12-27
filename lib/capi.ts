@@ -159,6 +159,7 @@ export async function sendCAPIEvent(
  * Standard event names for CAPI
  */
 export const CAPI_EVENT_NAMES = {
+    // Standard Facebook events
     PURCHASE: 'Purchase',
     LEAD: 'Lead',
     COMPLETE_REGISTRATION: 'CompleteRegistration',
@@ -171,5 +172,12 @@ export const CAPI_EVENT_NAMES = {
     ADD_TO_CART: 'AddToCart',
     VIEW_CONTENT: 'ViewContent',
     SEARCH: 'Search',
-    CUSTOM: 'Custom'
+    CUSTOM: 'Custom',
+    // Lead Lifecycle Events (Hybrid Scoring Model)
+    INQUIRY: 'inquiry',
+    INTERESTED: 'interested',
+    SCHEDULED: 'scheduled',
+    COMPLETED: 'completed',
+    LOST: 'lost'
 } as const;
+

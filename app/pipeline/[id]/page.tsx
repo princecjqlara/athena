@@ -5,18 +5,25 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from './page.module.css';
 import { getStoredAds } from '@/lib/contacts-store';
+import {
+    LEAD_EVENT_NAMES,
+    LEAD_EVENT_SCORES,
+    STAGE_DESCRIPTIONS,
+    isValidTransition,
+    createLeadEvent,
+    mapStageToEvent,
+    type LeadEventName
+} from '@/lib/leadEvents';
 
-// Predefined Facebook events for CAPI integration
-const FACEBOOK_EVENTS = [
-    { id: 'Lead', name: 'Lead', description: 'Initial contact or inquiry' },
-    { id: 'Contact', name: 'Contact', description: 'Customer reached out' },
-    { id: 'ViewContent', name: 'View Content', description: 'Showed interest in product/service' },
-    { id: 'InitiateCheckout', name: 'Initiate Checkout', description: 'Started purchase process' },
-    { id: 'AddToCart', name: 'Add to Cart', description: 'Added product to cart' },
-    { id: 'Purchase', name: 'Purchase', description: 'Completed sale' },
-    { id: 'CompleteRegistration', name: 'Complete Registration', description: 'Signed up or registered' },
-    { id: 'Schedule', name: 'Schedule', description: 'Booked appointment or scheduled call' },
-    { id: 'Custom', name: 'Custom Event', description: 'User-defined event' },
+// Lead Lifecycle Events (Hybrid Scoring Model)
+// Events fired sequentially: inquiry → interested → scheduled → completed
+// Lost is terminal and can be triggered from any stage
+const LEAD_LIFECYCLE_EVENTS = [
+    { id: 'inquiry', name: 'Inquiry', score: 10, description: 'First contact - message, form, or inbound request' },
+    { id: 'interested', name: 'Interested', score: 30, description: 'User expresses intent - requests pricing, asks availability' },
+    { id: 'scheduled', name: 'Scheduled', score: 70, description: 'Date/time confirmed - appointment or consultation booked' },
+    { id: 'completed', name: 'Completed', score: 100, description: 'Service delivered, contract signed, or deal closed' },
+    { id: 'lost', name: 'Lost', score: 0, description: 'User declined, stopped responding, or chose competitor' },
 ];
 
 interface Stage {
@@ -865,13 +872,12 @@ export default function PipelineDetailPage() {
                 {pipeline.stages.map((stage, idx) => (
                     <div
                         key={stage.id}
-                        className={`${styles.column} ${stage.isGoal ? styles.goalColumn : ''} ${stage.isAutoCreated ? styles.aiColumn : ''}`}
+                        className={`${styles.column} ${stage.isGoal ? styles.goalColumn : ''}`}
                         onDragOver={handleDragOver}
                         onDrop={() => handleDrop(stage.id)}
                     >
                         <div className={styles.columnHeader}>
                             <div className={styles.columnTitle}>
-                                {stage.isAutoCreated && <span className={styles.aiBadge}>AI</span>}
                                 {stage.name}
                                 {stage.isGoal && <span className={styles.goalBadge}>✓</span>}
                             </div>
@@ -925,7 +931,7 @@ export default function PipelineDetailPage() {
                                 alignItems: 'center',
                                 gap: '4px'
                             }}>
-                                FB: {FACEBOOK_EVENTS.find(e => e.id === stage.facebookEvent)?.name || stage.facebookEvent}
+                                FB: {LEAD_LIFECYCLE_EVENTS.find(e => e.id === stage.facebookEvent)?.name || stage.facebookEvent}
                             </div>
                         )}
                         {/* Auto-Linked Ads based on lead sources */}
@@ -1519,21 +1525,21 @@ export default function PipelineDetailPage() {
                                 </small>
                             </div>
                             <div className="form-group">
-                                <label className="form-label">Facebook Event (CAPI)</label>
+                                <label className="form-label">Lead Event (Score-Based)</label>
                                 <select
                                     className="form-input"
                                     value={editingStage.facebookEvent || ''}
                                     onChange={e => setEditingStage({ ...editingStage, facebookEvent: e.target.value })}
                                 >
-                                    <option value="">-- Select Facebook Event --</option>
-                                    {FACEBOOK_EVENTS.map(event => (
+                                    <option value="">-- Select Lead Event --</option>
+                                    {LEAD_LIFECYCLE_EVENTS.map(event => (
                                         <option key={event.id} value={event.id}>
-                                            {event.name} - {event.description}
+                                            {event.name} (Score: {event.score}) - {event.description}
                                         </option>
                                     ))}
                                 </select>
                                 <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                    This event will be sent to Facebook when leads reach this stage
+                                    Leads reaching this stage will fire this event with the associated score
                                 </small>
                             </div>
                             <div className="form-group">

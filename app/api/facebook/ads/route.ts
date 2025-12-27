@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
         }
         // 'all' = no filter
 
-        // Fetch ads from the account (start_time not available on Ad, use created_time)
-        const adsUrl = `https://graph.facebook.com/v24.0/act_${adAccountId}/ads?fields=id,name,status,effective_status,configured_status,created_time,updated_time,adset{end_time,daily_budget,lifetime_budget,start_time},creative{id,name,thumbnail_url,object_story_spec,asset_feed_spec}&limit=100${statusFilter}&access_token=${accessToken}`;
+        // Fetch ads from the account with campaign and adset hierarchy
+        const adsUrl = `https://graph.facebook.com/v24.0/act_${adAccountId}/ads?fields=id,name,status,effective_status,configured_status,created_time,updated_time,adset{id,name,end_time,daily_budget,lifetime_budget,start_time,optimization_goal,billing_event},campaign{id,name,objective,status},creative{id,name,thumbnail_url,object_story_spec,asset_feed_spec}&limit=100${statusFilter}&access_token=${accessToken}`;
 
         const adsResponse = await fetch(adsUrl);
         const adsData = await adsResponse.json();
@@ -54,11 +54,21 @@ export async function GET(request: NextRequest) {
                 configured_status?: string;
                 created_time: string;
                 updated_time: string;
+                campaign?: {
+                    id: string;
+                    name: string;
+                    objective?: string;
+                    status?: string;
+                };
                 adset?: {
+                    id?: string;
+                    name?: string;
                     start_time?: string;
                     end_time?: string;
                     daily_budget?: string;
                     lifetime_budget?: string;
+                    optimization_goal?: string;
+                    billing_event?: string;
                 };
                 creative?: {
                     id: string;

@@ -262,6 +262,8 @@ export default function PipelinePage() {
             goal: goalName,
             stages: [
                 { id: 'new-lead', name: 'New Lead', isGoal: false, isAutoCreated: false, leadCount: 0 },
+                { id: 'engaged', name: 'Engaged', isGoal: false, isAutoCreated: false, leadCount: 0 },
+                { id: 'negotiating', name: 'Negotiating', isGoal: false, isAutoCreated: false, leadCount: 0 },
                 { id: 'goal', name: goalName, isGoal: true, isAutoCreated: false, leadCount: 0 },
             ],
             leadCount: 0,
@@ -293,11 +295,11 @@ export default function PipelinePage() {
             <header className={styles.header}>
                 <div>
                     <h1 className={styles.title}>
-                        <span className={styles.aiIcon}>🤖</span>
-                        AI Pipeline
+                        <span className={styles.aiIcon}>📈</span>
+                        Pipeline
                     </h1>
                     <p className={styles.subtitle}>
-                        Let AI build your sales pipeline based on real customer behavior
+                        Track leads through your sales pipeline with 4 stages
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
@@ -348,7 +350,7 @@ export default function PipelinePage() {
 
             {/* How It Works */}
             <div className={`glass-card ${styles.howItWorks}`}>
-                <h3>How AI Pipeline Works</h3>
+                <h3>How Pipeline Works</h3>
                 <div className={styles.steps}>
                     <div className={styles.step}>
                         <div className={styles.stepNumber}>1</div>
@@ -361,16 +363,16 @@ export default function PipelinePage() {
                     <div className={styles.step}>
                         <div className={styles.stepNumber}>2</div>
                         <div className={styles.stepContent}>
-                            <h4>AI Observes</h4>
-                            <p>Leads come in, AI watches their behavior patterns</p>
+                            <h4>Track Leads</h4>
+                            <p>Leads move through 4 stages: New Lead → Engaged → Negotiating → Goal</p>
                         </div>
                     </div>
                     <div className={styles.stepArrow}>→</div>
                     <div className={styles.step}>
                         <div className={styles.stepNumber}>3</div>
                         <div className={styles.stepContent}>
-                            <h4>Stages Emerge</h4>
-                            <p>AI creates stages like "Interested" or "Cold" automatically</p>
+                            <h4>Measure Success</h4>
+                            <p>Track conversions and send data to Meta CAPI</p>
                         </div>
                     </div>
                 </div>
@@ -514,20 +516,13 @@ export default function PipelinePage() {
                                     <span className={styles.statValue}>{pipeline.leadCount}</span>
                                     <span className={styles.statLabel}>Leads</span>
                                 </div>
-                                <div className={styles.stat}>
-                                    <span className={styles.statValue}>
-                                        {pipeline.stages.filter(s => s.isAutoCreated).length}
-                                    </span>
-                                    <span className={styles.statLabel}>AI Created</span>
-                                </div>
                             </div>
                             <div className={styles.pipelineStages}>
                                 {pipeline.stages.map((stage, idx) => (
                                     <span
                                         key={stage.id}
-                                        className={`${styles.stageTag} ${stage.isGoal ? styles.goalStage : ''} ${stage.isAutoCreated ? styles.aiStage : ''}`}
+                                        className={`${styles.stageTag} ${stage.isGoal ? styles.goalStage : ''}`}
                                     >
-                                        {stage.isAutoCreated && '🤖 '}
                                         {stage.name}
                                     </span>
                                 ))}
@@ -542,7 +537,7 @@ export default function PipelinePage() {
                 <div className={styles.modalOverlay} onClick={() => setShowCreateModal(false)}>
                     <div className={styles.modal} onClick={e => e.stopPropagation()}>
                         <div className={styles.modalHeader}>
-                            <h2>Create AI Pipeline</h2>
+                            <h2>Create Pipeline</h2>
                             <button className={styles.closeBtn} onClick={() => setShowCreateModal(false)}>
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -566,7 +561,7 @@ export default function PipelinePage() {
                             <div className="form-group">
                                 <label className="form-label">What's Your Goal?</label>
                                 <p className={styles.formHint}>
-                                    AI will track leads until they reach this goal
+                                    Leads move through 4 stages: New Lead → Engaged → Negotiating → Goal
                                 </p>
                                 <div className={styles.goalGrid}>
                                     {GOAL_PRESETS.map(goal => (
@@ -596,15 +591,30 @@ export default function PipelinePage() {
                             )}
 
                             <div className={styles.previewSection}>
-                                <label className="form-label">Pipeline Preview</label>
+                                <label className="form-label">Pipeline Preview (4 Fixed Stages)</label>
                                 <div className={styles.pipelinePreview}>
                                     <div className={styles.previewStage}>
                                         <div className={styles.stageNode}>New Lead</div>
                                     </div>
                                     <div className={styles.previewArrow}>
-                                        <span>AI adds stages here</span>
-                                        <svg width="40" height="20" viewBox="0 0 40 20">
-                                            <path d="M0 10 L30 10 M25 5 L30 10 L25 15" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="4 2" />
+                                        <svg width="24" height="20" viewBox="0 0 24 20">
+                                            <path d="M0 10 L18 10 M14 5 L18 10 L14 15" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </div>
+                                    <div className={styles.previewStage}>
+                                        <div className={styles.stageNode}>Engaged</div>
+                                    </div>
+                                    <div className={styles.previewArrow}>
+                                        <svg width="24" height="20" viewBox="0 0 24 20">
+                                            <path d="M0 10 L18 10 M14 5 L18 10 L14 15" stroke="currentColor" strokeWidth="2" fill="none" />
+                                        </svg>
+                                    </div>
+                                    <div className={styles.previewStage}>
+                                        <div className={styles.stageNode}>Negotiating</div>
+                                    </div>
+                                    <div className={styles.previewArrow}>
+                                        <svg width="24" height="20" viewBox="0 0 24 20">
+                                            <path d="M0 10 L18 10 M14 5 L18 10 L14 15" stroke="currentColor" strokeWidth="2" fill="none" />
                                         </svg>
                                     </div>
                                     <div className={`${styles.previewStage} ${styles.goalPreview}`}>
@@ -632,7 +642,7 @@ export default function PipelinePage() {
                                 onClick={handleCreatePipeline}
                                 disabled={!newPipelineName || !selectedGoal || (selectedGoal === 'custom' && !customGoal) || isCreating}
                             >
-                                {isCreating ? 'Creating...' : '🤖 Create AI Pipeline'}
+                                {isCreating ? 'Creating...' : '➕ Create Pipeline'}
                             </button>
                         </div>
                     </div>
