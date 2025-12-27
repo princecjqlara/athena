@@ -4,7 +4,38 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from './page.module.css';
-import { contactsStore, adLinksStore, Contact, AdPipelineLink } from '@/lib/contacts-store';
+
+interface Message {
+    id: string;
+    content: string;
+    from: string;
+    direction: 'inbound' | 'outbound';
+    timestamp: string;
+}
+
+interface Lead {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    stageId: string;
+    createdAt: string;
+    lastActivity: string;
+    source?: string;
+    sourceAdId?: string;
+    sourceAdName?: string;
+    facebookPsid?: string;
+    messages?: Message[];
+    aiAnalysis?: {
+        leadScore: number;
+        sentiment: string;
+        intent: string;
+        summary: string;
+        suggestedAction?: string;
+        suggestedStage?: string;
+        analyzedAt: string;
+    };
+}
 
 interface Pipeline {
     id: string;
@@ -13,13 +44,19 @@ interface Pipeline {
     stages: { id: string; name: string; }[];
 }
 
+interface StoredAd {
+    id: string;
+    name?: string;
+    title?: string;
+}
+
 export default function ContactsPage() {
     const params = useParams();
     const router = useRouter();
     const [pipeline, setPipeline] = useState<Pipeline | null>(null);
-    const [contacts, setContacts] = useState<Contact[]>([]);
-    const [adLinks, setAdLinks] = useState<AdPipelineLink[]>([]);
-    const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+    const [contacts, setContacts] = useState<Lead[]>([]);
+    const [storedAds, setStoredAds] = useState<StoredAd[]>([]);
+    const [selectedContact, setSelectedContact] = useState<Lead | null>(null);
     const [analyzingId, setAnalyzingId] = useState<string | null>(null);
     const [groupBy, setGroupBy] = useState<'stage' | 'ad'>('stage');
 
@@ -34,9 +71,17 @@ export default function ContactsPage() {
             }
         }
 
-        // Load contacts and ad links
-        setContacts(contactsStore.getByPipeline(params.id as string));
-        setAdLinks(adLinksStore.getByPipeline(params.id as string));
+        // Load leads from pipeline localStorage (same source as pipeline page)
+        const savedLeads = localStorage.getItem(`pipeline_leads_${params.id}`);
+        if (savedLeads) {
+            setContacts(JSON.parse(savedLeads));
+        }
+
+        // Load stored ads for ad name lookup
+        const savedAds = localStorage.getItem('ads');
+        if (savedAds) {
+            setStoredAds(JSON.parse(savedAds));
+        }
     }, [params.id]);
 
     const getStageName = (stageId: string) => {
@@ -44,10 +89,11 @@ export default function ContactsPage() {
     };
 
     const getAdName = (adId: string) => {
-        return adLinks.find(l => l.adId === adId)?.adName || 'Unknown Ad';
+        const ad = storedAds.find(a => a.id === adId);
+        return ad?.name || ad?.title || 'Unknown Ad';
     };
 
-    const handleAnalyzeConversation = async (contact: Contact) => {
+    const handleAnalyzeConversation = async (contact: Lead) => {
         if (!contact.messages || contact.messages.length === 0) {
             alert('No messages to analyze');
             return;
@@ -69,18 +115,15 @@ export default function ContactsPage() {
             const result = await response.json();
 
             if (result.success && result.data) {
-                // Update contact with AI analysis
-                const updated = contactsStore.update(contact.id, {
-                    aiAnalysis: {
-                        ...result.data,
-                        analyzedAt: new Date().toISOString()
-                    }
-                });
-
-                if (updated) {
-                    setContacts(contactsStore.getByPipeline(params.id as string));
-                    setSelectedContact(updated);
-                }
+                // Update contact with AI analysis in localStorage
+                const updatedContacts = contacts.map(c =>
+                    c.id === contact.id
+                        ? { ...c, aiAnalysis: { ...result.data, analyzedAt: new Date().toISOString() } }
+                        : c
+                );
+                localStorage.setItem(`pipeline_leads_${params.id}`, JSON.stringify(updatedContacts));
+                setContacts(updatedContacts);
+                setSelectedContact(updatedContacts.find(c => c.id === contact.id) || null);
             } else {
                 alert('Analysis failed: ' + (result.error || 'Unknown error'));
             }
@@ -93,8 +136,11 @@ export default function ContactsPage() {
     };
 
     const handleMoveContact = (contactId: string, newStageId: string) => {
-        contactsStore.moveToStage(contactId, newStageId);
-        setContacts(contactsStore.getByPipeline(params.id as string));
+        const updatedContacts = contacts.map(c =>
+            c.id === contactId ? { ...c, stageId: newStageId, lastActivity: new Date().toISOString() } : c
+        );
+        localStorage.setItem(`pipeline_leads_${params.id}`, JSON.stringify(updatedContacts));
+        setContacts(updatedContacts);
     };
 
     const getTimeAgo = (dateString: string) => {
@@ -113,7 +159,7 @@ export default function ContactsPage() {
 
     const groupedContacts = () => {
         if (groupBy === 'stage') {
-            const groups: Record<string, Contact[]> = {};
+            const groups: Record<string, Lead[]> = {};
             pipeline?.stages.forEach(stage => {
                 groups[stage.id] = contacts.filter(c => c.stageId === stage.id);
             });
@@ -121,9 +167,11 @@ export default function ContactsPage() {
             groups['unassigned'] = contacts.filter(c => !c.stageId);
             return groups;
         } else {
-            const groups: Record<string, Contact[]> = {};
-            adLinks.forEach(link => {
-                groups[link.adId] = contacts.filter(c => c.sourceAdId === link.adId);
+            const groups: Record<string, Lead[]> = {};
+            // Get unique ad IDs from contacts
+            const adIds = [...new Set(contacts.map(c => c.sourceAdId).filter(Boolean))] as string[];
+            adIds.forEach(adId => {
+                groups[adId] = contacts.filter(c => c.sourceAdId === adId);
             });
             // Add contacts without source ad
             groups['unknown'] = contacts.filter(c => !c.sourceAdId);
@@ -214,9 +262,9 @@ export default function ContactsPage() {
                                                     {contact.phone && <div className={styles.contactDetail}>{contact.phone}</div>}
                                                 </div>
                                                 <div className={styles.contactMeta}>
-                                                    {contact.messages?.length > 0 && (
+                                                    {(contact.messages?.length ?? 0) > 0 && (
                                                         <span className={styles.messageBadge}>
-                                                            {contact.messages.length} msgs
+                                                            {contact.messages?.length || 0} msgs
                                                         </span>
                                                     )}
                                                     {contact.aiAnalysis && (

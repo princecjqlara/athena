@@ -279,6 +279,35 @@ export default function PipelineDetailPage() {
         setEditingStage(null);
     };
 
+    // Stage reordering functions
+    const moveStage = (stageId: string, direction: 'up' | 'down') => {
+        if (!pipeline) return;
+
+        const stages = [...pipeline.stages];
+        const currentIndex = stages.findIndex(s => s.id === stageId);
+
+        if (currentIndex === -1) return;
+        if (direction === 'up' && currentIndex === 0) return;
+        if (direction === 'down' && currentIndex === stages.length - 1) return;
+
+        const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        [stages[currentIndex], stages[newIndex]] = [stages[newIndex], stages[currentIndex]];
+
+        const updatedPipeline = { ...pipeline, stages };
+        setPipeline(updatedPipeline);
+
+        // Save to localStorage
+        const savedPipelines = localStorage.getItem('pipelines');
+        if (savedPipelines) {
+            const pipelines = JSON.parse(savedPipelines);
+            const idx = pipelines.findIndex((p: Pipeline) => p.id === params.id);
+            if (idx !== -1) {
+                pipelines[idx] = updatedPipeline;
+                localStorage.setItem('pipelines', JSON.stringify(pipelines));
+            }
+        }
+    };
+
     const addNewStage = () => {
         if (!newStageName.trim() || !pipeline) return;
 
@@ -1426,9 +1455,39 @@ export default function PipelineDetailPage() {
                                     <span>This is the Goal stage (conversions)</span>
                                 </label>
                             </div>
+
+                            {/* Stage Reorder Buttons */}
+                            <div className="form-group">
+                                <label className="form-label">Reorder Stage</label>
+                                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                                    <button
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => { moveStage(editingStage.id, 'up'); }}
+                                        disabled={pipeline?.stages[0]?.id === editingStage.id}
+                                    >
+                                        ← Move Left
+                                    </button>
+                                    <button
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => { moveStage(editingStage.id, 'down'); }}
+                                        disabled={pipeline?.stages[pipeline.stages.length - 1]?.id === editingStage.id}
+                                    >
+                                        Move Right →
+                                    </button>
+                                </div>
+                            </div>
+
                             <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)' }}>
                                 <button className="btn btn-primary" onClick={saveStageEdit} style={{ flex: 1 }}>
                                     Save Changes
+                                </button>
+                                <button
+                                    className="btn btn-ghost"
+                                    onClick={() => { setShowStageEditModal(false); handleReanalyzeLeads(); }}
+                                    disabled={isReanalyzing}
+                                    title="Re-analyze all leads based on updated stages"
+                                >
+                                    {isReanalyzing ? 'Analyzing...' : 'Re-analyze'}
                                 </button>
                                 <button
                                     className="btn"
