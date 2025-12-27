@@ -959,16 +959,85 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                     continue; // Skip placeholder creation since we got real leads
                 }
 
-                // If this is a Messages/Messenger ad (not a Lead Ad), note it
-                if (leadsData.isLeadAd === false) {
-                    console.log(`[Import] ${adName} is a Messages ad - leads come via webhook`);
+                // If this is a Messages/Messenger ad (not a Lead Ad), try to fetch conversations
+                if (leadsData.isLeadAd === false && messagesStarted > 0) {
+                    console.log(`[Import] ${adName} is a Messages ad - fetching conversations...`);
+
+                    // First get the user's pages to find the right one
+                    try {
+                        const pagesResponse = await fetch(`/api/facebook/conversations?get_pages=true&access_token=${accessToken}`);
+                        const pagesData = await pagesResponse.json();
+
+                        if (pagesData.success && pagesData.pages?.length > 0) {
+                            // Use the first page (could let user select if multiple)
+                            const pageId = pagesData.pages[0].id;
+                            console.log(`[Import] Using page: ${pagesData.pages[0].name} (${pageId})`);
+
+                            // Fetch conversations for this page, filtered by ad ID
+                            const convoResponse = await fetch(
+                                `/api/facebook/conversations?page_id=${pageId}&access_token=${accessToken}&ad_id=${adId}`
+                            );
+                            const convoData = await convoResponse.json();
+
+                            if (convoData.success && convoData.contacts?.length > 0) {
+                                console.log(`[Import] Found ${convoData.contacts.length} real conversations from ad!`);
+
+                                for (const contact of convoData.contacts) {
+                                    const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                    const leadData = {
+                                        id: leadId,
+                                        name: contact.name || 'Unknown',
+                                        email: contact.email,
+                                        phone: contact.phone,
+                                        sourceAdId: adId,
+                                        sourceAdName: adName,
+                                        facebookPsid: contact.facebookPsid,
+                                        facebookAdId: adId,
+                                        source: 'Facebook Messenger',
+                                        stageId: 'new-lead',
+                                        pipelineId: selectedPipelineId || undefined,
+                                        createdAt: contact.firstMessageAt || new Date().toISOString(),
+                                        lastActivity: contact.lastMessageAt || new Date().toISOString(),
+                                        isPlaceholder: false,
+                                        isRealLead: true,
+                                        lastMessage: contact.lastMessage,
+                                    };
+
+                                    if (selectedPipelineId) {
+                                        const pipelineLeadsKey = `leads_${selectedPipelineId}`;
+                                        const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
+                                        existingLeads.push(leadData);
+                                        localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
+
+                                        const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
+                                        const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
+                                        if (pIndex !== -1) {
+                                            pipelinesData[pIndex].leadCount = (pipelinesData[pIndex].leadCount || 0) + 1;
+                                            localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
+                                        }
+                                    } else {
+                                        const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
+                                        existingContacts.push(leadData);
+                                        localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
+                                    }
+                                    leadsCreated++;
+                                    realLeadsCount++;
+                                }
+                                continue; // Skip placeholder creation
+                            } else {
+                                console.log(`[Import] No conversations found for ad ${adId} - may not have ad_id in referral link`);
+                            }
+                        }
+                    } catch (convoErr) {
+                        console.log('[Import] Could not fetch conversations:', convoErr);
+                    }
                 }
             } catch (err) {
                 console.log('[Import] Could not fetch leads for ad:', adName, err);
             }
 
             // Fallback: Create placeholder leads based on metrics count
-            // Use better naming with ad name + sequence
+            // Only if we couldn't get real data from Lead Forms or Conversations API
             const totalLeads = Math.max(messagesStarted, leadCount);
             if (totalLeads > 0) {
                 console.log(`[Import] Creating ${Math.min(totalLeads, 50)} placeholder leads for ad: ${adName}`);

@@ -27,6 +27,10 @@ interface ConversationsResponse {
         cursors: { before: string; after: string };
         next?: string;
     };
+    error?: {
+        message: string;
+        code: number;
+    };
 }
 
 /**
@@ -38,8 +42,41 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const pageId = searchParams.get('page_id');
     const pageAccessToken = searchParams.get('page_access_token');
-    const userAccessToken = searchParams.get('access_token'); // Fallback to user token
+    const userAccessToken = searchParams.get('access_token'); // User token from Facebook Login
     const limit = parseInt(searchParams.get('limit') || '50');
+    const filterAdId = searchParams.get('ad_id'); // Optional: filter to only show conversations from this ad
+    const getPages = searchParams.get('get_pages') === 'true'; // Get list of pages user manages
+
+    // If user wants list of pages they manage
+    if (getPages && userAccessToken) {
+        try {
+            console.log('[Conversations] Fetching user pages...');
+            const pagesUrl = `https://graph.facebook.com/v24.0/me/accounts?fields=id,name,access_token,category&access_token=${userAccessToken}`;
+            const pagesResponse = await fetch(pagesUrl);
+            const pagesData = await pagesResponse.json();
+
+            if (pagesData.error) {
+                console.error('[Conversations] Error fetching pages:', pagesData.error);
+                return NextResponse.json(
+                    { error: pagesData.error.message, success: false },
+                    { status: 400 }
+                );
+            }
+
+            console.log(`[Conversations] Found ${pagesData.data?.length || 0} pages`);
+            return NextResponse.json({
+                success: true,
+                pages: pagesData.data || [],
+                count: pagesData.data?.length || 0
+            });
+        } catch (e) {
+            console.error('[Conversations] Failed to get pages:', e);
+            return NextResponse.json(
+                { error: 'Failed to fetch pages', success: false },
+                { status: 500 }
+            );
+        }
+    }
 
     // Need either page token or user token with page_id
     let accessToken = pageAccessToken;
@@ -47,11 +84,15 @@ export async function GET(request: NextRequest) {
     if (!accessToken && userAccessToken && pageId) {
         // Try to get page token from user token
         try {
+            console.log('[Conversations] Getting page token for:', pageId);
             const pageUrl = `https://graph.facebook.com/v24.0/${pageId}?fields=access_token&access_token=${userAccessToken}`;
             const pageResponse = await fetch(pageUrl);
             const pageData = await pageResponse.json();
             if (pageData.access_token) {
                 accessToken = pageData.access_token;
+                console.log('[Conversations] Got page token successfully');
+            } else if (pageData.error) {
+                console.error('[Conversations] Error getting page token:', pageData.error);
             }
         } catch (e) {
             console.error('[Conversations] Failed to get page token:', e);
@@ -60,7 +101,7 @@ export async function GET(request: NextRequest) {
 
     if (!accessToken) {
         return NextResponse.json(
-            { error: 'page_access_token or (access_token + page_id) is required' },
+            { error: 'page_access_token or (access_token + page_id) is required', success: false },
             { status: 400 }
         );
     }
@@ -69,15 +110,15 @@ export async function GET(request: NextRequest) {
         console.log('[Conversations] Fetching conversations...');
 
         // Fetch conversations with participants and messages
-        const conversationsUrl = `https://graph.facebook.com/v24.0/me/conversations?fields=id,link,updated_time,participants,messages.limit(5){id,message,from,created_time}&limit=${limit}&access_token=${accessToken}`;
+        const conversationsUrl = `https://graph.facebook.com/v24.0/me/conversations?fields=id,link,updated_time,participants,messages.limit(10){id,message,from,created_time}&limit=${limit}&access_token=${accessToken}`;
 
         const response = await fetch(conversationsUrl);
         const data: ConversationsResponse = await response.json();
 
-        if (!response.ok) {
+        if (!response.ok || data.error) {
             console.error('[Conversations] Error fetching:', data);
             return NextResponse.json(
-                { error: 'Failed to fetch conversations', details: data },
+                { error: 'Failed to fetch conversations', details: data.error?.message || data, success: false },
                 { status: response.status }
             );
         }
@@ -85,7 +126,7 @@ export async function GET(request: NextRequest) {
         console.log(`[Conversations] Found ${data.data?.length || 0} conversations`);
 
         // Process conversations into contact format
-        const contacts = data.data.map(conv => {
+        let contacts = data.data.map(conv => {
             // Get the customer (non-page participant)
             const participants = conv.participants?.data || [];
             const customer = participants.find(p => p.id !== pageId) || participants[0];
@@ -95,12 +136,20 @@ export async function GET(request: NextRequest) {
             const firstMessage = messages[messages.length - 1]; // Oldest
             const lastMessage = messages[0]; // Newest
 
-            // Check if this might be from an ad (has link or certain patterns)
-            const isFromAd = conv.link && (
-                conv.link.includes('ad_id') ||
+            // Extract ad_id from link if present
+            let adIdFromLink: string | null = null;
+            if (conv.link) {
+                const adIdMatch = conv.link.match(/ad_id[=:](\d+)/);
+                if (adIdMatch) {
+                    adIdFromLink = adIdMatch[1];
+                }
+            }
+
+            // Check if this is from an ad
+            const isFromAd = !!(adIdFromLink || (conv.link && (
                 conv.link.includes('ref=') ||
                 conv.link.includes('referral')
-            );
+            )));
 
             return {
                 conversationId: conv.id,
@@ -108,6 +157,7 @@ export async function GET(request: NextRequest) {
                 name: customer?.name || 'Unknown',
                 email: customer?.email,
                 link: conv.link,
+                adId: adIdFromLink,
                 isFromAd,
                 messageCount: messages.length,
                 firstMessageAt: firstMessage?.created_time,
@@ -123,6 +173,12 @@ export async function GET(request: NextRequest) {
                 updatedAt: conv.updated_time
             };
         });
+
+        // Filter by ad_id if specified
+        if (filterAdId) {
+            contacts = contacts.filter(c => c.adId === filterAdId);
+            console.log(`[Conversations] Filtered to ${contacts.length} conversations from ad ${filterAdId}`);
+        }
 
         // Sort by most recent first
         contacts.sort((a, b) =>
@@ -140,7 +196,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error('[Conversations] Error:', error);
         return NextResponse.json(
-            { error: 'Failed to fetch conversations', details: String(error) },
+            { error: 'Failed to fetch conversations', details: String(error), success: false },
             { status: 500 }
         );
     }

@@ -173,7 +173,7 @@ export default function FacebookLogin({ appId, onSuccess, onError }: FacebookLog
                 onError?.('User cancelled login or did not fully authorize.');
             }
         }, {
-            scope: 'ads_read,ads_management,read_insights,pages_read_engagement',
+            scope: 'ads_read,ads_management,read_insights,pages_read_engagement,pages_messaging,pages_show_list',
             return_scopes: true
         });
     };
