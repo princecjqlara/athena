@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import styles from './page.module.css';
 import UndoPanel from '@/components/UndoPanel';
 import FacebookLogin from '@/components/FacebookLogin';
@@ -486,6 +487,39 @@ export default function SettingsPage() {
                         </div>
                     )}
                 </div>
+
+                {/* Collective Intelligence */}
+                <Link href="/settings/collective" style={{ textDecoration: 'none' }}>
+                    <div className={`glass-card ${styles.settingsCard}`} style={{
+                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05))',
+                        border: '1px solid rgba(16, 185, 129, 0.2)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                    }}>
+                        <div className={styles.cardHeader}>
+                            <div className={styles.cardIcon} style={{ background: 'linear-gradient(135deg, #10B981, #3B82F6)' }}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path d="M12 16v-4" />
+                                    <path d="M12 8h.01" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3>🧠 Collective Intelligence</h3>
+                                <p>Share anonymized insights & learn from the community</p>
+                            </div>
+                            <div style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="9 18 15 12 9 6" />
+                                </svg>
+                            </div>
+                        </div>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: 'var(--spacing-sm)' }}>
+                            Configure your participation mode: Private Only, Contribute & Receive, or Receive Only.
+                            Improve predictions by learning from anonymized patterns across all Athena users.
+                        </p>
+                    </div>
+                </Link>
 
                 {/* AI Model Settings */}
                 <div className={`glass-card ${styles.settingsCard}`}>

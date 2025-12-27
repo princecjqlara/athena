@@ -336,7 +336,7 @@ CREATE TABLE IF NOT EXISTS user_contributions (
 -- USER CI SETTINGS - Opt-in/opt-out preferences
 CREATE TABLE IF NOT EXISTS user_ci_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID UNIQUE NOT NULL,  -- This links to local storage user ID
+  user_id TEXT UNIQUE NOT NULL,  -- This links to local storage user ID (TEXT to support generated IDs)
   
   -- Participation
   opted_in BOOLEAN DEFAULT FALSE,

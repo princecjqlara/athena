@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { autoCategorizePool } from '@/lib/ai/nvidia-ai';
 
 /**
  * GET /api/organizer/marketplace
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/organizer/marketplace
- * Create a new data pool
+ * Create a new data pool with AI auto-categorization
  */
 export async function POST(request: NextRequest) {
     if (!isSupabaseConfigured()) {
@@ -64,16 +65,45 @@ export async function POST(request: NextRequest) {
         // Generate slug from name
         const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+        // AI Auto-categorization for missing fields
+        let finalIndustry = industry;
+        let finalPlatform = platform;
+        let finalAudience = target_audience;
+        let finalFormat = creative_format;
+        let aiSuggestedCategories = null;
+
+        // If any category is missing, use AI to suggest them
+        if (!industry || !platform || !target_audience || !creative_format) {
+            console.log('[Organizer Marketplace] Auto-categorizing pool:', name);
+            const aiCategories = await autoCategorizePool(name, description);
+
+            aiSuggestedCategories = {
+                industry: aiCategories.industry,
+                platform: aiCategories.platform,
+                target_audience: aiCategories.target_audience,
+                creative_format: aiCategories.creative_format,
+                confidence: aiCategories.confidence,
+            };
+
+            // Use AI suggestions for missing fields only
+            finalIndustry = industry || aiCategories.industry;
+            finalPlatform = platform || aiCategories.platform;
+            finalAudience = target_audience || aiCategories.target_audience;
+            finalFormat = creative_format || aiCategories.creative_format;
+
+            console.log('[Organizer Marketplace] AI suggested categories:', aiSuggestedCategories);
+        }
+
         const { data: pool, error } = await supabase
             .from('data_pools')
             .insert({
                 name,
                 slug,
                 description,
-                industry,
-                target_audience,
-                platform,
-                creative_format,
+                industry: finalIndustry,
+                target_audience: finalAudience,
+                platform: finalPlatform,
+                creative_format: finalFormat,
                 access_tier: access_tier || 'standard',
                 is_public: true,
                 requires_approval: true,
@@ -88,7 +118,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             data: pool,
-            message: 'Data pool created successfully',
+            aiSuggested: aiSuggestedCategories, // Return AI suggestions info
+            message: aiSuggestedCategories
+                ? `Data pool created. AI auto-filled categories with ${aiSuggestedCategories.confidence}% confidence.`
+                : 'Data pool created successfully',
         });
     } catch (error) {
         console.error('[Organizer] Error creating data pool:', error);

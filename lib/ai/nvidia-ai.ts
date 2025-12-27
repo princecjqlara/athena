@@ -376,3 +376,191 @@ Return a JSON object with exactly this structure:
   "reasoning": "<brief explanation of the prediction>"
 }`;
 }
+
+// ============================================
+// POOL AUTO-CATEGORIZATION
+// ============================================
+
+export interface PoolCategorizationResult {
+    industry: string | null;
+    platform: string | null;
+    target_audience: string | null;
+    creative_format: string | null;
+    confidence: number;
+}
+
+// Valid category values (must match marketplace filters)
+const VALID_INDUSTRIES = ['ecommerce', 'saas', 'finance', 'health', 'local_services'];
+const VALID_PLATFORMS = ['tiktok', 'facebook', 'instagram', 'youtube', 'multi'];
+const VALID_AUDIENCES = ['gen_z', 'millennials', 'b2b', 'high_income', 'parents'];
+const VALID_FORMATS = ['ugc', 'testimonial', 'product_demo', 'founder_led', 'meme'];
+
+/**
+ * Auto-categorize a data pool based on its name and description
+ * Uses NVIDIA AI to intelligently suggest categories
+ */
+export async function autoCategorizePool(
+    name: string,
+    description?: string
+): Promise<PoolCategorizationResult> {
+    const apiKey = process.env.NVIDIA_API_KEY;
+
+    if (!apiKey) {
+        console.warn('NVIDIA API key not configured, using heuristic categorization');
+        return heuristicCategorization(name, description);
+    }
+
+    const prompt = `Analyze this data pool and categorize it for an advertising insights marketplace.
+
+Data Pool Name: "${name}"
+${description ? `Description: "${description}"` : ''}
+
+Based on the name and description, determine the most appropriate categories. You MUST use ONLY these exact values:
+
+Industries (choose one): ${VALID_INDUSTRIES.join(', ')}
+Platforms (choose one): ${VALID_PLATFORMS.join(', ')}
+Target Audiences (choose one): ${VALID_AUDIENCES.join(', ')}
+Creative Formats (choose one): ${VALID_FORMATS.join(', ')}
+
+Return a JSON object with this exact structure:
+{
+  "industry": "<industry value or null if unclear>",
+  "platform": "<platform value or null if unclear>",
+  "target_audience": "<audience value or null if unclear>",
+  "creative_format": "<format value or null if unclear>",
+  "confidence": <number 0-100 indicating how confident you are in these categorizations>
+}
+
+If the name/description doesn't clearly indicate a category, use null for that field.`;
+
+    try {
+        const response = await fetch(NVIDIA_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are an expert at categorizing advertising and marketing content. Analyze data pool names and descriptions to determine their industry, platform, audience, and creative format. Always respond with valid JSON using only the allowed category values.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                temperature: 0.2,
+                max_tokens: 256,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`NVIDIA API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const content = data.choices[0]?.message?.content;
+
+        if (!content) {
+            throw new Error('Empty response from AI');
+        }
+
+        // Parse the JSON response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error('No JSON found in response');
+        }
+
+        const result = JSON.parse(jsonMatch[0]);
+
+        // Validate and sanitize the results
+        return {
+            industry: VALID_INDUSTRIES.includes(result.industry) ? result.industry : null,
+            platform: VALID_PLATFORMS.includes(result.platform) ? result.platform : null,
+            target_audience: VALID_AUDIENCES.includes(result.target_audience) ? result.target_audience : null,
+            creative_format: VALID_FORMATS.includes(result.creative_format) ? result.creative_format : null,
+            confidence: typeof result.confidence === 'number' ? Math.min(100, Math.max(0, result.confidence)) : 50,
+        };
+    } catch (error) {
+        console.error('AI categorization error:', error);
+        return heuristicCategorization(name, description);
+    }
+}
+
+/**
+ * Fallback heuristic categorization when AI is unavailable
+ */
+function heuristicCategorization(name: string, description?: string): PoolCategorizationResult {
+    const text = `${name} ${description || ''}`.toLowerCase();
+
+    // Industry detection
+    let industry: string | null = null;
+    if (text.includes('ecommerce') || text.includes('e-commerce') || text.includes('shop') || text.includes('store') || text.includes('retail')) {
+        industry = 'ecommerce';
+    } else if (text.includes('saas') || text.includes('software') || text.includes('app') || text.includes('tech')) {
+        industry = 'saas';
+    } else if (text.includes('finance') || text.includes('bank') || text.includes('invest') || text.includes('money') || text.includes('crypto')) {
+        industry = 'finance';
+    } else if (text.includes('health') || text.includes('wellness') || text.includes('fitness') || text.includes('medical') || text.includes('supplement')) {
+        industry = 'health';
+    } else if (text.includes('local') || text.includes('service') || text.includes('restaurant') || text.includes('plumber') || text.includes('contractor')) {
+        industry = 'local_services';
+    }
+
+    // Platform detection
+    let platform: string | null = null;
+    if (text.includes('tiktok') || text.includes('tik tok')) {
+        platform = 'tiktok';
+    } else if (text.includes('facebook') || text.includes('fb') || text.includes('meta')) {
+        platform = 'facebook';
+    } else if (text.includes('instagram') || text.includes('ig ') || text.includes('insta')) {
+        platform = 'instagram';
+    } else if (text.includes('youtube') || text.includes('yt ')) {
+        platform = 'youtube';
+    } else if (text.includes('multi') || text.includes('cross-platform') || text.includes('all platform')) {
+        platform = 'multi';
+    }
+
+    // Audience detection
+    let target_audience: string | null = null;
+    if (text.includes('gen z') || text.includes('genz') || text.includes('18-25') || text.includes('young')) {
+        target_audience = 'gen_z';
+    } else if (text.includes('millennial') || text.includes('26-40')) {
+        target_audience = 'millennials';
+    } else if (text.includes('b2b') || text.includes('business') || text.includes('enterprise') || text.includes('professional')) {
+        target_audience = 'b2b';
+    } else if (text.includes('high income') || text.includes('luxury') || text.includes('premium') || text.includes('affluent')) {
+        target_audience = 'high_income';
+    } else if (text.includes('parent') || text.includes('mom') || text.includes('dad') || text.includes('family') || text.includes('kid')) {
+        target_audience = 'parents';
+    }
+
+    // Format detection
+    let creative_format: string | null = null;
+    if (text.includes('ugc') || text.includes('user generated') || text.includes('creator')) {
+        creative_format = 'ugc';
+    } else if (text.includes('testimonial') || text.includes('review') || text.includes('customer story')) {
+        creative_format = 'testimonial';
+    } else if (text.includes('demo') || text.includes('product') || text.includes('showcase') || text.includes('how to')) {
+        creative_format = 'product_demo';
+    } else if (text.includes('founder') || text.includes('ceo') || text.includes('owner') || text.includes('personal brand')) {
+        creative_format = 'founder_led';
+    } else if (text.includes('meme') || text.includes('trend') || text.includes('viral') || text.includes('funny')) {
+        creative_format = 'meme';
+    }
+
+    // Calculate confidence based on how many categories were detected
+    const detectedCount = [industry, platform, target_audience, creative_format].filter(Boolean).length;
+    const confidence = detectedCount * 20 + 10; // 10-90 based on detections
+
+    return {
+        industry,
+        platform,
+        target_audience,
+        creative_format,
+        confidence,
+    };
+}

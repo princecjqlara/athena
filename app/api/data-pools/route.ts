@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { autoCategorizePool } from '@/lib/ai/nvidia-ai';
 
 // GET /api/data-pools - List available data pools with filtering
 export async function GET(request: NextRequest) {
@@ -101,16 +102,45 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Name and slug are required' }, { status: 400 });
         }
 
+        // AI Auto-categorization for missing fields
+        let finalIndustry = industry;
+        let finalPlatform = platform;
+        let finalAudience = targetAudience;
+        let finalFormat = creativeFormat;
+        let aiSuggestedCategories = null;
+
+        // If any category is missing, use AI to suggest them
+        if (!industry || !platform || !targetAudience || !creativeFormat) {
+            console.log('[Data Pools] Auto-categorizing pool:', name);
+            const aiCategories = await autoCategorizePool(name, description);
+
+            aiSuggestedCategories = {
+                industry: aiCategories.industry,
+                platform: aiCategories.platform,
+                target_audience: aiCategories.target_audience,
+                creative_format: aiCategories.creative_format,
+                confidence: aiCategories.confidence,
+            };
+
+            // Use AI suggestions for missing fields only
+            finalIndustry = industry || aiCategories.industry;
+            finalPlatform = platform || aiCategories.platform;
+            finalAudience = targetAudience || aiCategories.target_audience;
+            finalFormat = creativeFormat || aiCategories.creative_format;
+
+            console.log('[Data Pools] AI suggested categories:', aiSuggestedCategories);
+        }
+
         const { data, error } = await supabase
             .from('data_pools')
             .insert({
                 name,
                 slug,
                 description,
-                industry,
-                target_audience: targetAudience,
-                platform,
-                creative_format: creativeFormat,
+                industry: finalIndustry,
+                target_audience: finalAudience,
+                platform: finalPlatform,
+                creative_format: finalFormat,
                 is_public: isPublic,
                 requires_approval: requiresApproval,
                 access_tier: accessTier
@@ -123,10 +153,15 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create data pool' }, { status: 500 });
         }
 
-        return NextResponse.json({ success: true, data });
+        return NextResponse.json({
+            success: true,
+            data,
+            aiSuggested: aiSuggestedCategories, // Return AI suggestions info
+        });
 
     } catch (error) {
         console.error('Create data pool error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
+

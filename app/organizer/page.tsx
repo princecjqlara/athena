@@ -43,6 +43,8 @@ interface DataPool {
     description: string;
     industry: string;
     platform: string;
+    target_audience: string;
+    creative_format: string;
     data_points: number;
     contributors: number;
     pending_requests: number;
@@ -73,7 +75,9 @@ export default function OrganizerDashboard() {
 
     // Marketplace modal state
     const [showCreatePool, setShowCreatePool] = useState(false);
-    const [newPool, setNewPool] = useState({ name: '', description: '', industry: '', platform: '' });
+    const [newPool, setNewPool] = useState({ name: '', description: '', industry: '', platform: '', target_audience: '', creative_format: '' });
+    const [aiSuggestion, setAiSuggestion] = useState<{ industry: string | null; platform: string | null; target_audience: string | null; creative_format: string | null; confidence: number } | null>(null);
+    const [isCreating, setIsCreating] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -184,19 +188,29 @@ export default function OrganizerDashboard() {
 
     const createPool = async () => {
         if (!newPool.name) return;
+        setIsCreating(true);
         try {
             const res = await fetch('/api/organizer/marketplace', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newPool),
             });
-            if (res.ok) {
+            const data = await res.json();
+            if (res.ok && data.success) {
+                // Show AI suggestion info if available
+                if (data.aiSuggested) {
+                    setAiSuggestion(data.aiSuggested);
+                    alert(`✨ Pool created!\n\nAI auto-filled categories with ${data.aiSuggested.confidence}% confidence:\n• Industry: ${data.aiSuggested.industry || 'not detected'}\n• Platform: ${data.aiSuggested.platform || 'not detected'}\n• Audience: ${data.aiSuggested.target_audience || 'not detected'}\n• Format: ${data.aiSuggested.creative_format || 'not detected'}`);
+                }
                 setShowCreatePool(false);
-                setNewPool({ name: '', description: '', industry: '', platform: '' });
+                setNewPool({ name: '', description: '', industry: '', platform: '', target_audience: '', creative_format: '' });
+                setAiSuggestion(null);
                 fetchMarketplace();
             }
         } catch (error) {
             console.error('Error creating pool:', error);
+        } finally {
+            setIsCreating(false);
         }
     };
 
@@ -481,6 +495,12 @@ export default function OrganizerDashboard() {
                                         <div key={pool.id} className="pool-card">
                                             <h4>{pool.name}</h4>
                                             <p>{pool.description || 'No description'}</p>
+                                            <div className="pool-tags" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginBottom: '0.5rem' }}>
+                                                {pool.industry && <span className="tag" style={{ background: '#3b82f6', color: 'white', padding: '0.125rem 0.375rem', borderRadius: '4px', fontSize: '0.7rem' }}>{pool.industry}</span>}
+                                                {pool.platform && <span className="tag" style={{ background: '#8b5cf6', color: 'white', padding: '0.125rem 0.375rem', borderRadius: '4px', fontSize: '0.7rem' }}>{pool.platform}</span>}
+                                                {pool.target_audience && <span className="tag" style={{ background: '#ec4899', color: 'white', padding: '0.125rem 0.375rem', borderRadius: '4px', fontSize: '0.7rem' }}>{pool.target_audience}</span>}
+                                                {pool.creative_format && <span className="tag" style={{ background: '#10b981', color: 'white', padding: '0.125rem 0.375rem', borderRadius: '4px', fontSize: '0.7rem' }}>{pool.creative_format}</span>}
+                                            </div>
                                             <div className="pool-stats">
                                                 <span>📈 {pool.data_points} data points</span>
                                                 <span>👥 {pool.contributors} contributors</span>
@@ -497,13 +517,16 @@ export default function OrganizerDashboard() {
                             <div className="modal-overlay" onClick={() => setShowCreatePool(false)}>
                                 <div className="modal" onClick={e => e.stopPropagation()}>
                                     <h3>Create New Data Pool</h3>
+                                    <p style={{ fontSize: '0.85rem', color: '#888', marginBottom: '1rem' }}>
+                                        🤖 Leave category fields empty and AI will auto-detect them from the name/description!
+                                    </p>
                                     <div className="form-group">
                                         <label>Pool Name *</label>
                                         <input
                                             type="text"
                                             value={newPool.name}
                                             onChange={e => setNewPool({ ...newPool, name: e.target.value })}
-                                            placeholder="e.g., E-commerce Fashion Insights"
+                                            placeholder="e.g., TikTok UGC for Gen Z E-commerce"
                                         />
                                     </div>
                                     <div className="form-group">
@@ -511,25 +534,25 @@ export default function OrganizerDashboard() {
                                         <textarea
                                             value={newPool.description}
                                             onChange={e => setNewPool({ ...newPool, description: e.target.value })}
-                                            placeholder="Describe what data this pool contains..."
+                                            placeholder="AI will use this to suggest categories. Be descriptive!"
                                         />
                                     </div>
                                     <div className="form-row">
                                         <div className="form-group">
-                                            <label>Industry</label>
+                                            <label>Industry <span style={{ color: '#888', fontSize: '0.75rem' }}>(AI auto-fill)</span></label>
                                             <select value={newPool.industry} onChange={e => setNewPool({ ...newPool, industry: e.target.value })}>
-                                                <option value="">Select...</option>
+                                                <option value="">🤖 Let AI detect...</option>
                                                 <option value="ecommerce">E-commerce</option>
                                                 <option value="saas">SaaS</option>
                                                 <option value="finance">Finance</option>
-                                                <option value="health">Health</option>
+                                                <option value="health">Health & Wellness</option>
                                                 <option value="local_services">Local Services</option>
                                             </select>
                                         </div>
                                         <div className="form-group">
-                                            <label>Platform</label>
+                                            <label>Platform <span style={{ color: '#888', fontSize: '0.75rem' }}>(AI auto-fill)</span></label>
                                             <select value={newPool.platform} onChange={e => setNewPool({ ...newPool, platform: e.target.value })}>
-                                                <option value="">Select...</option>
+                                                <option value="">🤖 Let AI detect...</option>
                                                 <option value="facebook">Facebook</option>
                                                 <option value="instagram">Instagram</option>
                                                 <option value="tiktok">TikTok</option>
@@ -538,9 +561,35 @@ export default function OrganizerDashboard() {
                                             </select>
                                         </div>
                                     </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Target Audience <span style={{ color: '#888', fontSize: '0.75rem' }}>(AI auto-fill)</span></label>
+                                            <select value={newPool.target_audience} onChange={e => setNewPool({ ...newPool, target_audience: e.target.value })}>
+                                                <option value="">🤖 Let AI detect...</option>
+                                                <option value="gen_z">Gen Z (18-25)</option>
+                                                <option value="millennials">Millennials (26-40)</option>
+                                                <option value="b2b">B2B</option>
+                                                <option value="high_income">High Income</option>
+                                                <option value="parents">Parents</option>
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Creative Format <span style={{ color: '#888', fontSize: '0.75rem' }}>(AI auto-fill)</span></label>
+                                            <select value={newPool.creative_format} onChange={e => setNewPool({ ...newPool, creative_format: e.target.value })}>
+                                                <option value="">🤖 Let AI detect...</option>
+                                                <option value="ugc">UGC</option>
+                                                <option value="testimonial">Testimonial</option>
+                                                <option value="product_demo">Product Demo</option>
+                                                <option value="founder_led">Founder-Led</option>
+                                                <option value="meme">Meme/Trend</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                     <div className="modal-actions">
                                         <button className="cancel-btn" onClick={() => setShowCreatePool(false)}>Cancel</button>
-                                        <button className="submit-btn" onClick={createPool}>Create Pool</button>
+                                        <button className="submit-btn" onClick={createPool} disabled={isCreating}>
+                                            {isCreating ? '🤖 AI Categorizing...' : 'Create Pool'}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
