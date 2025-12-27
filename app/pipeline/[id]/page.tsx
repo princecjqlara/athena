@@ -35,6 +35,13 @@ interface Lead {
     conversionValue?: number;
     convertedAt?: string;
     facebookLeadId?: string;  // From Facebook webhook for CAPI matching
+    sourceAdId?: string;      // Facebook Ad ID that generated this lead
+    sourceAdName?: string;    // Name of the ad that generated this lead
+    isPlaceholder?: boolean;  // True if this is placeholder data without real details
+    isRealLead?: boolean;     // True if this has actual lead form data
+    city?: string;
+    state?: string;
+    country?: string;
 }
 
 interface Pipeline {
@@ -60,6 +67,11 @@ export default function PipelineDetailPage() {
     const [newLead, setNewLead] = useState({ name: '', email: '', phone: '', source: 'Manual' });
     const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
     const [pendingGoalStageId, setPendingGoalStageId] = useState<string | null>(null);
+
+    // Bulk selection state
+    const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+    const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
+    const [bulkMoveTargetStage, setBulkMoveTargetStage] = useState<string>('');
 
     // Ad linking state
     const [storedAds, setStoredAds] = useState<StoredAd[]>([]);
@@ -184,6 +196,83 @@ export default function PipelineDetailPage() {
 
         const updatedLeads = leads.filter(l => l.id !== leadId);
         saveLeads(updatedLeads);
+    };
+
+    // Bulk selection handlers
+    const toggleLeadSelection = (leadId: string) => {
+        const newSelected = new Set(selectedLeads);
+        if (newSelected.has(leadId)) {
+            newSelected.delete(leadId);
+        } else {
+            newSelected.add(leadId);
+        }
+        setSelectedLeads(newSelected);
+    };
+
+    const toggleAllInStage = (stageId: string) => {
+        const stageLeads = leads.filter(l => l.stageId === stageId);
+        const stageLeadIds = stageLeads.map(l => l.id);
+        const allSelected = stageLeadIds.every(id => selectedLeads.has(id));
+
+        const newSelected = new Set(selectedLeads);
+        if (allSelected) {
+            stageLeadIds.forEach(id => newSelected.delete(id));
+        } else {
+            stageLeadIds.forEach(id => newSelected.add(id));
+        }
+        setSelectedLeads(newSelected);
+    };
+
+    const selectAllLeads = () => {
+        if (selectedLeads.size === leads.length) {
+            setSelectedLeads(new Set());
+        } else {
+            setSelectedLeads(new Set(leads.map(l => l.id)));
+        }
+    };
+
+    const clearSelection = () => {
+        setSelectedLeads(new Set());
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedLeads.size === 0) return;
+        if (!confirm(`Delete ${selectedLeads.size} selected lead(s)?\n\nThis will permanently remove them.`)) return;
+
+        const updatedLeads = leads.filter(l => !selectedLeads.has(l.id));
+        saveLeads(updatedLeads);
+        setSelectedLeads(new Set());
+    };
+
+    const handleBulkMove = () => {
+        if (selectedLeads.size === 0 || !bulkMoveTargetStage || !pipeline) return;
+
+        // Check if moving to goal stage
+        const targetStage = pipeline.stages.find(s => s.id === bulkMoveTargetStage);
+        if (targetStage?.isGoal) {
+            // For goal stages, we'll move without conversion value for bulk operations
+            if (!confirm(`Move ${selectedLeads.size} lead(s) to "${targetStage.name}" (Goal)?\n\nNote: For bulk moves to goal stages, conversion values will default to $0. You can update them individually later.`)) return;
+        }
+
+        const updatedLeads = leads.map(lead => {
+            if (selectedLeads.has(lead.id)) {
+                return {
+                    ...lead,
+                    stageId: bulkMoveTargetStage,
+                    lastActivity: new Date().toISOString(),
+                    ...(targetStage?.isGoal && {
+                        conversionValue: lead.conversionValue || 0,
+                        convertedAt: new Date().toISOString()
+                    })
+                };
+            }
+            return lead;
+        });
+
+        saveLeads(updatedLeads);
+        setSelectedLeads(new Set());
+        setShowBulkMoveModal(false);
+        setBulkMoveTargetStage('');
     };
 
     const handleDragStart = (lead: Lead) => {
@@ -363,6 +452,17 @@ export default function PipelineDetailPage() {
         return leads.filter(lead => lead.stageId === stageId);
     };
 
+    const isStageFullySelected = (stageId: string) => {
+        const stageLeads = getLeadsForStage(stageId);
+        return stageLeads.length > 0 && stageLeads.every(l => selectedLeads.has(l.id));
+    };
+
+    const isStagePartiallySelected = (stageId: string) => {
+        const stageLeads = getLeadsForStage(stageId);
+        const selectedCount = stageLeads.filter(l => selectedLeads.has(l.id)).length;
+        return selectedCount > 0 && selectedCount < stageLeads.length;
+    };
+
     const getTimeAgo = (dateString: string) => {
         const date = new Date(dateString);
         const now = new Date();
@@ -452,6 +552,22 @@ export default function PipelineDetailPage() {
                                 {stage.isGoal && <span className={styles.goalBadge}>✓</span>}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {getLeadsForStage(stage.id).length > 0 && (
+                                    <label
+                                        className={styles.stageCheckbox}
+                                        onClick={(e) => e.stopPropagation()}
+                                        title={isStageFullySelected(stage.id) ? 'Deselect all in stage' : 'Select all in stage'}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={isStageFullySelected(stage.id)}
+                                            ref={(el) => {
+                                                if (el) el.indeterminate = isStagePartiallySelected(stage.id);
+                                            }}
+                                            onChange={() => toggleAllInStage(stage.id)}
+                                        />
+                                    </label>
+                                )}
                                 <span className={styles.columnCount}>{getLeadsForStage(stage.id).length}</span>
                                 <button
                                     className={styles.linkAdBtn}
@@ -484,12 +600,24 @@ export default function PipelineDetailPage() {
                             {getLeadsForStage(stage.id).map(lead => (
                                 <div
                                     key={lead.id}
-                                    className={styles.leadCard}
-                                    draggable
-                                    onDragStart={() => handleDragStart(lead)}
+                                    className={`${styles.leadCard} ${selectedLeads.has(lead.id) ? styles.leadCardSelected : ''}`}
+                                    draggable={selectedLeads.size === 0}
+                                    onDragStart={() => selectedLeads.size === 0 && handleDragStart(lead)}
                                 >
                                     <div className={styles.leadHeader}>
-                                        <span className={styles.leadName}>{lead.name}</span>
+                                        <div className={styles.leadHeaderLeft}>
+                                            <label
+                                                className={styles.leadCheckbox}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedLeads.has(lead.id)}
+                                                    onChange={() => toggleLeadSelection(lead.id)}
+                                                />
+                                            </label>
+                                            <span className={styles.leadName}>{lead.name}</span>
+                                        </div>
                                         <button
                                             className={styles.leadDelete}
                                             onClick={(e) => {
@@ -507,6 +635,21 @@ export default function PipelineDetailPage() {
                                     {lead.phone && (
                                         <div className={styles.leadContact}>📱 {lead.phone}</div>
                                     )}
+                                    {/* Source Ad Info */}
+                                    {lead.sourceAdName && (
+                                        <div style={{
+                                            marginTop: '4px',
+                                            fontSize: '0.7rem',
+                                            color: 'var(--text-muted)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}>
+                                            📊 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {lead.sourceAdName.length > 25 ? lead.sourceAdName.substring(0, 25) + '...' : lead.sourceAdName}
+                                            </span>
+                                        </div>
+                                    )}
                                     {lead.conversionValue !== undefined && lead.conversionValue > 0 && (
                                         <div style={{
                                             marginTop: '4px',
@@ -521,8 +664,29 @@ export default function PipelineDetailPage() {
                                         </div>
                                     )}
                                     <div className={styles.leadMeta}>
-                                        <span className={styles.leadSource}>{lead.source}</span>
-                                        <span className={styles.leadTime}>{getTimeAgo(lead.lastActivity)}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                            {lead.isPlaceholder ? (
+                                                <span style={{
+                                                    background: 'rgba(156, 163, 175, 0.3)',
+                                                    color: 'var(--text-muted)',
+                                                    padding: '1px 6px',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.65rem'
+                                                }}>⏳ Pending</span>
+                                            ) : lead.isRealLead ? (
+                                                <span style={{
+                                                    background: 'rgba(16, 185, 129, 0.2)',
+                                                    color: 'var(--success)',
+                                                    padding: '1px 6px',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.65rem'
+                                                }}>✓ Verified</span>
+                                            ) : null}
+                                            <span className={styles.leadSource}>{lead.source}</span>
+                                        </div>
+                                        <span className={styles.leadTime} title={`Created: ${new Date(lead.createdAt).toLocaleString()}`}>
+                                            {getTimeAgo(lead.lastActivity)}
+                                        </span>
                                     </div>
                                 </div>
                             ))}
@@ -767,10 +931,102 @@ export default function PipelineDetailPage() {
                 </div>
             )}
 
+            {/* Bulk Move Modal */}
+            {showBulkMoveModal && pipeline && (
+                <div className={styles.modalOverlay} onClick={() => setShowBulkMoveModal(false)}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h2>📦 Move {selectedLeads.size} Lead(s)</h2>
+                            <button className={styles.closeBtn} onClick={() => setShowBulkMoveModal(false)}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className={styles.modalBody}>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
+                                Select a stage to move the selected leads to:
+                            </p>
+
+                            <div className="form-group">
+                                <label className="form-label">Target Stage</label>
+                                <select
+                                    className="form-input"
+                                    value={bulkMoveTargetStage}
+                                    onChange={e => setBulkMoveTargetStage(e.target.value)}
+                                >
+                                    <option value="">-- Select a stage --</option>
+                                    {pipeline.stages.map(stage => (
+                                        <option key={stage.id} value={stage.id}>
+                                            {stage.name} {stage.isGoal ? '(Goal)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className={styles.modalFooter}>
+                            <button className="btn btn-secondary" onClick={() => setShowBulkMoveModal(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleBulkMove}
+                                disabled={!bulkMoveTargetStage}
+                            >
+                                Move Leads
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Actions Bar */}
+            {selectedLeads.size > 0 && (
+                <div className={styles.bulkActionsBar}>
+                    <div className={styles.bulkActionsLeft}>
+                        <label className={styles.selectAllCheckbox}>
+                            <input
+                                type="checkbox"
+                                checked={selectedLeads.size === leads.length}
+                                onChange={selectAllLeads}
+                            />
+                            <span>Select All</span>
+                        </label>
+                        <span className={styles.selectedCount}>
+                            {selectedLeads.size} selected
+                        </span>
+                    </div>
+                    <div className={styles.bulkActionsRight}>
+                        <button
+                            className={styles.bulkActionBtn}
+                            onClick={() => setShowBulkMoveModal(true)}
+                        >
+                            📦 Move to Stage
+                        </button>
+                        <button
+                            className={`${styles.bulkActionBtn} ${styles.bulkActionBtnDanger}`}
+                            onClick={handleBulkDelete}
+                        >
+                            🗑️ Delete Selected
+                        </button>
+                        <button
+                            className={styles.bulkActionBtnClear}
+                            onClick={clearSelection}
+                        >
+                            ✕ Clear
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* View Contacts Button - fixed position */}
             <Link
                 href={`/pipeline/${params.id}/contacts`}
                 className={styles.viewContactsBtn}
+                style={{ bottom: selectedLeads.size > 0 ? '80px' : 'var(--spacing-lg)' }}
             >
                 👥 View Contacts
             </Link>

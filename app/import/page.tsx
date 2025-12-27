@@ -863,6 +863,8 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
 
         // Auto-create leads from ads - try to fetch actual lead data first
         let leadsCreated = 0;
+        let realLeadsCount = 0;
+        let placeholderLeadsCount = 0;
 
         // For each ad, try to fetch actual leads from Facebook Lead Ads API
         for (const ad of newAds) {
@@ -871,30 +873,65 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
             const leadCount = metrics?.leads || 0;
             const adName = (ad as any).name || 'Unknown Ad';
             const adId = (ad as any).facebookAdId || (ad as any).id;
+            const adCreatedAt = (ad as any).createdAt;
 
             // Try to fetch actual lead data from Facebook Lead Ads API
             try {
+                console.log(`[Import] Fetching leads for ad: ${adName} (${adId})`);
                 const leadsResponse = await fetch(`/api/facebook/leads?adId=${adId}&accessToken=${accessToken}`);
                 const leadsData = await leadsResponse.json();
+
+                console.log(`[Import] Leads API response:`, {
+                    success: leadsData.success,
+                    count: leadsData.data?.length || 0,
+                    isLeadAd: leadsData.isLeadAd,
+                    message: leadsData.message
+                });
 
                 if (leadsData.success && leadsData.data && leadsData.data.length > 0) {
                     // We have actual leads with names!
                     for (const fbLead of leadsData.data) {
                         const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+                        // Build best possible name
+                        let leadName = fbLead.fullName;
+                        if (!leadName && fbLead.firstName) {
+                            leadName = fbLead.lastName ? `${fbLead.firstName} ${fbLead.lastName}` : fbLead.firstName;
+                        }
+                        if (!leadName && fbLead.email) {
+                            // Use email username as name
+                            leadName = fbLead.email.split('@')[0].replace(/[._-]/g, ' ');
+                            // Capitalize first letter of each word
+                            leadName = leadName.replace(/\b\w/g, (c: string) => c.toUpperCase());
+                        }
+                        if (!leadName) {
+                            // Use ad name + timestamp as last resort
+                            const leadTime = new Date(fbLead.createdAt || Date.now());
+                            leadName = `${adName.substring(0, 15)} - ${leadTime.toLocaleDateString()}`;
+                        }
+
                         const leadData = {
                             id: leadId,
-                            name: fbLead.fullName || fbLead.firstName || fbLead.email?.split('@')[0] || `Lead from ${adName.substring(0, 20)}`,
+                            name: leadName,
                             email: fbLead.email,
                             phone: fbLead.phone,
+                            city: fbLead.city,
+                            state: fbLead.state,
+                            country: fbLead.country,
                             sourceAdId: adId,
                             sourceAdName: adName,
                             facebookLeadId: fbLead.id,
                             facebookAdId: adId,
+                            campaignId: fbLead.campaignId,
+                            formId: fbLead.formId,
                             source: 'Facebook Lead Ad',
                             stageId: 'new-lead',
                             pipelineId: selectedPipelineId || undefined,
                             createdAt: fbLead.createdAt || new Date().toISOString(),
                             lastActivity: new Date().toISOString(),
+                            isPlaceholder: false,
+                            isRealLead: true,
+                            rawFields: fbLead.rawFields,
                         };
 
                         // Save to appropriate storage
@@ -916,30 +953,46 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                             localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
                         }
                         leadsCreated++;
+                        realLeadsCount++;
                     }
+                    console.log(`[Import] Created ${leadsData.data.length} real leads from ad: ${adName}`);
                     continue; // Skip placeholder creation since we got real leads
                 }
+
+                // If this is a Messages/Messenger ad (not a Lead Ad), note it
+                if (leadsData.isLeadAd === false) {
+                    console.log(`[Import] ${adName} is a Messages ad - leads come via webhook`);
+                }
             } catch (err) {
-                console.log('Could not fetch actual leads for ad, using placeholders:', err);
+                console.log('[Import] Could not fetch leads for ad:', adName, err);
             }
 
             // Fallback: Create placeholder leads based on metrics count
+            // Use better naming with ad name + sequence
             const totalLeads = Math.max(messagesStarted, leadCount);
             if (totalLeads > 0) {
+                console.log(`[Import] Creating ${Math.min(totalLeads, 50)} placeholder leads for ad: ${adName}`);
+
                 for (let i = 0; i < Math.min(totalLeads, 50); i++) {
                     const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+                    // Create a more descriptive placeholder name
+                    // Format: "AdName Lead 1" or "Contact from AdName"
+                    const shortAdName = adName.length > 20 ? adName.substring(0, 20) + '...' : adName;
                     const leadData = {
                         id: leadId,
-                        name: `Lead #${i + 1}`,
+                        name: `${shortAdName} - Contact ${i + 1}`,
                         sourceAdId: adId,
                         sourceAdName: adName,
                         facebookAdId: adId,
-                        source: 'Facebook Ad',
+                        source: messagesStarted > 0 ? 'Facebook Messenger' : 'Facebook Ad',
                         stageId: 'new-lead',
                         pipelineId: selectedPipelineId || undefined,
-                        createdAt: new Date().toISOString(),
+                        createdAt: adCreatedAt || new Date().toISOString(),
                         lastActivity: new Date().toISOString(),
-                        isPlaceholder: true, // Mark as placeholder (no real data)
+                        isPlaceholder: true, // Mark as placeholder (no real data from API)
+                        isRealLead: false,
+                        needsDataFetch: true, // Flag that this needs real data
                     };
 
                     if (selectedPipelineId) {
@@ -960,6 +1013,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                         localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
                     }
                     leadsCreated++;
+                    placeholderLeadsCount++;
                 }
             }
         }
@@ -977,6 +1031,15 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                     message += `\n📱 Added ${leadsCreated} leads to "${pipelineName}" pipeline!`;
                 } else {
                     message += `\n📱 Created ${leadsCreated} leads (no pipeline selected)`;
+                }
+
+                // Show breakdown of real vs placeholder leads
+                if (realLeadsCount > 0) {
+                    message += `\n   ✨ ${realLeadsCount} leads with full details (name, email, phone)`;
+                }
+                if (placeholderLeadsCount > 0) {
+                    message += `\n   ⏳ ${placeholderLeadsCount} placeholder leads (awaiting webhook data)`;
+                    message += `\n\n💡 Tip: For Messages/Messenger ads, lead details arrive via webhooks when contacts message your page.`;
                 }
             }
             message += '\n\nYour ads are now available in the Algorithm and My Ads pages.';
