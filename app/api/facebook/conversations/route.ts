@@ -147,29 +147,33 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        console.log('[Conversations] Fetching conversations...');
+        console.log('[Conversations] Fetching conversations with token type:',
+            pageAccessToken ? 'page_access_token' : userAccessToken ? 'user_token_exchanged' : 'unknown');
 
         // Fetch conversations with participants and messages
         const conversationsUrl = `https://graph.facebook.com/v24.0/me/conversations?fields=id,link,updated_time,participants,messages.limit(10){id,message,from,created_time}&limit=${limit}&access_token=${accessToken}`;
+
+        console.log('[Conversations] Request URL (without token):', conversationsUrl.split('&access_token')[0]);
 
         const response = await fetch(conversationsUrl);
         const data: ConversationsResponse = await response.json();
 
         if (!response.ok || data.error) {
-            console.error('[Conversations] Error fetching:', data);
+            console.error('[Conversations] ❌ API Error:', data.error || data);
             return NextResponse.json(
                 { error: 'Failed to fetch conversations', details: data.error?.message || data, success: false },
                 { status: response.status }
             );
         }
 
-        console.log(`[Conversations] Found ${data.data?.length || 0} conversations`);
+        console.log(`[Conversations] ✅ Found ${data.data?.length || 0} conversations`);
 
         // Process conversations into contact format - fetch real names for each
-        const contactPromises = data.data.map(async (conv) => {
+        const contactPromises = data.data.map(async (conv, index) => {
             // Get the customer (non-page participant)
             const participants = conv.participants?.data || [];
             const customer = participants.find(p => p.id !== pageId) || participants[0];
+            console.log(`[Conversations] Conv ${index + 1}: PSID=${customer?.id}, participants=${participants.length}`);
 
             // Fetch real name from Facebook profile API
             let customerName = 'Unknown';

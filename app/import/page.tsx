@@ -1034,11 +1034,18 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                 console.log(`[Import] Created ${contactsToImport.length} real leads from conversations`);
                                 continue; // Skip placeholder creation
                             } else {
-                                console.log(`[Import] No conversations found for page`);
+                                console.log(`[Import] ⚠️ No conversations found. Response:`, {
+                                    success: convoData.success,
+                                    error: convoData.error,
+                                    contactsCount: convoData.contacts?.length,
+                                    details: convoData.details
+                                });
                             }
+                        } else {
+                            console.log(`[Import] ⚠️ No pages found or failed:`, pagesData);
                         }
                     } catch (convoErr) {
-                        console.log('[Import] Could not fetch conversations:', convoErr);
+                        console.log('[Import] ❌ Error fetching conversations:', convoErr);
                     }
                 }
             } catch (err) {
