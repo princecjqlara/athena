@@ -828,18 +828,27 @@ export default function PipelineDetailPage() {
                                         <div className={styles.leadContact}>📱 {lead.phone}</div>
                                     )}
                                     {/* Source Ad Info */}
-                                    {lead.sourceAdName && (
+                                    {(lead.sourceAdName || lead.sourceAdId) && (
                                         <div style={{
                                             marginTop: '4px',
                                             fontSize: '0.7rem',
                                             color: 'var(--text-muted)',
                                             display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px'
+                                            flexDirection: 'column',
+                                            gap: '2px'
                                         }}>
-                                            📊 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {lead.sourceAdName.length > 25 ? lead.sourceAdName.substring(0, 25) + '...' : lead.sourceAdName}
-                                            </span>
+                                            {lead.sourceAdName && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    📊 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {lead.sourceAdName.length > 20 ? lead.sourceAdName.substring(0, 20) + '...' : lead.sourceAdName}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {lead.sourceAdId && (
+                                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.7 }}>
+                                                    ID: {lead.sourceAdId}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                     {lead.conversionValue !== undefined && lead.conversionValue > 0 && (

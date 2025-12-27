@@ -965,6 +965,33 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                 if (aiData.success && aiData.leads?.length > 0) {
                                     console.log(`[Import] 🤖 AI Analysis complete:`, aiData.summary);
 
+                                    // Create suggested stages if AI recommends them
+                                    if (aiData.suggestedStages?.length > 0 && selectedPipelineId) {
+                                        console.log(`[Import] 🤖 Creating ${aiData.suggestedStages.length} suggested stages`);
+                                        const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
+                                        const pIdx = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
+                                        if (pIdx !== -1) {
+                                            const existingStages = pipelinesData[pIdx].stages || [];
+                                            for (const newStage of aiData.suggestedStages) {
+                                                const exists = existingStages.some((s: any) =>
+                                                    s.name.toLowerCase() === newStage.name.toLowerCase()
+                                                );
+                                                if (!exists) {
+                                                    existingStages.push({
+                                                        id: newStage.id,
+                                                        name: newStage.name,
+                                                        isGoal: newStage.isGoal,
+                                                        isAutoCreated: true,
+                                                        leadCount: 0
+                                                    });
+                                                }
+                                            }
+                                            pipelinesData[pIdx].stages = existingStages;
+                                            localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
+                                            console.log(`[Import] ✅ Added stages to pipeline`);
+                                        }
+                                    }
+
                                     for (const contact of aiData.leads) {
                                         const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                                         const leadData = {
