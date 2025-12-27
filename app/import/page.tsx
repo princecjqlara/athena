@@ -1100,38 +1100,8 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                 if (aiData.success && aiData.leads?.length > 0) {
                                     console.log(`[Import] 🤖 AI Analysis complete:`, aiData.summary);
 
-                                    // Create suggested stages if AI recommends them
-                                    if (aiData.suggestedStages?.length > 0 && selectedPipelineId) {
-                                        console.log(`[Import] 🤖 Creating ${aiData.suggestedStages.length} suggested stages`);
-                                        const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
-                                        const pIdx = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
-                                        if (pIdx !== -1) {
-                                            const existingStages = pipelinesData[pIdx].stages || [];
-                                            // Check if pipeline already has a goal
-                                            const hasExistingGoal = existingStages.some((s: any) => s.isGoal);
-
-                                            for (const newStage of aiData.suggestedStages) {
-                                                const exists = existingStages.some((s: any) =>
-                                                    s.name.toLowerCase() === newStage.name.toLowerCase()
-                                                );
-                                                if (!exists) {
-                                                    existingStages.push({
-                                                        id: newStage.id,
-                                                        name: newStage.name,
-                                                        description: newStage.description,       // AI auto-filled
-                                                        facebookEvent: newStage.facebookEvent,   // AI auto-filled
-                                                        // Don't set as goal if one already exists
-                                                        isGoal: newStage.isGoal && !hasExistingGoal,
-                                                        isAutoCreated: true,
-                                                        leadCount: 0
-                                                    });
-                                                }
-                                            }
-                                            pipelinesData[pIdx].stages = existingStages;
-                                            localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
-                                            console.log(`[Import] ✅ Added stages to pipeline`);
-                                        }
-                                    }
+                                    // AI analyzed the leads - now create them with suggested stages
+                                    // (Stage suggestions use the existing 4 fixed stages: new-lead, engaged, negotiating, goal)
 
                                     for (const contact of aiData.leads) {
                                         const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
