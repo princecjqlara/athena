@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Fixed sales funnel stages - matches the 4-stage pipeline structure
+// Fixed pipeline stages - matches the 5 Lead Lifecycle Events
+// inquiry (10) → interested (30) → scheduled (70) → completed (100) + lost (0)
 const FIXED_PIPELINE_STAGES = [
-    { id: 'new-lead', name: 'New Lead', description: 'Just received, not yet engaged' },
-    { id: 'engaged', name: 'Engaged', description: 'Conversation started, showing interest' },
-    { id: 'negotiating', name: 'Negotiating', description: 'Discussing terms, pricing, or details' },
-    { id: 'goal', name: 'Goal', description: 'Reached conversion goal' },
+    { id: 'inquiry', name: 'Inquiry', description: 'First contact - message, form, or inbound request', facebookEvent: 'inquiry', score: 10 },
+    { id: 'interested', name: 'Interested', description: 'User expresses intent - requests pricing, asks availability', facebookEvent: 'interested', score: 30 },
+    { id: 'scheduled', name: 'Scheduled', description: 'Date/time confirmed - appointment or consultation booked', facebookEvent: 'scheduled', score: 70 },
+    { id: 'completed', name: 'Completed', description: 'Service delivered, contract signed, or deal closed', facebookEvent: 'completed', score: 100, isGoal: true },
+    { id: 'lost', name: 'Lost', description: 'User declined, stopped responding, or chose competitor', facebookEvent: 'lost', score: 0 },
 ];
 
 /**
