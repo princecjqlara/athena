@@ -20,6 +20,8 @@ interface Stage {
     isGoal: boolean;
     isAutoCreated: boolean;
     leadCount: number;
+    facebookEvent?: string;
+    description?: string;
 }
 
 interface FetchedContact {
@@ -261,10 +263,11 @@ export default function PipelinePage() {
             name: newPipelineName,
             goal: goalName,
             stages: [
-                { id: 'new-lead', name: 'New Lead', isGoal: false, isAutoCreated: false, leadCount: 0 },
-                { id: 'engaged', name: 'Engaged', isGoal: false, isAutoCreated: false, leadCount: 0 },
-                { id: 'negotiating', name: 'Negotiating', isGoal: false, isAutoCreated: false, leadCount: 0 },
-                { id: 'goal', name: goalName, isGoal: true, isAutoCreated: false, leadCount: 0 },
+                { id: 'inquiry', name: 'Inquiry', isGoal: false, isAutoCreated: false, leadCount: 0, facebookEvent: 'inquiry', description: 'First contact - message, form, or inbound request' },
+                { id: 'interested', name: 'Interested', isGoal: false, isAutoCreated: false, leadCount: 0, facebookEvent: 'interested', description: 'User expresses intent - requests pricing, asks availability' },
+                { id: 'scheduled', name: 'Scheduled', isGoal: false, isAutoCreated: false, leadCount: 0, facebookEvent: 'scheduled', description: 'Date/time confirmed - appointment or consultation booked' },
+                { id: 'completed', name: 'Completed', isGoal: true, isAutoCreated: false, leadCount: 0, facebookEvent: 'completed', description: 'Service delivered, contract signed, or deal closed' },
+                { id: 'lost', name: 'Lost', isGoal: false, isAutoCreated: false, leadCount: 0, facebookEvent: 'lost', description: 'User declined, stopped responding, or chose competitor' },
             ],
             leadCount: 0,
             createdAt: new Date().toISOString(),
@@ -299,7 +302,7 @@ export default function PipelinePage() {
                         Pipeline
                     </h1>
                     <p className={styles.subtitle}>
-                        Track leads through your sales pipeline with 4 stages
+                        Track leads through your sales pipeline with 5 stages
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
@@ -364,7 +367,7 @@ export default function PipelinePage() {
                         <div className={styles.stepNumber}>2</div>
                         <div className={styles.stepContent}>
                             <h4>Track Leads</h4>
-                            <p>Leads move through 4 stages: New Lead → Engaged → Negotiating → Goal</p>
+                            <p>Leads move through 5 stages: Inquiry → Interested → Scheduled → Completed (+ Lost)</p>
                         </div>
                     </div>
                     <div className={styles.stepArrow}>→</div>
@@ -561,7 +564,7 @@ export default function PipelinePage() {
                             <div className="form-group">
                                 <label className="form-label">What's Your Goal?</label>
                                 <p className={styles.formHint}>
-                                    Leads move through 4 stages: New Lead → Engaged → Negotiating → Goal
+                                    Leads move through 5 stages: Inquiry → Interested → Scheduled → Completed (+ Lost)
                                 </p>
                                 <div className={styles.goalGrid}>
                                     {GOAL_PRESETS.map(goal => (
@@ -591,40 +594,29 @@ export default function PipelinePage() {
                             )}
 
                             <div className={styles.previewSection}>
-                                <label className="form-label">Pipeline Preview (4 Fixed Stages)</label>
+                                <label className="form-label">Pipeline Preview (5 Lead Lifecycle Stages)</label>
                                 <div className={styles.pipelinePreview}>
                                     <div className={styles.previewStage}>
-                                        <div className={styles.stageNode}>New Lead</div>
+                                        <div className={styles.stageNode}>Inquiry<span style={{ fontSize: '0.6rem', marginLeft: '4px', opacity: 0.7 }}>(10)</span></div>
                                     </div>
-                                    <div className={styles.previewArrow}>
-                                        <svg width="24" height="20" viewBox="0 0 24 20">
-                                            <path d="M0 10 L18 10 M14 5 L18 10 L14 15" stroke="currentColor" strokeWidth="2" fill="none" />
-                                        </svg>
-                                    </div>
+                                    <div className={styles.previewArrow}>→</div>
                                     <div className={styles.previewStage}>
-                                        <div className={styles.stageNode}>Engaged</div>
+                                        <div className={styles.stageNode}>Interested<span style={{ fontSize: '0.6rem', marginLeft: '4px', opacity: 0.7 }}>(30)</span></div>
                                     </div>
-                                    <div className={styles.previewArrow}>
-                                        <svg width="24" height="20" viewBox="0 0 24 20">
-                                            <path d="M0 10 L18 10 M14 5 L18 10 L14 15" stroke="currentColor" strokeWidth="2" fill="none" />
-                                        </svg>
-                                    </div>
+                                    <div className={styles.previewArrow}>→</div>
                                     <div className={styles.previewStage}>
-                                        <div className={styles.stageNode}>Negotiating</div>
+                                        <div className={styles.stageNode}>Scheduled<span style={{ fontSize: '0.6rem', marginLeft: '4px', opacity: 0.7 }}>(70)</span></div>
                                     </div>
-                                    <div className={styles.previewArrow}>
-                                        <svg width="24" height="20" viewBox="0 0 24 20">
-                                            <path d="M0 10 L18 10 M14 5 L18 10 L14 15" stroke="currentColor" strokeWidth="2" fill="none" />
-                                        </svg>
-                                    </div>
+                                    <div className={styles.previewArrow}>→</div>
                                     <div className={`${styles.previewStage} ${styles.goalPreview}`}>
                                         <div className={styles.stageNode}>
-                                            {selectedGoal === 'custom'
-                                                ? (customGoal || 'Your Goal')
-                                                : (GOAL_PRESETS.find(g => g.id === selectedGoal)?.name || 'Select a Goal')
-                                            }
+                                            Completed<span style={{ fontSize: '0.6rem', marginLeft: '4px', opacity: 0.7 }}>(100)</span>
                                             <span className={styles.goalBadge}>✓ Goal</span>
                                         </div>
+                                    </div>
+                                    <div className={styles.previewArrow} style={{ opacity: 0.5 }}>↘</div>
+                                    <div className={styles.previewStage} style={{ opacity: 0.6 }}>
+                                        <div className={styles.stageNode} style={{ background: 'rgba(239,68,68,0.2)', borderColor: 'rgba(239,68,68,0.4)' }}>Lost<span style={{ fontSize: '0.6rem', marginLeft: '4px', opacity: 0.7 }}>(0)</span></div>
                                     </div>
                                 </div>
                             </div>
