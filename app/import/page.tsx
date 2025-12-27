@@ -956,7 +956,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        conversations: convoData.contacts.slice(0, messagesStarted),
+                                        conversations: convoData.contacts, // Send ALL contacts, not a slice
                                         pipelineStages
                                     })
                                 });

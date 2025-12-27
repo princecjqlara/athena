@@ -83,17 +83,40 @@ export async function POST(request: NextRequest) {
             let stage: 'new' | 'contacted' | 'interested' | 'negotiating' | 'ready' = 'new';
             let intent = 'inquiry';
 
-            // Check for STRONG buying signals (not just questions)
-            const buyingPhrases = ['i want to buy', 'i will buy', 'ill take', "i'll take", 'i want to order', 'place order', 'confirm order', 'proceed with', 'ready to pay'];
-            const negotiatingPhrases = ['discount', 'lower price', 'best price', 'final price', 'deal', 'negotiate', 'can you give'];
-            const interestedPhrases = ['interested', 'tell me more', 'how does it work', 'more info', 'send details', 'im interested', "i'm interested"];
-            const inquiryPhrases = ['how much', 'price', 'cost', 'available', 'what is', 'do you have'];
+            // Check for STRONG buying signals - includes common Filipino/Taglish expressions
+            const buyingPhrases = [
+                'i want to buy', 'i will buy', 'ill take', "i'll take", 'i want to order',
+                'place order', 'confirm order', 'proceed with', 'ready to pay',
+                'order na', 'bibili', 'gusto ko', 'kukunin ko', 'bili na', 'yes order',
+                'order ko', 'take ko', 'i want', 'can i order', 'pwede ba', 'g na'
+            ];
+            const negotiatingPhrases = [
+                'discount', 'lower price', 'best price', 'final price', 'deal',
+                'negotiate', 'can you give', 'mas mura', 'tawad', 'bawas',
+                'last price', 'meron discount', 'pwede discount', 'budget', 'afford'
+            ];
+            const interestedPhrases = [
+                'interested', 'tell me more', 'how does it work', 'more info',
+                'send details', 'im interested', "i'm interested", 'interisado',
+                'pano', 'paano', 'ano meron', 'pwede', 'saan', 'may', 'san',
+                'can you send', 'details please', 'info please', 'yes please'
+            ];
+            const inquiryPhrases = [
+                'how much', 'price', 'cost', 'available', 'what is', 'do you have',
+                'magkano', 'presyo', 'meron ba', 'available ba', 'asking', 'rate'
+            ];
 
             // Check customer text for intent signals
             const hasBuyingSignal = buyingPhrases.some(p => customerText.includes(p));
             const hasNegotiating = negotiatingPhrases.some(p => customerText.includes(p));
             const hasInterested = interestedPhrases.some(p => customerText.includes(p));
             const hasInquiry = inquiryPhrases.some(p => customerText.includes(p));
+
+            // Log what we found for debugging
+            console.log(`[AI] Lead "${conv.name}" (${customerMsgCount} msgs):`, {
+                customerText: customerText.substring(0, 200) + (customerText.length > 200 ? '...' : ''),
+                signals: { hasBuyingSignal, hasNegotiating, hasInterested, hasInquiry }
+            });
 
             // Determine stage based on strongest signal
             if (hasBuyingSignal) {
@@ -105,10 +128,7 @@ export async function POST(request: NextRequest) {
             } else if (hasInterested) {
                 stage = 'interested';
                 intent = 'interested';
-            } else if (customerMsgCount >= 2 || hasInquiry) {
-                stage = 'contacted';
-                intent = 'inquiry';
-            } else if (customerMsgCount >= 1) {
+            } else if (hasInquiry || customerMsgCount >= 1) {
                 stage = 'contacted';
                 intent = 'inquiry';
             }
