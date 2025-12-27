@@ -970,14 +970,17 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
 
                         if (pagesData.success && pagesData.pages?.length > 0) {
                             // Use the first page (could let user select if multiple)
-                            const pageId = pagesData.pages[0].id;
-                            console.log(`[Import] Using page: ${pagesData.pages[0].name} (${pageId})`);
+                            const page = pagesData.pages[0];
+                            const pageId = page.id;
+                            const pageToken = page.access_token; // Use page token for profile fetching
+                            console.log(`[Import] Using page: ${page.name} (${pageId}), has token: ${!!pageToken}`);
 
                             // Fetch ALL conversations for this page (not filtered by ad_id)
                             // Facebook doesn't reliably include ad_id in conversation links
                             // We limit to messagesStarted count to get recent contacts
+                            // Use page_access_token for better profile fetching
                             const convoResponse = await fetch(
-                                `/api/facebook/conversations?page_id=${pageId}&access_token=${accessToken}&limit=${Math.min(messagesStarted, 50)}`
+                                `/api/facebook/conversations?page_id=${pageId}&page_access_token=${pageToken || ''}&access_token=${accessToken}&limit=${Math.min(messagesStarted, 50)}`
                             );
                             const convoData = await convoResponse.json();
 
