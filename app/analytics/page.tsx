@@ -9,6 +9,14 @@ interface VideoOption {
     name: string;
     thumbnail: string;
     uploadDate: string;
+    metrics?: {
+        ctr?: number;
+        spend?: number;
+        impressions?: number;
+        clicks?: number;
+        reach?: number;
+        conversions?: number;
+    };
 }
 
 interface PerformanceForm {
@@ -94,17 +102,66 @@ export default function AnalyticsPage() {
     });
 
     useEffect(() => {
-        // Load videos from database (demo data for now)
-        setTimeout(() => {
-            setVideos([
-                { id: '1', name: 'Product Demo v3', thumbnail: '', uploadDate: '2024-01-15' },
-                { id: '2', name: 'UGC Testimonial', thumbnail: '', uploadDate: '2024-01-14' },
-                { id: '3', name: 'Before/After Transform', thumbnail: '', uploadDate: '2024-01-13' },
-                { id: '4', name: 'Curiosity Hook Ad', thumbnail: '', uploadDate: '2024-01-12' },
-            ]);
+        // Load real ads from localStorage
+        try {
+            const storedAds = JSON.parse(localStorage.getItem('ads') || '[]');
+            const videoOptions: VideoOption[] = storedAds.map((ad: {
+                id: string;
+                name?: string;
+                extractedContent?: { title?: string };
+                adInsights?: {
+                    ctr?: number;
+                    spend?: number;
+                    impressions?: number;
+                    clicks?: number;
+                    reach?: number;
+                    results?: number;
+                    leads?: number;
+                    messagesStarted?: number;
+                };
+                createdAt?: string;
+                uploadedAt?: string;
+            }) => ({
+                id: ad.id,
+                name: ad.name || ad.extractedContent?.title || `Ad ${ad.id.slice(-6)}`,
+                thumbnail: '',
+                uploadDate: ad.createdAt || ad.uploadedAt || new Date().toISOString().split('T')[0],
+                metrics: ad.adInsights ? {
+                    ctr: ad.adInsights.ctr || 0,
+                    spend: ad.adInsights.spend || 0,
+                    impressions: ad.adInsights.impressions || 0,
+                    clicks: ad.adInsights.clicks || 0,
+                    reach: ad.adInsights.reach || 0,
+                    conversions: ad.adInsights.results || ad.adInsights.leads || ad.adInsights.messagesStarted || 0,
+                } : undefined
+            }));
+
+            setVideos(videoOptions);
             setIsLoading(false);
-        }, 500);
+        } catch (error) {
+            console.error('Failed to load ads:', error);
+            setVideos([]);
+            setIsLoading(false);
+        }
     }, []);
+
+    // Auto-fill form when ad is selected
+    useEffect(() => {
+        if (form.video_id) {
+            const selectedAd = videos.find(v => v.id === form.video_id);
+            if (selectedAd?.metrics) {
+                setForm(prev => ({
+                    ...prev,
+                    ad_spend: selectedAd.metrics?.spend || prev.ad_spend,
+                    impressions: selectedAd.metrics?.impressions || prev.impressions,
+                    reach: selectedAd.metrics?.reach || prev.reach,
+                    clicks: selectedAd.metrics?.clicks || prev.clicks,
+                    ctr: selectedAd.metrics?.ctr || prev.ctr,
+                    conversions: selectedAd.metrics?.conversions || prev.conversions,
+                }));
+            }
+        }
+    }, [form.video_id, videos]);
 
     // Auto-calculate CTR
     useEffect(() => {
@@ -224,6 +281,14 @@ export default function AnalyticsPage() {
                                 <div key={i} className={`skeleton ${styles.videoSkeleton}`}></div>
                             ))}
                         </div>
+                    ) : videos.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)', color: 'var(--text-muted)' }}>
+                            <p>No ads found. Import ads from Facebook or upload new ads first.</p>
+                            <div style={{ marginTop: 'var(--spacing-md)', display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
+                                <a href="/import" className="btn btn-secondary">Import from Facebook</a>
+                                <a href="/upload" className="btn btn-primary">Upload Ad</a>
+                            </div>
+                        </div>
                     ) : (
                         <div className={styles.videoGrid}>
                             {videos.map(video => (
@@ -246,7 +311,14 @@ export default function AnalyticsPage() {
                                     </div>
                                     <div className={styles.videoInfo}>
                                         <span className={styles.videoName}>{video.name}</span>
-                                        <span className={styles.videoDate}>{video.uploadDate}</span>
+                                        <span className={styles.videoDate}>
+                                            {video.uploadDate?.split('T')[0]}
+                                            {video.metrics && (
+                                                <span style={{ marginLeft: '8px', color: 'var(--accent-primary)', fontSize: '0.75rem' }}>
+                                                    CTR: {video.metrics.ctr?.toFixed(1)}% | ₱{video.metrics.spend?.toFixed(0)}
+                                                </span>
+                                            )}
+                                        </span>
                                     </div>
                                     <div className={styles.checkmark}>
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
