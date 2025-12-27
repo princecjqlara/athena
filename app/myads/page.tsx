@@ -135,6 +135,8 @@ export default function MyAdsPage() {
         hookType: '',
         platform: ''
     });
+    const [adDescription, setAdDescription] = useState('');  // Document-style input
+    const [isAnalyzing, setIsAnalyzing] = useState(false);  // AI analysis state
 
     // Load ads from localStorage
     useEffect(() => {
@@ -187,12 +189,106 @@ export default function MyAdsPage() {
             hookType: ad.extractedContent?.hookType || '',
             platform: ad.extractedContent?.platform || ad.platform || 'Facebook'
         });
+        // Build description from existing traits for document-style editing
+        const existingTraits = [...(ad.categories || []), ...(ad.traits || [])];
+        const description = existingTraits.length > 0
+            ? `Platform: ${ad.platform || 'Facebook'}\nHook: ${ad.extractedContent?.hookType || 'Unknown'}\nTraits: ${existingTraits.join(', ')}`
+            : '';
+        setAdDescription(description);
     };
 
     // Cancel editing
     const cancelEditing = () => {
         setEditingAdId(null);
         setEditTraits({ categories: [], traits: [], hookType: '', platform: '' });
+        setAdDescription('');
+    };
+
+    // Analyze description using AI to extract traits
+    const analyzeDescription = async () => {
+        if (!adDescription.trim()) return;
+
+        setIsAnalyzing(true);
+        try {
+            // Try AI analysis first
+            const response = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: `Analyze this ad description and extract traits. Return JSON only:
+{
+  "platform": "Facebook|TikTok|Instagram|YouTube|Other",
+  "hookType": "curiosity|shock|question|transformation|story|testimonial|demonstration|other",
+  "categories": ["category1", "category2"],
+  "traits": ["trait1", "trait2", "trait3"]
+}
+
+Ad description: ${adDescription}`,
+                })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data) {
+                    // Try to parse AI response
+                    try {
+                        const parsed = typeof result.data === 'string'
+                            ? JSON.parse(result.data.replace(/```json\n?|\n?```/g, '').trim())
+                            : result.data;
+
+                        setEditTraits({
+                            platform: parsed.platform || editTraits.platform,
+                            hookType: parsed.hookType || editTraits.hookType,
+                            categories: parsed.categories || editTraits.categories,
+                            traits: parsed.traits || editTraits.traits,
+                        });
+                        return;
+                    } catch (e) {
+                        console.log('AI parse failed, using keyword extraction');
+                    }
+                }
+            }
+
+            // Fallback: Simple keyword extraction
+            const text = adDescription.toLowerCase();
+            const detectedTraits: string[] = [];
+            const detectedCategories: string[] = [];
+
+            // Detect platform
+            let platform = 'Facebook';
+            if (text.includes('tiktok')) platform = 'TikTok';
+            else if (text.includes('instagram')) platform = 'Instagram';
+            else if (text.includes('youtube')) platform = 'YouTube';
+
+            // Detect hook type
+            let hookType = '';
+            if (text.includes('curiosity')) hookType = 'curiosity';
+            else if (text.includes('question')) hookType = 'question';
+            else if (text.includes('transformation')) hookType = 'transformation';
+            else if (text.includes('story')) hookType = 'story';
+            else if (text.includes('testimonial') || text.includes('ugc')) hookType = 'testimonial';
+
+            // Detect traits
+            const traitKeywords = ['fast-paced', 'slow-motion', 'text overlay', 'music', 'voiceover', 'captions', 'before/after', 'demo', 'tutorial'];
+            traitKeywords.forEach(t => { if (text.includes(t)) detectedTraits.push(t); });
+
+            // Detect categories
+            const categoryKeywords = ['product', 'lifestyle', 'educational', 'entertainment', 'promo', 'sale'];
+            categoryKeywords.forEach(c => { if (text.includes(c)) detectedCategories.push(c); });
+
+            setEditTraits(prev => ({
+                ...prev,
+                platform: platform || prev.platform,
+                hookType: hookType || prev.hookType,
+                traits: detectedTraits.length > 0 ? detectedTraits : prev.traits,
+                categories: detectedCategories.length > 0 ? detectedCategories : prev.categories,
+            }));
+
+        } catch (error) {
+            console.error('Analysis failed:', error);
+        } finally {
+            setIsAnalyzing(false);
+        }
     };
 
     // Toggle a trait
@@ -536,91 +632,144 @@ export default function MyAdsPage() {
                         </div>
 
                         <div className={styles.modalContent}>
-                            {/* Platform */}
+                            {/* Document-Style Input */}
                             <div className={styles.traitSection}>
-                                <h4>📱 Platform</h4>
-                                <div className={styles.traitGrid}>
-                                    {TRAIT_OPTIONS.platforms.map(platform => (
-                                        <button
-                                            key={platform}
-                                            className={`${styles.traitChip} ${editTraits.platform === platform ? styles.selected : ''}`}
-                                            onClick={() => setEditTraits(prev => ({ ...prev, platform }))}
-                                        >
-                                            {platform}
-                                        </button>
-                                    ))}
-                                </div>
+                                <h4>Describe Your Ad</h4>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-sm)' }}>
+                                    Describe your ad in plain text. AI will extract traits automatically.
+                                </p>
+                                <textarea
+                                    className="form-textarea"
+                                    value={adDescription}
+                                    onChange={(e) => setAdDescription(e.target.value)}
+                                    placeholder="Example: This is a TikTok ad with fast-paced editing, uses a curiosity hook, includes text overlays and trending music. It's a product demo showing before/after transformation..."
+                                    rows={4}
+                                    style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }}
+                                />
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={analyzeDescription}
+                                    disabled={isAnalyzing || !adDescription.trim()}
+                                    style={{ width: '100%' }}
+                                >
+                                    {isAnalyzing ? 'Analyzing...' : 'Extract Traits with AI'}
+                                </button>
                             </div>
 
-                            {/* Hook Type */}
-                            <div className={styles.traitSection}>
-                                <h4>🎣 Hook Type</h4>
-                                <div className={styles.traitGrid}>
-                                    {TRAIT_OPTIONS.hookTypes.map(hook => (
-                                        <button
-                                            key={hook}
-                                            className={`${styles.traitChip} ${editTraits.hookType === hook ? styles.selected : ''}`}
-                                            onClick={() => setEditTraits(prev => ({ ...prev, hookType: hook }))}
-                                        >
-                                            {hook}
-                                        </button>
-                                    ))}
+                            {/* Extracted Traits Preview */}
+                            {(editTraits.platform || editTraits.hookType || editTraits.categories.length > 0 || editTraits.traits.length > 0) && (
+                                <div className={styles.traitSection} style={{ background: 'rgba(59, 130, 246, 0.1)', padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
+                                    <h4 style={{ marginBottom: 'var(--spacing-sm)' }}>Extracted Traits</h4>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
+                                        {editTraits.platform && (
+                                            <span className="tag tag-primary">{editTraits.platform}</span>
+                                        )}
+                                        {editTraits.hookType && (
+                                            <span className="tag tag-secondary">{editTraits.hookType}</span>
+                                        )}
+                                        {editTraits.categories.map(cat => (
+                                            <span key={cat} className="tag" style={{ background: 'var(--accent-secondary)', color: 'white' }}>{cat}</span>
+                                        ))}
+                                        {editTraits.traits.map(trait => (
+                                            <span key={trait} className="tag">{trait}</span>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Categories */}
-                            <div className={styles.traitSection}>
-                                <h4>📂 Content Categories</h4>
-                                <div className={styles.traitGrid}>
-                                    {TRAIT_OPTIONS.categories.map(cat => (
-                                        <button
-                                            key={cat}
-                                            className={`${styles.traitChip} ${editTraits.categories.includes(cat) ? styles.selected : ''}`}
-                                            onClick={() => toggleTrait('categories', cat)}
-                                        >
-                                            {cat}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                            {/* Manual Options (Collapsible) */}
+                            <details style={{ marginTop: 'var(--spacing-md)' }}>
+                                <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                    Manual Options (click to expand)
+                                </summary>
+                                <div style={{ marginTop: 'var(--spacing-md)' }}>
+                                    {/* Platform */}
+                                    <div className={styles.traitSection}>
+                                        <h4>Platform</h4>
+                                        <div className={styles.traitGrid}>
+                                            {TRAIT_OPTIONS.platforms.map(platform => (
+                                                <button
+                                                    key={platform}
+                                                    className={`${styles.traitChip} ${editTraits.platform === platform ? styles.selected : ''}`}
+                                                    onClick={() => setEditTraits(prev => ({ ...prev, platform }))}
+                                                >
+                                                    {platform}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                            {/* Editing Styles */}
-                            <div className={styles.traitSection}>
-                                <h4>🎬 Editing Style</h4>
-                                <div className={styles.traitGrid}>
-                                    {TRAIT_OPTIONS.editingStyles.map(style => (
-                                        <button
-                                            key={style}
-                                            className={`${styles.traitChip} ${editTraits.traits.includes(style) ? styles.selected : ''}`}
-                                            onClick={() => toggleTrait('traits', style)}
-                                        >
-                                            {style}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                                    {/* Hook Type */}
+                                    <div className={styles.traitSection}>
+                                        <h4>Hook Type</h4>
+                                        <div className={styles.traitGrid}>
+                                            {TRAIT_OPTIONS.hookTypes.map(hook => (
+                                                <button
+                                                    key={hook}
+                                                    className={`${styles.traitChip} ${editTraits.hookType === hook ? styles.selected : ''}`}
+                                                    onClick={() => setEditTraits(prev => ({ ...prev, hookType: hook }))}
+                                                >
+                                                    {hook}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                            {/* Features */}
-                            <div className={styles.traitSection}>
-                                <h4>✨ Features</h4>
-                                <div className={styles.traitGrid}>
-                                    {TRAIT_OPTIONS.features.map(feature => (
-                                        <button
-                                            key={feature}
-                                            className={`${styles.traitChip} ${editTraits.traits.includes(feature) ? styles.selected : ''}`}
-                                            onClick={() => toggleTrait('traits', feature)}
-                                        >
-                                            {feature}
-                                        </button>
-                                    ))}
+                                    {/* Categories */}
+                                    <div className={styles.traitSection}>
+                                        <h4>Content Categories</h4>
+                                        <div className={styles.traitGrid}>
+                                            {TRAIT_OPTIONS.categories.map(cat => (
+                                                <button
+                                                    key={cat}
+                                                    className={`${styles.traitChip} ${editTraits.categories.includes(cat) ? styles.selected : ''}`}
+                                                    onClick={() => toggleTrait('categories', cat)}
+                                                >
+                                                    {cat}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Editing Styles */}
+                                    <div className={styles.traitSection}>
+                                        <h4>Editing Style</h4>
+                                        <div className={styles.traitGrid}>
+                                            {TRAIT_OPTIONS.editingStyles.map(style => (
+                                                <button
+                                                    key={style}
+                                                    className={`${styles.traitChip} ${editTraits.traits.includes(style) ? styles.selected : ''}`}
+                                                    onClick={() => toggleTrait('traits', style)}
+                                                >
+                                                    {style}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Features */}
+                                    <div className={styles.traitSection}>
+                                        <h4>Features</h4>
+                                        <div className={styles.traitGrid}>
+                                            {TRAIT_OPTIONS.features.map(feature => (
+                                                <button
+                                                    key={feature}
+                                                    className={`${styles.traitChip} ${editTraits.traits.includes(feature) ? styles.selected : ''}`}
+                                                    onClick={() => toggleTrait('traits', feature)}
+                                                >
+                                                    {feature}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            </details>
                         </div>
 
                         <div className={styles.modalFooter}>
                             <button className="btn btn-secondary" onClick={cancelEditing}>Cancel</button>
                             <button className="btn btn-primary" onClick={saveTraitEdits}>
-                                💾 Save Traits
+                                Save Traits
                             </button>
                         </div>
                     </div>
