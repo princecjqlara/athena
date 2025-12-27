@@ -137,6 +137,10 @@ export default function ImportPage() {
     const [pipelines, setPipelines] = useState<Array<{ id: string; name: string; stages: Array<{ id: string; name: string }> }>>([]);
     const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
 
+    // Business context for AI - optional fields to help AI understand the sales process
+    const [businessType, setBusinessType] = useState<string>('');
+    const [salesProcess, setSalesProcess] = useState<string>('');
+
     // Facebook Page selection for Messenger conversations (loaded from Settings/localStorage)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [facebookPages, setFacebookPages] = useState<Array<{ id: string; name: string; access_token: string }>>([]);
@@ -957,7 +961,12 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                         conversations: convoData.contacts, // Send ALL contacts, not a slice
-                                        pipelineStages
+                                        pipelineStages,
+                                        // Pass business context to help AI understand the business
+                                        businessContext: (businessType || salesProcess) ? {
+                                            businessType,
+                                            salesProcess
+                                        } : undefined
                                     })
                                 });
                                 const aiData = await aiResponse.json();
@@ -1420,6 +1429,57 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                             >
                                 🐛 {showDebug ? 'Hide' : 'Show'} Raw Data
                             </button>
+                        </div>
+                    </div>
+
+                    {/* Business Context Section - Optional but helps AI */}
+                    <div style={{
+                        padding: 'var(--spacing-md)',
+                        background: 'rgba(139, 92, 246, 0.05)',
+                        border: '1px solid rgba(139, 92, 246, 0.2)',
+                        borderRadius: 'var(--radius-md)',
+                        marginBottom: 'var(--spacing-md)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
+                            <span style={{ fontSize: '1rem' }}>🧠</span>
+                            <h4 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600 }}>Help AI Understand Your Business (Optional)</h4>
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-md)' }}>
+                            Providing context helps AI create more relevant pipeline stages instead of generic ones.
+                        </p>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+                            <div className="form-group" style={{ flex: '1', minWidth: '200px', marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.75rem' }}>Business Type</label>
+                                <select
+                                    className="form-select"
+                                    value={businessType}
+                                    onChange={(e) => setBusinessType(e.target.value)}
+                                    style={{ fontSize: '0.875rem' }}
+                                >
+                                    <option value="">-- Select your business type --</option>
+                                    <option value="ecommerce">🛒 E-commerce / Online Store</option>
+                                    <option value="services">🛠️ Services (Consulting, Agency, etc.)</option>
+                                    <option value="saas">💻 SaaS / Software</option>
+                                    <option value="real-estate">🏠 Real Estate</option>
+                                    <option value="coaching">📚 Coaching / Courses / Education</option>
+                                    <option value="retail">🏪 Retail / Physical Store</option>
+                                    <option value="b2b">🤝 B2B / Enterprise Sales</option>
+                                    <option value="healthcare">🏥 Healthcare / Wellness</option>
+                                    <option value="food">🍔 Food & Beverage</option>
+                                    <option value="other">📦 Other</option>
+                                </select>
+                            </div>
+                            <div className="form-group" style={{ flex: '2', minWidth: '300px', marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.75rem' }}>Your Sales Process (optional)</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="e.g., 'Leads inquire about price → we send pricing → they book a call → close the deal'"
+                                    value={salesProcess}
+                                    onChange={(e) => setSalesProcess(e.target.value)}
+                                    style={{ fontSize: '0.875rem' }}
+                                />
+                            </div>
                         </div>
                     </div>
 

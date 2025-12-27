@@ -25,7 +25,15 @@ const COMPREHENSIVE_SALES_STAGES = [
  */
 export async function POST(request: NextRequest) {
     try {
-        const { conversations, pipelineStages } = await request.json();
+        const { conversations, pipelineStages, businessContext } = await request.json();
+
+        // Log business context if provided
+        if (businessContext) {
+            console.log(`[AI] Business context provided:`, {
+                type: businessContext.businessType,
+                process: businessContext.salesProcess?.substring(0, 100)
+            });
+        }
 
         if (!conversations || !Array.isArray(conversations) || conversations.length === 0) {
             return NextResponse.json({
@@ -225,6 +233,18 @@ export async function POST(request: NextRequest) {
                         s.name.toLowerCase().includes('engaged')
                     );
                     suggestedStageId = match?.id || 'contacted';
+                }
+            } else {
+                // Default for Messenger leads: they've been contacted since we have a conversation
+                // Only use 'new-lead' if there are truly no customer messages
+                if (customerMsgCount > 0) {
+                    const match = allAvailableStages.find((s: any) =>
+                        s.name.toLowerCase().includes('contacted')
+                    );
+                    suggestedStageId = match?.id || 'contacted';
+                } else {
+                    // No customer messages - still new lead
+                    suggestedStageId = 'new-lead';
                 }
             }
 

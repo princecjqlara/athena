@@ -122,6 +122,9 @@ export default function PipelineDetailPage() {
     const [showAddStageModal, setShowAddStageModal] = useState(false);
     const [newStageName, setNewStageName] = useState('');
 
+    // Re-analyze state
+    const [isReanalyzing, setIsReanalyzing] = useState(false);
+
     useEffect(() => {
         // Load pipeline from localStorage
         const savedPipelines = localStorage.getItem('pipelines');
@@ -337,6 +340,62 @@ export default function PipelineDetailPage() {
                 pipelines[idx] = updatedPipeline;
                 localStorage.setItem('pipelines', JSON.stringify(pipelines));
             }
+        }
+    };
+
+    // Re-analyze all leads with AI
+    const handleReanalyzeLeads = async () => {
+        if (!pipeline || leads.length === 0) return;
+
+        setIsReanalyzing(true);
+        try {
+            // Convert leads to conversation format for AI
+            const conversations = leads.map(lead => ({
+                id: lead.id,
+                name: lead.name,
+                facebookPsid: lead.facebookPsid,
+                messages: lead.messages || [],
+                firstMessageAt: lead.createdAt,
+                lastMessageAt: lead.lastActivity
+            }));
+
+            const response = await fetch('/api/ai/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    conversations,
+                    pipelineStages: pipeline.stages
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.leads?.length > 0) {
+                console.log('[Reanalyze] AI analysis complete:', data.summary);
+
+                // Update leads with new suggested stages
+                const updatedLeads = leads.map(lead => {
+                    const analyzed = data.leads.find((a: any) => a.id === lead.id || a.facebookPsid === lead.facebookPsid);
+                    if (analyzed?.aiAnalysis?.suggestedStage) {
+                        return {
+                            ...lead,
+                            stageId: analyzed.aiAnalysis.suggestedStage,
+                            aiAnalysis: analyzed.aiAnalysis
+                        };
+                    }
+                    return lead;
+                });
+
+                saveLeads(updatedLeads);
+                alert(`✅ Re-analyzed ${data.leads.length} leads!\n\nStage distribution: ${JSON.stringify(data.summary?.stageDistribution || {})}`);
+            } else {
+                alert('No leads were analyzed. Try importing conversations first.');
+            }
+        } catch (err) {
+            console.error('[Reanalyze] Error:', err);
+            alert('Failed to re-analyze leads. Check console for details.');
+        } finally {
+            setIsReanalyzing(false);
         }
     };
 
@@ -702,13 +761,23 @@ export default function PipelineDetailPage() {
                             <span className={styles.statLabel}>Revenue</span>
                         </div>
                     </div>
-                    <button className="btn btn-primary" onClick={() => setShowAddLeadModal(true)}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <line x1="12" y1="5" x2="12" y2="19" />
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                        Add Lead
-                    </button>
+                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                        <button
+                            className="btn btn-ghost"
+                            onClick={handleReanalyzeLeads}
+                            disabled={isReanalyzing || leads.length === 0}
+                            title="Re-analyze all leads with AI"
+                        >
+                            {isReanalyzing ? '⏳ Analyzing...' : '🤖 Re-analyze Leads'}
+                        </button>
+                        <button className="btn btn-primary" onClick={() => setShowAddLeadModal(true)}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            Add Lead
+                        </button>
+                    </div>
                 </div>
             </header>
 

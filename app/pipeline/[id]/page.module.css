@@ -414,11 +414,13 @@
     color: var(--error);
 }
 
-/* View Contacts Button */
+/* View Contacts Button - positioned to avoid bulk actions bar */
 .viewContactsBtn {
     position: fixed;
-    bottom: var(--spacing-lg);
-    right: var(--spacing-lg);
+    bottom: 80px;
+    /* Moved up to avoid overlap with bulk actions */
+    right: 100px;
+    /* Moved left to avoid chatbot */
     display: flex;
     align-items: center;
     gap: 8px;
