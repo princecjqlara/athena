@@ -1432,23 +1432,22 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                         </div>
                     </div>
 
-                    {/* Business Context Section - Optional but helps AI */}
+                    {/* Business Context Section - Optional */}
                     <div style={{
                         padding: 'var(--spacing-md)',
-                        background: 'rgba(139, 92, 246, 0.05)',
-                        border: '1px solid rgba(139, 92, 246, 0.2)',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
                         borderRadius: 'var(--radius-md)',
                         marginBottom: 'var(--spacing-md)'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
-                            <span style={{ fontSize: '1rem' }}>🧠</span>
-                            <h4 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600 }}>Help AI Understand Your Business (Optional)</h4>
-                        </div>
+                        <h4 style={{ margin: '0 0 var(--spacing-sm) 0', fontSize: '0.875rem', fontWeight: 600 }}>
+                            Business Context (Optional)
+                        </h4>
                         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-md)' }}>
-                            Providing context helps AI create more relevant pipeline stages instead of generic ones.
+                            Helps AI create relevant pipeline stages for your business.
                         </p>
                         <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
-                            <div className="form-group" style={{ flex: '1', minWidth: '200px', marginBottom: 0 }}>
+                            <div className="form-group" style={{ flex: '1', minWidth: '180px', marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.75rem' }}>Business Type</label>
                                 <select
                                     className="form-select"
@@ -1456,25 +1455,25 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                     onChange={(e) => setBusinessType(e.target.value)}
                                     style={{ fontSize: '0.875rem' }}
                                 >
-                                    <option value="">-- Select your business type --</option>
-                                    <option value="ecommerce">🛒 E-commerce / Online Store</option>
-                                    <option value="services">🛠️ Services (Consulting, Agency, etc.)</option>
-                                    <option value="saas">💻 SaaS / Software</option>
-                                    <option value="real-estate">🏠 Real Estate</option>
-                                    <option value="coaching">📚 Coaching / Courses / Education</option>
-                                    <option value="retail">🏪 Retail / Physical Store</option>
-                                    <option value="b2b">🤝 B2B / Enterprise Sales</option>
-                                    <option value="healthcare">🏥 Healthcare / Wellness</option>
-                                    <option value="food">🍔 Food & Beverage</option>
-                                    <option value="other">📦 Other</option>
+                                    <option value="">Select type...</option>
+                                    <option value="ecommerce">E-commerce</option>
+                                    <option value="services">Services</option>
+                                    <option value="saas">SaaS / Software</option>
+                                    <option value="real-estate">Real Estate</option>
+                                    <option value="coaching">Coaching / Education</option>
+                                    <option value="retail">Retail</option>
+                                    <option value="b2b">B2B Sales</option>
+                                    <option value="healthcare">Healthcare</option>
+                                    <option value="food">Food & Beverage</option>
+                                    <option value="other">Other</option>
                                 </select>
                             </div>
-                            <div className="form-group" style={{ flex: '2', minWidth: '300px', marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.75rem' }}>Your Sales Process (optional)</label>
+                            <div className="form-group" style={{ flex: '2', minWidth: '280px', marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.75rem' }}>Sales Process</label>
                                 <input
                                     type="text"
                                     className="form-input"
-                                    placeholder="e.g., 'Leads inquire about price → we send pricing → they book a call → close the deal'"
+                                    placeholder="e.g., Inquiry → Send pricing → Book call → Close"
                                     value={salesProcess}
                                     onChange={(e) => setSalesProcess(e.target.value)}
                                     style={{ fontSize: '0.875rem' }}

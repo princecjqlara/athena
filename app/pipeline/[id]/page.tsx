@@ -768,7 +768,7 @@ export default function PipelineDetailPage() {
                             disabled={isReanalyzing || leads.length === 0}
                             title="Re-analyze all leads with AI"
                         >
-                            {isReanalyzing ? '⏳ Analyzing...' : '🤖 Re-analyze Leads'}
+                            {isReanalyzing ? 'Analyzing...' : 'Re-analyze Leads'}
                         </button>
                         <button className="btn btn-primary" onClick={() => setShowAddLeadModal(true)}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
