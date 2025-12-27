@@ -104,6 +104,21 @@ interface FacebookAd {
     regions?: { country?: string; impressions?: number; spend?: number }[];
     byDevice?: { device: string; impressions: number; clicks: number; spend: number }[];
     byPlatform?: { platform: string; impressions: number; clicks: number; spend: number }[];
+    // Campaign/AdSet hierarchy
+    campaign?: {
+        id: string;
+        name: string;
+        objective?: string;
+        status?: string;
+    };
+    adset?: {
+        id: string;
+        name: string;
+        optimizationGoal?: string;
+        billingEvent?: string;
+        dailyBudget?: number | null;
+        lifetimeBudget?: number | null;
+    };
 }
 
 interface StoredAd {
@@ -925,6 +940,21 @@ ${m.messagesStarted ? `• Messages Started: ${m.messagesStarted}` : ''}
                 importedAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 lastSyncedAt: new Date().toISOString(),
+                // Campaign/AdSet hierarchy for folder view in My Ads
+                campaign: fbAd.campaign ? {
+                    id: fbAd.campaign.id,
+                    name: fbAd.campaign.name,
+                    objective: fbAd.campaign.objective,
+                    status: fbAd.campaign.status
+                } : undefined,
+                adset: fbAd.adset ? {
+                    id: fbAd.adset.id,
+                    name: fbAd.adset.name,
+                    optimizationGoal: fbAd.adset.optimizationGoal,
+                    billingEvent: fbAd.adset.billingEvent,
+                    dailyBudget: fbAd.adset.dailyBudget,
+                    lifetimeBudget: fbAd.adset.lifetimeBudget
+                } : undefined,
                 // Auto-generated results description from Facebook metrics
                 resultsDescription: fbAd.metrics ? `📊 Facebook Ad Performance Report
 

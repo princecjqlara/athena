@@ -459,6 +459,21 @@ export async function GET(request: NextRequest) {
                                 cost: parseFloat(a.value) || 0
                             })),
                         },
+                        // Campaign/AdSet Hierarchy
+                        campaign: ad.campaign ? {
+                            id: ad.campaign.id,
+                            name: ad.campaign.name,
+                            objective: ad.campaign.objective,
+                            status: ad.campaign.status
+                        } : undefined,
+                        adset: ad.adset ? {
+                            id: ad.adset.id,
+                            name: ad.adset.name,
+                            optimizationGoal: ad.adset.optimization_goal,
+                            billingEvent: ad.adset.billing_event,
+                            dailyBudget: ad.adset.daily_budget ? parseFloat(ad.adset.daily_budget) / 100 : null,
+                            lifetimeBudget: ad.adset.lifetime_budget ? parseFloat(ad.adset.lifetime_budget) / 100 : null
+                        } : undefined,
                         // Breakdowns
                         demographics,
                         placements,
@@ -477,6 +492,14 @@ export async function GET(request: NextRequest) {
                         mediaType: 'unknown',
                         thumbnailUrl: ad.creative?.thumbnail_url || '',
                         metrics: null,
+                        campaign: ad.campaign ? {
+                            id: ad.campaign.id,
+                            name: ad.campaign.name
+                        } : undefined,
+                        adset: ad.adset ? {
+                            id: ad.adset.id,
+                            name: ad.adset.name
+                        } : undefined,
                         demographics: [],
                         placements: [],
                         regions: [],

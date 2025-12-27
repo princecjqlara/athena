@@ -608,11 +608,22 @@ export default function PipelineDetailPage() {
         moveLead(draggedLead.id, stageId);
     };
 
-    const moveLead = (leadId: string, stageId: string, convValue?: number, convertedAt?: string) => {
-        const updatedLeads = leads.map(lead =>
-            lead.id === leadId
+    const moveLead = async (leadId: string, stageId: string, convValue?: number, convertedAt?: string) => {
+        if (!pipeline) return;
+
+        const lead = leads.find(l => l.id === leadId);
+        const fromStage = pipeline.stages.find(s => s.id === lead?.stageId);
+        const toStage = pipeline.stages.find(s => s.id === stageId);
+
+        // Fire lead lifecycle event
+        if (lead && toStage?.facebookEvent) {
+            await fireLeadLifecycleEvent(lead, toStage.facebookEvent, fromStage?.facebookEvent, convValue);
+        }
+
+        const updatedLeads = leads.map(l =>
+            l.id === leadId
                 ? {
-                    ...lead,
+                    ...l,
                     stageId,
                     lastActivity: new Date().toISOString(),
                     ...(convValue !== undefined && {
@@ -620,11 +631,82 @@ export default function PipelineDetailPage() {
                         convertedAt: convertedAt || new Date().toISOString()
                     })
                 }
-                : lead
+                : l
         );
 
         saveLeads(updatedLeads);
         setDraggedLead(null);
+    };
+
+    // Fire lead lifecycle event with hybrid scoring model
+    const fireLeadLifecycleEvent = async (
+        lead: Lead,
+        toEvent: string,
+        fromEvent: string | undefined,
+        revenueValue?: number
+    ) => {
+        const fromEventName = fromEvent as LeadEventName | undefined;
+        const toEventName = toEvent as LeadEventName;
+
+        // Validate transition using the lead events library
+        const validation = isValidTransition(fromEventName || null, toEventName);
+        if (!validation.valid) {
+            console.warn(`[LeadEvents] Invalid transition: ${validation.reason}`);
+            // Still allow the move but log the warning
+        }
+
+        // Create the event using the hybrid scoring model
+        const event = createLeadEvent(toEventName, lead.id, {
+            revenueValue: toEventName === 'completed' ? revenueValue : undefined,
+            currency: 'PHP',
+            previousStage: fromEventName,
+            lostReason: toEventName === 'lost' ? 'manual_move' : undefined
+        });
+
+        // Get CAPI credentials
+        const datasetId = localStorage.getItem('meta_dataset_id');
+        const capiToken = localStorage.getItem('meta_capi_token');
+
+        if (!datasetId || !capiToken) {
+            console.log(`[LeadEvents] CAPI not configured - logged event locally:`, event);
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/capi/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    datasetId,
+                    accessToken: capiToken,
+                    eventName: event.event_name,
+                    eventTime: event.timestamp,
+                    eventId: `lead_${lead.id}_${event.event_name}_${Date.now()}`,
+                    leadId: lead.facebookLeadId,
+                    email: lead.email,
+                    phone: lead.phone,
+                    firstName: lead.name?.split(' ')[0],
+                    lastName: lead.name?.split(' ').slice(1).join(' '),
+                    value: event.value,
+                    currency: event.currency || 'PHP',
+                    customData: {
+                        lead_score: event.lead_score,
+                        from_stage: fromEvent,
+                        to_stage: toEvent,
+                        source: lead.source
+                    }
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                console.log(`[LeadEvents] ${toEventName} event sent (score: ${event.lead_score}, value: ${event.value})`);
+            } else {
+                console.error(`[LeadEvents] Failed to send event:`, result.error);
+            }
+        } catch (err) {
+            console.error('[LeadEvents] Error sending event:', err);
+        }
     };
 
     const handleConversionSubmit = async () => {
