@@ -138,10 +138,19 @@ export default function ImportPage() {
     const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
 
     // Facebook Page selection for Messenger conversations (loaded from Settings/localStorage)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [facebookPages, setFacebookPages] = useState<Array<{ id: string; name: string; access_token: string }>>([]);
-    // Read saved page from localStorage (set in Settings)
-    const savedPageId = typeof window !== 'undefined' ? localStorage.getItem('fb_selected_page_id') || '' : '';
-    const savedPageToken = typeof window !== 'undefined' ? localStorage.getItem('fb_selected_page_token') || '' : '';
+    // Read saved page from localStorage (set in Settings) - use state to avoid SSR issues
+    const [savedPageId, setSavedPageId] = useState<string>('');
+    const [savedPageToken, setSavedPageToken] = useState<string>('');
+
+    // Load saved page on mount
+    useEffect(() => {
+        const pageId = localStorage.getItem('fb_selected_page_id') || '';
+        const pageToken = localStorage.getItem('fb_selected_page_token') || '';
+        setSavedPageId(pageId);
+        setSavedPageToken(pageToken);
+    }, []);
 
     // Traits for each selected ad
     const [adTraits, setAdTraits] = useState<Record<string, {
