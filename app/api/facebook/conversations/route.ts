@@ -97,8 +97,8 @@ export async function GET(request: NextRequest) {
             let nextUrl: string | null = `https://graph.facebook.com/v24.0/me/accounts?fields=id,name,access_token,category&limit=100&access_token=${userAccessToken}`;
 
             while (nextUrl) {
-                const pagesResponse = await fetch(nextUrl);
-                const pagesData = await pagesResponse.json();
+                const pagesResponse: Response = await fetch(nextUrl);
+                const pagesData: { data?: Array<{ id: string; name: string; access_token: string; category: string }>; paging?: { next?: string }; error?: { message: string } } = await pagesResponse.json();
 
                 if (pagesData.error) {
                     console.error('[Conversations] Error fetching pages:', pagesData.error);
