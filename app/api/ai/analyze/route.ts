@@ -34,16 +34,27 @@ export async function POST(request: NextRequest) {
         let stagesToUse = pipelineStages || [];
         const suggestedNewStages: Array<{ id: string; name: string; isGoal: boolean }> = [];
 
+        // Check if pipeline already has a goal stage
+        const hasGoal = stagesToUse.some((s: any) => s.isGoal);
+
         // If pipeline has minimal stages, suggest adding journey stages
         if (stagesToUse.length < 4) {
             for (const defaultStage of DEFAULT_JOURNEY_STAGES) {
+                // Skip if already exists by name or id
                 const exists = stagesToUse.some((s: any) =>
                     s.name.toLowerCase() === defaultStage.name.toLowerCase() ||
                     s.id === defaultStage.id
                 );
-                if (!exists) {
-                    suggestedNewStages.push(defaultStage);
-                }
+                if (exists) continue;
+
+                // Don't add Converted goal if pipeline already has a goal
+                if (defaultStage.isGoal && hasGoal) continue;
+
+                suggestedNewStages.push({
+                    ...defaultStage,
+                    // Only mark as goal if no existing goal
+                    isGoal: defaultStage.isGoal && !hasGoal
+                });
             }
         }
 

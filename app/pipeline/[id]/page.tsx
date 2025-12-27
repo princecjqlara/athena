@@ -367,11 +367,22 @@ export default function PipelineDetailPage() {
     };
 
     // Delete a lead
-    const handleDeleteLead = (leadId: string, leadName: string) => {
-        if (!confirm(`Delete "${leadName}"?\n\nThis will permanently remove this lead.`)) return;
+    const handleDeleteLead = async (leadId: string, leadName: string) => {
+        if (!confirm(`Delete "${leadName}"?\n\nThis will permanently remove this lead from all data sources.`)) return;
 
+        // Delete from localStorage
         const updatedLeads = leads.filter(l => l.id !== leadId);
         saveLeads(updatedLeads);
+
+        // Also delete from Supabase if it exists there
+        try {
+            await fetch(`/api/contacts?id=${leadId}`, {
+                method: 'DELETE'
+            });
+            console.log(`[Pipeline] Deleted lead ${leadId} from Supabase`);
+        } catch (err) {
+            console.log('[Pipeline] Lead not in Supabase or delete failed:', err);
+        }
     };
 
     // Bulk selection handlers
