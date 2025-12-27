@@ -865,8 +865,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
         let leadsCreated = 0;
         let realLeadsCount = 0;
         let placeholderLeadsCount = 0;
-
-        // For each ad, try to fetch actual leads from Facebook Lead Ads API
+        // For each ad, fetch actual leads/contacts from Facebook
         for (const ad of newAds) {
             const metrics = (ad as any).adInsights;
             const messagesStarted = metrics?.messagesStarted || 0;
@@ -875,195 +874,190 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
             const adId = (ad as any).facebookAdId || (ad as any).id;
             const adCreatedAt = (ad as any).createdAt;
 
-            // Try to fetch actual lead data from Facebook Lead Ads API
-            try {
-                console.log(`[Import] Fetching leads for ad: ${adName} (${adId})`);
-                const leadsResponse = await fetch(`/api/facebook/leads?adId=${adId}&accessToken=${accessToken}`);
-                const leadsData = await leadsResponse.json();
+            // ============================================
+            // STEP 1: For MESSENGER ADS - Fetch conversations FIRST
+            // ============================================
+            if (messagesStarted > 0) {
+                console.log(`[Import] 📱 ${adName} has ${messagesStarted} messages - fetching conversations...`);
 
-                console.log(`[Import] Leads API response:`, {
-                    success: leadsData.success,
-                    count: leadsData.data?.length || 0,
-                    isLeadAd: leadsData.isLeadAd,
-                    message: leadsData.message
-                });
+                try {
+                    // Get user's Facebook pages
+                    const pagesResponse = await fetch(`/api/facebook/conversations?get_pages=true&access_token=${accessToken}`);
+                    const pagesData = await pagesResponse.json();
 
-                if (leadsData.success && leadsData.data && leadsData.data.length > 0) {
-                    // We have actual leads with names!
-                    for (const fbLead of leadsData.data) {
-                        const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                    console.log(`[Import] Pages response:`, { success: pagesData.success, count: pagesData.pages?.length || 0 });
 
-                        // Build best possible name
-                        let leadName = fbLead.fullName;
-                        if (!leadName && fbLead.firstName) {
-                            leadName = fbLead.lastName ? `${fbLead.firstName} ${fbLead.lastName}` : fbLead.firstName;
-                        }
-                        if (!leadName && fbLead.email) {
-                            // Use email username as name
-                            leadName = fbLead.email.split('@')[0].replace(/[._-]/g, ' ');
-                            // Capitalize first letter of each word
-                            leadName = leadName.replace(/\b\w/g, (c: string) => c.toUpperCase());
-                        }
-                        if (!leadName) {
-                            // Use ad name + timestamp as last resort
-                            const leadTime = new Date(fbLead.createdAt || Date.now());
-                            leadName = `${adName.substring(0, 15)} - ${leadTime.toLocaleDateString()}`;
-                        }
+                    if (pagesData.success && pagesData.pages?.length > 0) {
+                        const page = pagesData.pages[0];
+                        const pageId = page.id;
+                        const pageToken = page.access_token;
+                        console.log(`[Import] Using page: ${page.name} (${pageId})`);
 
-                        const leadData = {
-                            id: leadId,
-                            name: leadName,
-                            email: fbLead.email,
-                            phone: fbLead.phone,
-                            city: fbLead.city,
-                            state: fbLead.state,
-                            country: fbLead.country,
-                            sourceAdId: adId,
-                            sourceAdName: adName,
-                            facebookLeadId: fbLead.id,
-                            facebookAdId: adId,
-                            campaignId: fbLead.campaignId,
-                            formId: fbLead.formId,
-                            source: 'Facebook Lead Ad',
-                            stageId: 'new-lead',
-                            pipelineId: selectedPipelineId || undefined,
-                            createdAt: fbLead.createdAt || new Date().toISOString(),
-                            lastActivity: new Date().toISOString(),
-                            isPlaceholder: false,
-                            isRealLead: true,
-                            rawFields: fbLead.rawFields,
-                        };
+                        // Fetch conversations with real contact names
+                        const convoResponse = await fetch(
+                            `/api/facebook/conversations?page_id=${pageId}&page_access_token=${pageToken || ''}&access_token=${accessToken}&limit=${Math.min(messagesStarted, 50)}`
+                        );
+                        const convoData = await convoResponse.json();
 
-                        // Save to appropriate storage
-                        if (selectedPipelineId) {
-                            const pipelineLeadsKey = `leads_${selectedPipelineId}`;
-                            const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
-                            existingLeads.push(leadData);
-                            localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
+                        console.log(`[Import] Conversations response:`, {
+                            success: convoData.success,
+                            count: convoData.contacts?.length || 0,
+                            error: convoData.error
+                        });
 
-                            const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
-                            const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
-                            if (pIndex !== -1) {
-                                pipelinesData[pIndex].leadCount = (pipelinesData[pIndex].leadCount || 0) + 1;
-                                localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
-                            }
-                        } else {
-                            const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
-                            existingContacts.push(leadData);
-                            localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
-                        }
-                        leadsCreated++;
-                        realLeadsCount++;
-                    }
-                    console.log(`[Import] Created ${leadsData.data.length} real leads from ad: ${adName}`);
-                    continue; // Skip placeholder creation since we got real leads
-                }
+                        if (convoData.success && convoData.contacts?.length > 0) {
+                            console.log(`[Import] ✅ Found ${convoData.contacts.length} real conversations with names!`);
 
-                // If this is a Messages/Messenger ad OR a Lead Ad with 0 leads, try to fetch conversations
-                // We attempt conversation fetch when:
-                // 1. isLeadAd is explicitly false (not a lead ad) AND has messages
-                // 2. OR leads returned 0 results AND has messages (might be a Messenger ad)
-                const shouldFetchConversations = messagesStarted > 0 &&
-                    (leadsData.isLeadAd === false || (leadsData.data?.length || 0) === 0);
+                            const contactsToImport = convoData.contacts.slice(0, messagesStarted);
 
-                if (shouldFetchConversations) {
-                    console.log(`[Import] ${adName} - attempting conversation fetch (isLeadAd: ${leadsData.isLeadAd}, leadsCount: ${leadsData.data?.length || 0}, messagesStarted: ${messagesStarted})`);
+                            for (const contact of contactsToImport) {
+                                const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                const leadData = {
+                                    id: leadId,
+                                    name: contact.name || 'Unknown',
+                                    email: contact.email,
+                                    phone: contact.phone,
+                                    sourceAdId: adId,
+                                    sourceAdName: adName,
+                                    facebookPsid: contact.facebookPsid,
+                                    facebookAdId: adId,
+                                    source: 'Facebook Messenger',
+                                    stageId: 'new-lead',
+                                    pipelineId: selectedPipelineId || undefined,
+                                    createdAt: contact.firstMessageAt || new Date().toISOString(),
+                                    lastActivity: contact.lastMessageAt || new Date().toISOString(),
+                                    isPlaceholder: false,
+                                    isRealLead: true,
+                                    lastMessage: contact.lastMessage,
+                                };
 
-                    // First get the user's pages to find the right one
-                    try {
-                        const pagesResponse = await fetch(`/api/facebook/conversations?get_pages=true&access_token=${accessToken}`);
-                        const pagesData = await pagesResponse.json();
+                                if (selectedPipelineId) {
+                                    const pipelineLeadsKey = `leads_${selectedPipelineId}`;
+                                    const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
+                                    existingLeads.push(leadData);
+                                    localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
 
-                        if (pagesData.success && pagesData.pages?.length > 0) {
-                            // Use the first page (could let user select if multiple)
-                            const page = pagesData.pages[0];
-                            const pageId = page.id;
-                            const pageToken = page.access_token; // Use page token for profile fetching
-                            console.log(`[Import] Using page: ${page.name} (${pageId}), has token: ${!!pageToken}`);
-
-                            // Fetch ALL conversations for this page (not filtered by ad_id)
-                            // Facebook doesn't reliably include ad_id in conversation links
-                            // We limit to messagesStarted count to get recent contacts
-                            // Use page_access_token for better profile fetching
-                            const convoResponse = await fetch(
-                                `/api/facebook/conversations?page_id=${pageId}&page_access_token=${pageToken || ''}&access_token=${accessToken}&limit=${Math.min(messagesStarted, 50)}`
-                            );
-                            const convoData = await convoResponse.json();
-
-                            if (convoData.success && convoData.contacts?.length > 0) {
-                                console.log(`[Import] Found ${convoData.contacts.length} real conversations!`);
-
-                                // Take up to messagesStarted contacts and associate them with this ad
-                                const contactsToImport = convoData.contacts.slice(0, messagesStarted);
-
-                                for (const contact of contactsToImport) {
-                                    const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                                    const leadData = {
-                                        id: leadId,
-                                        name: contact.name || 'Unknown',
-                                        email: contact.email,
-                                        phone: contact.phone,
-                                        sourceAdId: adId,
-                                        sourceAdName: adName,
-                                        facebookPsid: contact.facebookPsid,
-                                        facebookAdId: adId,
-                                        source: 'Facebook Messenger',
-                                        stageId: 'new-lead',
-                                        pipelineId: selectedPipelineId || undefined,
-                                        createdAt: contact.firstMessageAt || new Date().toISOString(),
-                                        lastActivity: contact.lastMessageAt || new Date().toISOString(),
-                                        isPlaceholder: false,
-                                        isRealLead: true,
-                                        lastMessage: contact.lastMessage,
-                                    };
-
-                                    if (selectedPipelineId) {
-                                        const pipelineLeadsKey = `leads_${selectedPipelineId}`;
-                                        const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
-                                        existingLeads.push(leadData);
-                                        localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
-
-                                        const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
-                                        const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
-                                        if (pIndex !== -1) {
-                                            pipelinesData[pIndex].leadCount = (pipelinesData[pIndex].leadCount || 0) + 1;
-                                            localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
-                                        }
-                                    } else {
-                                        const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
-                                        existingContacts.push(leadData);
-                                        localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
+                                    const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
+                                    const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
+                                    if (pIndex !== -1) {
+                                        pipelinesData[pIndex].leadCount = (pipelinesData[pIndex].leadCount || 0) + 1;
+                                        localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
                                     }
-                                    leadsCreated++;
-                                    realLeadsCount++;
+                                } else {
+                                    const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
+                                    existingContacts.push(leadData);
+                                    localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
                                 }
-                                console.log(`[Import] Created ${contactsToImport.length} real leads from conversations`);
-                                continue; // Skip placeholder creation
-                            } else {
-                                console.log(`[Import] ⚠️ No conversations found. Response:`, {
-                                    success: convoData.success,
-                                    error: convoData.error,
-                                    contactsCount: convoData.contacts?.length,
-                                    details: convoData.details
-                                });
+                                leadsCreated++;
+                                realLeadsCount++;
                             }
+                            console.log(`[Import] Created ${contactsToImport.length} leads from Messenger conversations`);
+                            continue; // Done with this ad, skip to next
                         } else {
-                            console.log(`[Import] ⚠️ No pages found or failed:`, pagesData);
+                            console.log(`[Import] ⚠️ No conversations returned. Error:`, convoData.error || 'none');
                         }
-                    } catch (convoErr) {
-                        console.log('[Import] ❌ Error fetching conversations:', convoErr);
+                    } else {
+                        console.log(`[Import] ⚠️ No Facebook pages found or access denied`);
                     }
+                } catch (err) {
+                    console.error('[Import] ❌ Error fetching conversations:', err);
                 }
-            } catch (err) {
-                console.log('[Import] Could not fetch leads for ad:', adName, err);
             }
-            // NO PLACEHOLDERS: Only import leads with real verified data
-            // If we couldn't get real data from Lead Forms or Conversations API, skip lead creation
+
+            // ============================================
+            // STEP 2: For LEAD ADS - Try Facebook Lead Ads API
+            // ============================================
+            if (leadCount > 0) {
+                try {
+                    console.log(`[Import] 📋 ${adName} has ${leadCount} leads - fetching from Lead Ads API...`);
+                    const leadsResponse = await fetch(`/api/facebook/leads?adId=${adId}&accessToken=${accessToken}`);
+                    const leadsData = await leadsResponse.json();
+
+                    console.log(`[Import] Leads API response:`, {
+                        success: leadsData.success,
+                        count: leadsData.data?.length || 0,
+                        isLeadAd: leadsData.isLeadAd
+                    });
+
+                    if (leadsData.success && leadsData.data && leadsData.data.length > 0) {
+                        // We have actual leads with names!
+                        for (const fbLead of leadsData.data) {
+                            const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+                            // Build best possible name
+                            let leadName = fbLead.fullName;
+                            if (!leadName && fbLead.firstName) {
+                                leadName = fbLead.lastName ? `${fbLead.firstName} ${fbLead.lastName}` : fbLead.firstName;
+                            }
+                            if (!leadName && fbLead.email) {
+                                // Use email username as name
+                                leadName = fbLead.email.split('@')[0].replace(/[._-]/g, ' ');
+                                // Capitalize first letter of each word
+                                leadName = leadName.replace(/\b\w/g, (c: string) => c.toUpperCase());
+                            }
+                            if (!leadName) {
+                                // Use ad name + timestamp as last resort
+                                const leadTime = new Date(fbLead.createdAt || Date.now());
+                                leadName = `${adName.substring(0, 15)} - ${leadTime.toLocaleDateString()}`;
+                            }
+
+                            const leadData = {
+                                id: leadId,
+                                name: leadName,
+                                email: fbLead.email,
+                                phone: fbLead.phone,
+                                city: fbLead.city,
+                                state: fbLead.state,
+                                country: fbLead.country,
+                                sourceAdId: adId,
+                                sourceAdName: adName,
+                                facebookLeadId: fbLead.id,
+                                facebookAdId: adId,
+                                campaignId: fbLead.campaignId,
+                                formId: fbLead.formId,
+                                source: 'Facebook Lead Ad',
+                                stageId: 'new-lead',
+                                pipelineId: selectedPipelineId || undefined,
+                                createdAt: fbLead.createdAt || new Date().toISOString(),
+                                lastActivity: new Date().toISOString(),
+                                isPlaceholder: false,
+                                isRealLead: true,
+                                rawFields: fbLead.rawFields,
+                            };
+
+                            // Save to appropriate storage
+                            if (selectedPipelineId) {
+                                const pipelineLeadsKey = `leads_${selectedPipelineId}`;
+                                const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
+                                existingLeads.push(leadData);
+                                localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
+
+                                const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
+                                const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
+                                if (pIndex !== -1) {
+                                    pipelinesData[pIndex].leadCount = (pipelinesData[pIndex].leadCount || 0) + 1;
+                                    localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
+                                }
+                            } else {
+                                const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
+                                existingContacts.push(leadData);
+                                localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
+                            }
+                            leadsCreated++;
+                            realLeadsCount++;
+                        }
+                        console.log(`[Import] Created ${leadsData.data.length} real leads from ad: ${adName}`);
+                        continue; // Skip to next ad since we got leads
+                    }
+                } catch (err) {
+                    console.log('[Import] Could not fetch leads for ad:', adName, err);
+                }
+            }
+
+            // If we reach here, we couldn't fetch leads for this ad
             const totalExpectedLeads = Math.max(messagesStarted, leadCount);
-            if (totalExpectedLeads > 0 && realLeadsCount === 0) {
-                console.log(`[Import] ⚠️ Skipping lead creation for ${adName} - no verified lead data available`);
-                console.log(`[Import] Expected ${totalExpectedLeads} leads but couldn't fetch real data from Facebook`);
-                // Don't create placeholder leads - user must have real data
+            if (totalExpectedLeads > 0 && leadsCreated === 0) {
+                console.log(`[Import] ⚠️ No leads could be fetched for ${adName}`);
             }
         }
 
