@@ -90,24 +90,37 @@ export async function GET(request: NextRequest) {
     // If user wants list of pages they manage
     if (getPages && userAccessToken) {
         try {
-            console.log('[Conversations] Fetching user pages...');
-            const pagesUrl = `https://graph.facebook.com/v24.0/me/accounts?fields=id,name,access_token,category&access_token=${userAccessToken}`;
-            const pagesResponse = await fetch(pagesUrl);
-            const pagesData = await pagesResponse.json();
+            console.log('[Conversations] Fetching ALL user pages with pagination...');
 
-            if (pagesData.error) {
-                console.error('[Conversations] Error fetching pages:', pagesData.error);
-                return NextResponse.json(
-                    { error: pagesData.error.message, success: false },
-                    { status: 400 }
-                );
+            // Fetch all pages using pagination (Facebook limits to 25 per request)
+            let allPages: Array<{ id: string; name: string; access_token: string; category: string }> = [];
+            let nextUrl: string | null = `https://graph.facebook.com/v24.0/me/accounts?fields=id,name,access_token,category&limit=100&access_token=${userAccessToken}`;
+
+            while (nextUrl) {
+                const pagesResponse = await fetch(nextUrl);
+                const pagesData = await pagesResponse.json();
+
+                if (pagesData.error) {
+                    console.error('[Conversations] Error fetching pages:', pagesData.error);
+                    return NextResponse.json(
+                        { error: pagesData.error.message, success: false },
+                        { status: 400 }
+                    );
+                }
+
+                if (pagesData.data && pagesData.data.length > 0) {
+                    allPages = [...allPages, ...pagesData.data];
+                }
+
+                // Check if there are more pages
+                nextUrl = pagesData.paging?.next || null;
             }
 
-            console.log(`[Conversations] Found ${pagesData.data?.length || 0} pages`);
+            console.log(`[Conversations] Found ${allPages.length} total pages`);
             return NextResponse.json({
                 success: true,
-                pages: pagesData.data || [],
-                count: pagesData.data?.length || 0
+                pages: allPages,
+                count: allPages.length
             });
         } catch (e) {
             console.error('[Conversations] Failed to get pages:', e);
