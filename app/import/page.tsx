@@ -973,16 +973,21 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                             const pageId = pagesData.pages[0].id;
                             console.log(`[Import] Using page: ${pagesData.pages[0].name} (${pageId})`);
 
-                            // Fetch conversations for this page, filtered by ad ID
+                            // Fetch ALL conversations for this page (not filtered by ad_id)
+                            // Facebook doesn't reliably include ad_id in conversation links
+                            // We limit to messagesStarted count to get recent contacts
                             const convoResponse = await fetch(
-                                `/api/facebook/conversations?page_id=${pageId}&access_token=${accessToken}&ad_id=${adId}`
+                                `/api/facebook/conversations?page_id=${pageId}&access_token=${accessToken}&limit=${Math.min(messagesStarted, 50)}`
                             );
                             const convoData = await convoResponse.json();
 
                             if (convoData.success && convoData.contacts?.length > 0) {
-                                console.log(`[Import] Found ${convoData.contacts.length} real conversations from ad!`);
+                                console.log(`[Import] Found ${convoData.contacts.length} real conversations!`);
 
-                                for (const contact of convoData.contacts) {
+                                // Take up to messagesStarted contacts and associate them with this ad
+                                const contactsToImport = convoData.contacts.slice(0, messagesStarted);
+
+                                for (const contact of contactsToImport) {
                                     const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                                     const leadData = {
                                         id: leadId,
@@ -1023,9 +1028,10 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                     leadsCreated++;
                                     realLeadsCount++;
                                 }
+                                console.log(`[Import] Created ${contactsToImport.length} real leads from conversations`);
                                 continue; // Skip placeholder creation
                             } else {
-                                console.log(`[Import] No conversations found for ad ${adId} - may not have ad_id in referral link`);
+                                console.log(`[Import] No conversations found for page`);
                             }
                         }
                     } catch (convoErr) {
