@@ -137,9 +137,11 @@ export default function ImportPage() {
     const [pipelines, setPipelines] = useState<Array<{ id: string; name: string; stages: Array<{ id: string; name: string }> }>>([]);
     const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
 
-    // Facebook Page selection for Messenger conversations
+    // Facebook Page selection for Messenger conversations (loaded from Settings/localStorage)
     const [facebookPages, setFacebookPages] = useState<Array<{ id: string; name: string; access_token: string }>>([]);
-    const [selectedPageId, setSelectedPageId] = useState<string>('');
+    // Read saved page from localStorage (set in Settings)
+    const savedPageId = typeof window !== 'undefined' ? localStorage.getItem('fb_selected_page_id') || '' : '';
+    const savedPageToken = typeof window !== 'undefined' ? localStorage.getItem('fb_selected_page_token') || '' : '';
 
     // Traits for each selected ad
     const [adTraits, setAdTraits] = useState<Record<string, {
@@ -897,17 +899,20 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                             setFacebookPages(pagesData.pages);
                         }
 
-                        // Use selected page if available, otherwise use first page
+                        // Use page from Settings (localStorage) if available, otherwise use first page
                         let page = pagesData.pages[0];
-                        if (selectedPageId) {
-                            const selected = pagesData.pages.find((p: { id: string }) => p.id === selectedPageId);
+                        if (savedPageId) {
+                            const selected = pagesData.pages.find((p: { id: string }) => p.id === savedPageId);
                             if (selected) {
                                 page = selected;
+                                console.log(`[Import] Using page from Settings: ${page.name}`);
+                            } else {
+                                console.log(`[Import] Saved page ${savedPageId} not found in list, using first page`);
                             }
                         }
                         const pageId = page.id;
                         const pageToken = page.access_token;
-                        console.log(`[Import] Using page: ${page.name} (${pageId})${selectedPageId ? ' (user selected)' : ' (auto-selected first)'}`);
+                        console.log(`[Import] Using page: ${page.name} (${pageId})${savedPageId ? ' (from Settings)' : ' (auto-selected first)'}`);
 
                         // Fetch conversations with real contact names
                         const convoResponse = await fetch(
@@ -1310,25 +1315,18 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                 ))}
                             </select>
 
-                            {/* Facebook Page Selector for Messenger conversations */}
-                            <select
-                                value={selectedPageId}
-                                onChange={(e) => setSelectedPageId(e.target.value)}
-                                style={{
-                                    padding: '8px 12px',
-                                    borderRadius: 'var(--radius-md)',
-                                    border: '1px solid var(--border-primary)',
-                                    background: 'var(--bg-secondary)',
-                                    color: 'var(--text-primary)',
-                                    minWidth: '200px'
-                                }}
-                                title="Select which Facebook Page to fetch Messenger conversations from"
-                            >
-                                <option value="">📱 {facebookPages.length > 0 ? 'Select Page for Conversations...' : 'Load Ads to see Pages'}</option>
-                                {facebookPages.map(p => (
-                                    <option key={p.id} value={p.id}>📄 {p.name}</option>
-                                ))}
-                            </select>
+                            {/* Page selection note - page is selected in Settings */}
+                            {savedPageId && (
+                                <span style={{
+                                    fontSize: '0.75rem',
+                                    color: 'var(--text-muted)',
+                                    background: 'rgba(16, 185, 129, 0.1)',
+                                    padding: '4px 8px',
+                                    borderRadius: 'var(--radius-sm)'
+                                }}>
+                                    📱 Using page from Settings
+                                </span>
+                            )}
 
                             <button
                                 className="btn btn-primary"

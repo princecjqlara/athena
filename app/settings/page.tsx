@@ -26,6 +26,10 @@ export default function SettingsPage() {
     const [fbAdAccounts, setFbAdAccounts] = useState<AdAccount[]>([]);
     const [showManualInput, setShowManualInput] = useState(false);
 
+    // Facebook Pages for Messenger conversations
+    const [facebookPages, setFacebookPages] = useState<Array<{ id: string; name: string; access_token: string }>>([]);
+    const [selectedPageId, setSelectedPageId] = useState<string>('');
+
     // Meta Conversions API (CAPI) Settings
     const [datasetId, setDatasetId] = useState('');
     const [capiAccessToken, setCapiAccessToken] = useState('');
@@ -55,6 +59,19 @@ export default function SettingsPage() {
                 } catch (e) {
                     console.error('Error parsing ad accounts:', e);
                 }
+            }
+            // Load saved Facebook pages and selected page
+            const savedPages = localStorage.getItem('fb_pages');
+            const savedSelectedPage = localStorage.getItem('fb_selected_page_id');
+            if (savedPages) {
+                try {
+                    setFacebookPages(JSON.parse(savedPages));
+                } catch (e) {
+                    console.error('Error parsing pages:', e);
+                }
+            }
+            if (savedSelectedPage) {
+                setSelectedPageId(savedSelectedPage);
             }
         }
     }, []);
@@ -184,7 +201,7 @@ export default function SettingsPage() {
     };
 
     // Handle Facebook OAuth success
-    const handleFacebookSuccess = (response: any) => {
+    const handleFacebookSuccess = async (response: any) => {
         console.log('Facebook login success:', response);
         setMarketingAccessToken(response.accessToken);
         setFbAdAccounts(response.adAccounts || []);
@@ -198,6 +215,19 @@ export default function SettingsPage() {
             setMarketingConnectionStatus('connected');
         }
 
+        // Fetch Facebook Pages for Messenger conversations
+        try {
+            const pagesResponse = await fetch(`/api/facebook/conversations?get_pages=true&access_token=${response.accessToken}`);
+            const pagesData = await pagesResponse.json();
+            if (pagesData.success && pagesData.pages?.length > 0) {
+                setFacebookPages(pagesData.pages);
+                localStorage.setItem('fb_pages', JSON.stringify(pagesData.pages));
+                console.log(`Fetched ${pagesData.pages.length} Facebook pages`);
+            }
+        } catch (err) {
+            console.error('Error fetching Facebook pages:', err);
+        }
+
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
     };
@@ -207,6 +237,16 @@ export default function SettingsPage() {
         setAdAccountId(accountId);
         localStorage.setItem('meta_ad_account_id', accountId);
         setMarketingConnectionStatus('connected');
+    };
+
+    // Handle Facebook Page selection
+    const handlePageSelect = (pageId: string) => {
+        setSelectedPageId(pageId);
+        localStorage.setItem('fb_selected_page_id', pageId);
+        const page = facebookPages.find(p => p.id === pageId);
+        if (page) {
+            localStorage.setItem('fb_selected_page_token', page.access_token);
+        }
     };
 
     return (
@@ -287,6 +327,31 @@ export default function SettingsPage() {
                                             </option>
                                         ))}
                                     </select>
+                                </div>
+                            )}
+
+                            {/* Facebook Page Selector for Messenger conversations */}
+                            {facebookPages.length > 0 && (
+                                <div style={{ marginTop: 'var(--spacing-md)' }}>
+                                    <label className="form-label">
+                                        📱 Select Page for Messenger Conversations
+                                    </label>
+                                    <select
+                                        className="form-input"
+                                        value={selectedPageId}
+                                        onChange={(e) => handlePageSelect(e.target.value)}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <option value="">Choose a Facebook Page...</option>
+                                        {facebookPages.map((page) => (
+                                            <option key={page.id} value={page.id}>
+                                                {page.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                        Select the page where your Messenger ads run to fetch lead conversations
+                                    </small>
                                 </div>
                             )}
 
