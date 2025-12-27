@@ -181,22 +181,24 @@ export async function POST(request: NextRequest) {
             leadScore = Math.max(0, Math.min(100, leadScore));
 
             // Map stage to actual pipeline stage ID
+            // Enhanced: Now also considers stage descriptions for smarter matching
             let suggestedStageId = 'new-lead';
 
-            // Map detected stage to comprehensive funnel
+            // Helper function to match against stage name OR description
+            const findStageByKeywords = (keywords: string[]) => {
+                return allAvailableStages.find((s: any) => {
+                    const nameMatch = keywords.some(k => s.name.toLowerCase().includes(k));
+                    const descMatch = s.description && keywords.some(k => s.description.toLowerCase().includes(k));
+                    return nameMatch || descMatch;
+                });
+            };
+
+            // Map detected stage to comprehensive funnel using name + description matching
             if (stage === 'ready') {
-                const match = allAvailableStages.find((s: any) =>
-                    s.name.toLowerCase().includes('ready') ||
-                    s.name.toLowerCase().includes('closed') ||
-                    s.name.toLowerCase().includes('won')
-                );
+                const match = findStageByKeywords(['ready', 'closed', 'won', 'purchase', 'converted', 'sale', 'deal']);
                 suggestedStageId = match?.id || 'ready-to-buy';
             } else if (stage === 'negotiating') {
-                const match = allAvailableStages.find((s: any) =>
-                    s.name.toLowerCase().includes('negotiat') ||
-                    s.name.toLowerCase().includes('considering') ||
-                    s.name.toLowerCase().includes('quote')
-                );
+                const match = findStageByKeywords(['negotiat', 'considering', 'quote', 'proposal', 'pricing', 'discount']);
                 suggestedStageId = match?.id || 'negotiating';
             } else if (stage === 'interested') {
                 // Check if they know about the product
@@ -205,42 +207,26 @@ export async function POST(request: NextRequest) {
                     customerText.includes('magkano') ||
                     customerText.includes('presyo');
                 if (knowsProduct) {
-                    const match = allAvailableStages.find((s: any) =>
-                        s.name.toLowerCase().includes('product') ||
-                        s.name.toLowerCase().includes('aware') ||
-                        s.name.toLowerCase().includes('qualified')
-                    );
+                    const match = findStageByKeywords(['product', 'aware', 'informed', 'pricing', 'quote']);
                     suggestedStageId = match?.id || 'product-aware';
                 } else {
-                    const match = allAvailableStages.find((s: any) =>
-                        s.name.toLowerCase().includes('qualified') ||
-                        s.name.toLowerCase().includes('interest') ||
-                        s.name.toLowerCase().includes('engaged')
-                    );
+                    const match = findStageByKeywords(['qualified', 'interest', 'engaged', 'warm']);
                     suggestedStageId = match?.id || 'qualified';
                 }
             } else if (stage === 'contacted') {
                 // Check if customer engaged (responded) or just contacted
                 if (customerMsgCount >= 2) {
-                    const match = allAvailableStages.find((s: any) =>
-                        s.name.toLowerCase().includes('engaged') ||
-                        s.name.toLowerCase().includes('qualified')
-                    );
+                    const match = findStageByKeywords(['engaged', 'qualified', 'response', 'replied']);
                     suggestedStageId = match?.id || 'engaged';
                 } else if (customerMsgCount >= 1) {
-                    const match = allAvailableStages.find((s: any) =>
-                        s.name.toLowerCase().includes('contacted') ||
-                        s.name.toLowerCase().includes('engaged')
-                    );
+                    const match = findStageByKeywords(['contacted', 'engaged', 'respond', 'replied', 'inquiry']);
                     suggestedStageId = match?.id || 'contacted';
                 }
             } else {
                 // Default for Messenger leads: they've been contacted since we have a conversation
                 // Only use 'new-lead' if there are truly no customer messages
                 if (customerMsgCount > 0) {
-                    const match = allAvailableStages.find((s: any) =>
-                        s.name.toLowerCase().includes('contacted')
-                    );
+                    const match = findStageByKeywords(['contacted', 'initial', 'inquiry']);
                     suggestedStageId = match?.id || 'contacted';
                 } else {
                     // No customer messages - still new lead
