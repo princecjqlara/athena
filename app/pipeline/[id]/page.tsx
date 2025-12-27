@@ -88,11 +88,58 @@ export default function PipelineDetailPage() {
             const found = pipelines.find((p: Pipeline) => p.id === params.id);
             if (found) {
                 setPipeline(found);
-                // Load leads for this pipeline
+                // Load leads for this pipeline from localStorage
                 const savedLeads = localStorage.getItem(`leads_${params.id}`);
-                if (savedLeads) {
-                    setLeads(JSON.parse(savedLeads));
-                }
+                const localLeads: Lead[] = savedLeads ? JSON.parse(savedLeads) : [];
+
+                // Also fetch contacts from Supabase (from webhooks)
+                fetch(`/api/contacts?pipelineId=${params.id}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.data && Array.isArray(data.data)) {
+                            // Convert Supabase contacts to Lead format
+                            const supabaseLeads: Lead[] = data.data.map((c: any) => ({
+                                id: c.id,
+                                name: c.name || 'Unknown',
+                                email: c.email,
+                                phone: c.phone,
+                                stageId: c.stage_id || 'new-lead',
+                                createdAt: c.created_at || new Date().toISOString(),
+                                lastActivity: c.last_message_at || c.created_at || new Date().toISOString(),
+                                source: c.source_ad_id ? 'Facebook Messenger' : 'Webhook',
+                                sourceAdId: c.source_ad_id,
+                                sourceAdName: c.source_ad_name,
+                                facebookLeadId: c.facebook_lead_id,
+                                isPlaceholder: false,
+                                isRealLead: true,
+                            }));
+
+                            // Merge: real leads from Supabase + placeholders that haven't been replaced
+                            const supabaseAdIds = new Set(supabaseLeads.map(l => l.sourceAdId).filter(Boolean));
+
+                            // Keep placeholders that don't have matching real leads
+                            const remainingPlaceholders = localLeads.filter(local => {
+                                // Keep if it's not a placeholder
+                                if (!local.isPlaceholder) return true;
+                                // Keep placeholder if there's no Supabase lead from the same ad
+                                return !supabaseAdIds.has(local.sourceAdId);
+                            });
+
+                            // Combine: Supabase leads first (real), then remaining placeholders
+                            const mergedLeads = [...supabaseLeads, ...remainingPlaceholders];
+
+                            console.log(`[Pipeline] Merged ${supabaseLeads.length} real leads + ${remainingPlaceholders.filter(l => l.isPlaceholder).length} placeholders`);
+                            setLeads(mergedLeads);
+                        } else {
+                            // No Supabase contacts, use local only
+                            setLeads(localLeads);
+                        }
+                    })
+                    .catch(err => {
+                        console.log('[Pipeline] Could not fetch Supabase contacts:', err);
+                        // Fall back to local leads only
+                        setLeads(localLeads);
+                    });
             }
         }
 
