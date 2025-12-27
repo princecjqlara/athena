@@ -232,6 +232,9 @@ export async function GET(request: NextRequest) {
 
         let contacts = await Promise.all(contactPromises);
 
+        // Log the fetched names for debugging
+        console.log(`[Conversations] Contacts fetched with names:`, contacts.map(c => ({ psid: c.facebookPsid, name: c.name })));
+
         // Filter by ad_id if specified
         if (filterAdId) {
             contacts = contacts.filter(c => c.adId === filterAdId);
