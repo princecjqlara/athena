@@ -194,8 +194,8 @@ export default function ContactsPage() {
                                     <div className={styles.groupHeader}>
                                         <h3>
                                             {groupBy === 'stage'
-                                                ? (groupId === 'unassigned' ? '❓ Unassigned' : getStageName(groupId))
-                                                : (groupId === 'unknown' ? '❓ Unknown Source' : `📊 ${getAdName(groupId)}`)
+                                                ? (groupId === 'unassigned' ? 'Unassigned' : getStageName(groupId))
+                                                : (groupId === 'unknown' ? 'Unknown Source' : `Ad: ${getAdName(groupId)}`)
                                             }
                                         </h3>
                                         <span className={styles.groupCount}>{groupContacts.length}</span>
@@ -210,18 +210,18 @@ export default function ContactsPage() {
                                             >
                                                 <div className={styles.contactInfo}>
                                                     <div className={styles.contactName}>{contact.name}</div>
-                                                    {contact.email && <div className={styles.contactDetail}>📧 {contact.email}</div>}
-                                                    {contact.phone && <div className={styles.contactDetail}>📱 {contact.phone}</div>}
+                                                    {contact.email && <div className={styles.contactDetail}>{contact.email}</div>}
+                                                    {contact.phone && <div className={styles.contactDetail}>{contact.phone}</div>}
                                                 </div>
                                                 <div className={styles.contactMeta}>
                                                     {contact.messages?.length > 0 && (
                                                         <span className={styles.messageBadge}>
-                                                            💬 {contact.messages.length}
+                                                            {contact.messages.length} msgs
                                                         </span>
                                                     )}
                                                     {contact.aiAnalysis && (
                                                         <span className={`${styles.scoreBadge} ${contact.aiAnalysis.leadScore >= 70 ? styles.high :
-                                                                contact.aiAnalysis.leadScore >= 40 ? styles.medium : styles.low
+                                                            contact.aiAnalysis.leadScore >= 40 ? styles.medium : styles.low
                                                             }`}>
                                                             🎯 {contact.aiAnalysis.leadScore}
                                                         </span>
@@ -250,11 +250,11 @@ export default function ContactsPage() {
                                 {/* Contact Info */}
                                 <div className={styles.detailSection}>
                                     <h4>Contact Info</h4>
-                                    {selectedContact.email && <p>📧 {selectedContact.email}</p>}
-                                    {selectedContact.phone && <p>📱 {selectedContact.phone}</p>}
-                                    <p>📅 Created {getTimeAgo(selectedContact.createdAt)}</p>
+                                    {selectedContact.email && <p>{selectedContact.email}</p>}
+                                    {selectedContact.phone && <p>{selectedContact.phone}</p>}
+                                    <p>Created {getTimeAgo(selectedContact.createdAt)}</p>
                                     {selectedContact.sourceAdName && (
-                                        <p>📊 From: {selectedContact.sourceAdName}</p>
+                                        <p>From: {selectedContact.sourceAdName}</p>
                                     )}
                                 </div>
 
@@ -276,12 +276,12 @@ export default function ContactsPage() {
                                 {/* AI Analysis */}
                                 {selectedContact.aiAnalysis ? (
                                     <div className={styles.detailSection}>
-                                        <h4>🤖 AI Analysis</h4>
+                                        <h4>AI Analysis</h4>
                                         <div className={styles.aiResult}>
                                             <div className={styles.aiScore}>
                                                 <span className={styles.scoreLabel}>Lead Score</span>
                                                 <span className={`${styles.scoreValue} ${selectedContact.aiAnalysis.leadScore >= 70 ? styles.high :
-                                                        selectedContact.aiAnalysis.leadScore >= 40 ? styles.medium : styles.low
+                                                    selectedContact.aiAnalysis.leadScore >= 40 ? styles.medium : styles.low
                                                     }`}>
                                                     {selectedContact.aiAnalysis.leadScore}/100
                                                 </span>
@@ -312,7 +312,7 @@ export default function ContactsPage() {
                                             onClick={() => handleAnalyzeConversation(selectedContact)}
                                             disabled={analyzingId === selectedContact.id || !selectedContact.messages?.length}
                                         >
-                                            {analyzingId === selectedContact.id ? '🔄 Analyzing...' : '🤖 Analyze Conversation'}
+                                            {analyzingId === selectedContact.id ? 'Analyzing...' : 'Analyze Conversation'}
                                         </button>
                                         {!selectedContact.messages?.length && (
                                             <p className={styles.noMessages}>No messages to analyze yet</p>
@@ -323,7 +323,7 @@ export default function ContactsPage() {
                                 {/* Messages */}
                                 {selectedContact.messages && selectedContact.messages.length > 0 && (
                                     <div className={styles.detailSection}>
-                                        <h4>💬 Conversation ({selectedContact.messages.length} messages)</h4>
+                                        <h4>Conversation ({selectedContact.messages.length} messages)</h4>
                                         <div className={styles.messages}>
                                             {selectedContact.messages.map(msg => (
                                                 <div

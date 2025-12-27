@@ -387,7 +387,7 @@ export default function PipelineDetailPage() {
                 });
 
                 saveLeads(updatedLeads);
-                alert(`✅ Re-analyzed ${data.leads.length} leads!\n\nStage distribution: ${JSON.stringify(data.summary?.stageDistribution || {})}`);
+                alert(`Re-analyzed ${data.leads.length} leads!\n\nStage distribution: ${JSON.stringify(data.summary?.stageDistribution || {})}`);
             } else {
                 alert('No leads were analyzed. Try importing conversations first.');
             }
@@ -607,12 +607,12 @@ export default function PipelineDetailPage() {
 
                 const result = await response.json();
                 if (result.success) {
-                    console.log('✅ CAPI event sent:', result);
+                    console.log('[SUCCESS] CAPI event sent:', result);
                 } else {
-                    console.error('❌ CAPI error:', result.error);
+                    console.error('[ERROR] CAPI error:', result.error);
                 }
             } else {
-                console.log('⚠️ CAPI not configured - skipping event send');
+                console.log('[WARN] CAPI not configured - skipping event send');
             }
 
             // === AUTO-UPDATE AD RESULTS & AI ALGORITHM ===
@@ -639,7 +639,7 @@ export default function PipelineDetailPage() {
                 }
 
                 localStorage.setItem('ads', JSON.stringify(savedAds));
-                console.log('📊 Ad results updated:', savedAds[adIndex]);
+                console.log('[AD] Results updated:', savedAds[adIndex]);
             }
 
             // Feed conversion data to AI algorithm for learning
@@ -667,7 +667,7 @@ export default function PipelineDetailPage() {
             localStorage.setItem('conversion_history', JSON.stringify(conversionHistory));
 
             localStorage.setItem('ai_model_stats', JSON.stringify(modelStats));
-            console.log('🤖 AI algorithm updated with conversion data');
+            console.log('[AI] Algorithm updated with conversion data');
 
         } catch (error) {
             console.error('CAPI send error:', error);
@@ -783,7 +783,7 @@ export default function PipelineDetailPage() {
 
             {/* AI Insight Banner */}
             <div className={styles.aiInsight}>
-                <span className={styles.aiIcon}>🤖</span>
+                <span className={styles.aiIcon}>AI</span>
                 <span>AI is observing lead behavior. New stages will be suggested when patterns emerge.</span>
             </div>
 
@@ -798,7 +798,7 @@ export default function PipelineDetailPage() {
                     >
                         <div className={styles.columnHeader}>
                             <div className={styles.columnTitle}>
-                                {stage.isAutoCreated && <span className={styles.aiBadge}>🤖</span>}
+                                {stage.isAutoCreated && <span className={styles.aiBadge}>AI</span>}
                                 {stage.name}
                                 {stage.isGoal && <span className={styles.goalBadge}>✓</span>}
                             </div>
@@ -835,7 +835,7 @@ export default function PipelineDetailPage() {
                                     }}
                                     title="Edit stage"
                                 >
-                                    ✏️
+                                    Edit
                                 </button>
                             </div>
                         </div>
@@ -852,7 +852,7 @@ export default function PipelineDetailPage() {
                                 alignItems: 'center',
                                 gap: '4px'
                             }}>
-                                📡 {FACEBOOK_EVENTS.find(e => e.id === stage.facebookEvent)?.name || stage.facebookEvent}
+                                FB: {FACEBOOK_EVENTS.find(e => e.id === stage.facebookEvent)?.name || stage.facebookEvent}
                             </div>
                         )}
                         {/* Auto-Linked Ads based on lead sources */}
@@ -860,7 +860,7 @@ export default function PipelineDetailPage() {
                             <div className={styles.linkedAds}>
                                 {getAutoLinkedAdsForStage(stage.id).map(link => (
                                     <div key={link.adId} className={styles.linkedAdBadge}>
-                                        <span>📊 {link.adName.length > 15 ? link.adName.slice(0, 15) + '...' : link.adName}</span>
+                                        <span>Ad: {link.adName.length > 15 ? link.adName.slice(0, 15) + '...' : link.adName}</span>
                                     </div>
                                 ))}
                             </div>
@@ -922,7 +922,7 @@ export default function PipelineDetailPage() {
                                         }}>
                                             {lead.sourceAdName && (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    📊 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    Ad: <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                         {lead.sourceAdName.length > 20 ? lead.sourceAdName.substring(0, 20) + '...' : lead.sourceAdName}
                                                     </span>
                                                 </div>
@@ -944,7 +944,7 @@ export default function PipelineDetailPage() {
                                             fontWeight: 600,
                                             color: 'var(--success)'
                                         }}>
-                                            💰 ₱{lead.conversionValue.toLocaleString()}
+                                            P{lead.conversionValue.toLocaleString()}
                                         </div>
                                     )}
                                     <div className={styles.leadMeta}>
@@ -1094,7 +1094,7 @@ export default function PipelineDetailPage() {
                                 </p>
 
                                 <div className="form-group">
-                                    <label className="form-label">💰 Purchase Value (for Meta ROAS)</label>
+                                    <label className="form-label">Purchase Value (for Meta ROAS)</label>
                                     <div style={{ position: 'relative' }}>
                                         <span style={{
                                             position: 'absolute',
@@ -1143,7 +1143,7 @@ export default function PipelineDetailPage() {
                                     style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
                                     disabled={sendingCapi}
                                 >
-                                    {sendingCapi ? '📡 Sending to Facebook...' : '💰 Save & Send to Facebook'}
+                                    {sendingCapi ? 'Sending to Facebook...' : 'Save & Send to Facebook'}
                                 </button>
                             </div>
                         </div>
@@ -1156,7 +1156,7 @@ export default function PipelineDetailPage() {
                     <div className={styles.modalOverlay} onClick={() => setShowBulkMoveModal(false)}>
                         <div className={styles.modal} onClick={e => e.stopPropagation()}>
                             <div className={styles.modalHeader}>
-                                <h2>📦 Move {selectedLeads.size} Lead(s)</h2>
+                                <h2>Move {selectedLeads.size} Lead(s)</h2>
                                 <button className={styles.closeBtn} onClick={() => setShowBulkMoveModal(false)}>
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <line x1="18" y1="6" x2="6" y2="18" />
@@ -1226,13 +1226,13 @@ export default function PipelineDetailPage() {
                                 className={styles.bulkActionBtn}
                                 onClick={() => setShowBulkMoveModal(true)}
                             >
-                                📦 Move to Stage
+                                Move to Stage
                             </button>
                             <button
                                 className={`${styles.bulkActionBtn} ${styles.bulkActionBtnDanger}`}
                                 onClick={handleBulkDelete}
                             >
-                                🗑️ Delete Selected
+                                Delete Selected
                             </button>
                             <button
                                 className={styles.bulkActionBtnClear}
@@ -1272,12 +1272,12 @@ export default function PipelineDetailPage() {
                                 {/* Contact Info */}
                                 <div style={{ marginBottom: 'var(--spacing-lg)' }}>
                                     <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>Contact Info</h4>
-                                    {selectedLead.email && <p>📧 <strong>Email:</strong> {selectedLead.email}</p>}
-                                    {selectedLead.phone && <p>📱 <strong>Phone:</strong> {selectedLead.phone}</p>}
-                                    {selectedLead.facebookPsid && <p>🔗 <strong>Facebook ID:</strong> {selectedLead.facebookPsid}</p>}
-                                    {selectedLead.source && <p>📍 <strong>Source:</strong> {selectedLead.source}</p>}
-                                    {selectedLead.sourceAdName && <p>📊 <strong>Ad:</strong> {selectedLead.sourceAdName}</p>}
-                                    <p>📅 <strong>Created:</strong> {new Date(selectedLead.createdAt).toLocaleString()}</p>
+                                    {selectedLead.email && <p><strong>Email:</strong> {selectedLead.email}</p>}
+                                    {selectedLead.phone && <p><strong>Phone:</strong> {selectedLead.phone}</p>}
+                                    {selectedLead.facebookPsid && <p><strong>Facebook ID:</strong> {selectedLead.facebookPsid}</p>}
+                                    {selectedLead.source && <p><strong>Source:</strong> {selectedLead.source}</p>}
+                                    {selectedLead.sourceAdName && <p><strong>Ad:</strong> {selectedLead.sourceAdName}</p>}
+                                    <p><strong>Created:</strong> {new Date(selectedLead.createdAt).toLocaleString()}</p>
                                 </div>
 
                                 {/* AI Analysis */}
@@ -1290,7 +1290,7 @@ export default function PipelineDetailPage() {
                                         border: '1px solid rgba(59, 130, 246, 0.2)'
                                     }}>
                                         <h4 style={{ marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            🤖 AI Analysis
+                                            AI Analysis
                                             <span style={{
                                                 fontSize: '0.75rem',
                                                 padding: '2px 8px',
@@ -1305,17 +1305,17 @@ export default function PipelineDetailPage() {
                                         </h4>
                                         {selectedLead.aiAnalysis.summary && <p style={{ marginBottom: '8px' }}>{selectedLead.aiAnalysis.summary}</p>}
                                         <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap', fontSize: '0.875rem' }}>
-                                            {selectedLead.aiAnalysis.intent && <span>🎯 Intent: <strong>{selectedLead.aiAnalysis.intent}</strong></span>}
+                                            {selectedLead.aiAnalysis.intent && <span>Intent: <strong>{selectedLead.aiAnalysis.intent}</strong></span>}
                                             {selectedLead.aiAnalysis.leadScore !== undefined && (
-                                                <span>📊 Score: <strong style={{
+                                                <span>Score: <strong style={{
                                                     color:
                                                         selectedLead.aiAnalysis.leadScore >= 70 ? 'var(--success)' :
                                                             selectedLead.aiAnalysis.leadScore >= 40 ? 'var(--warning)' : 'var(--error)'
                                                 }}>{selectedLead.aiAnalysis.leadScore}</strong>/100</span>
                                             )}
                                         </div>
-                                        {selectedLead.aiAnalysis.extractedEmail && <p style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>📧 Extracted: {selectedLead.aiAnalysis.extractedEmail}</p>}
-                                        {selectedLead.aiAnalysis.extractedPhone && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📱 Extracted: {selectedLead.aiAnalysis.extractedPhone}</p>}
+                                        {selectedLead.aiAnalysis.extractedEmail && <p style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Extracted Email: {selectedLead.aiAnalysis.extractedEmail}</p>}
+                                        {selectedLead.aiAnalysis.extractedPhone && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Extracted Phone: {selectedLead.aiAnalysis.extractedPhone}</p>}
                                     </div>
                                 )}
 
@@ -1323,7 +1323,7 @@ export default function PipelineDetailPage() {
                                 {selectedLead.messages && selectedLead.messages.length > 0 && (
                                     <div>
                                         <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>
-                                            💬 Messages ({selectedLead.messages.length})
+                                            Messages ({selectedLead.messages.length})
                                         </h4>
                                         <div style={{
                                             maxHeight: '300px',
@@ -1352,7 +1352,7 @@ export default function PipelineDetailPage() {
                                 {/* No messages fallback */}
                                 {(!selectedLead.messages || selectedLead.messages.length === 0) && selectedLead.lastMessage && (
                                     <div>
-                                        <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>💬 Last Message</h4>
+                                        <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>Last Message</h4>
                                         <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{selectedLead.lastMessage}</p>
                                     </div>
                                 )}
@@ -1435,7 +1435,7 @@ export default function PipelineDetailPage() {
                                     onClick={() => { setShowStageEditModal(false); deleteStage(editingStage.id); }}
                                     style={{ background: 'rgba(239, 68, 68, 0.2)', color: 'var(--error)' }}
                                 >
-                                    🗑️ Delete
+                                    Delete
                                 </button>
                             </div>
                         </div>
