@@ -106,6 +106,12 @@ export default function PipelineDetailPage() {
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [showLeadDetailModal, setShowLeadDetailModal] = useState(false);
 
+    // Stage editing state
+    const [editingStage, setEditingStage] = useState<{ id: string; name: string; isGoal: boolean } | null>(null);
+    const [showStageEditModal, setShowStageEditModal] = useState(false);
+    const [showAddStageModal, setShowAddStageModal] = useState(false);
+    const [newStageName, setNewStageName] = useState('');
+
     useEffect(() => {
         // Load pipeline from localStorage
         const savedPipelines = localStorage.getItem('pipelines');
@@ -238,6 +244,103 @@ export default function PipelineDetailPage() {
                     pipelines[idx] = updatedPipeline;
                     localStorage.setItem('pipelines', JSON.stringify(pipelines));
                 }
+            }
+        }
+    };
+
+    // Stage editing handlers
+    const saveStageEdit = () => {
+        if (!editingStage || !pipeline) return;
+
+        const updatedStages = pipeline.stages.map(stage => {
+            if (stage.id === editingStage.id) {
+                return { ...stage, name: editingStage.name, isGoal: editingStage.isGoal };
+            }
+            // Only one goal stage allowed
+            if (editingStage.isGoal && stage.isGoal && stage.id !== editingStage.id) {
+                return { ...stage, isGoal: false };
+            }
+            return stage;
+        });
+
+        const updatedPipeline = { ...pipeline, stages: updatedStages };
+        setPipeline(updatedPipeline);
+
+        // Save to localStorage
+        const savedPipelines = localStorage.getItem('pipelines');
+        if (savedPipelines) {
+            const pipelines = JSON.parse(savedPipelines);
+            const idx = pipelines.findIndex((p: Pipeline) => p.id === params.id);
+            if (idx !== -1) {
+                pipelines[idx] = updatedPipeline;
+                localStorage.setItem('pipelines', JSON.stringify(pipelines));
+            }
+        }
+
+        setShowStageEditModal(false);
+        setEditingStage(null);
+    };
+
+    const addNewStage = () => {
+        if (!newStageName.trim() || !pipeline) return;
+
+        const newStage = {
+            id: `stage-${Date.now()}`,
+            name: newStageName.trim(),
+            isGoal: false,
+            isAutoCreated: false,
+            leadCount: 0
+        };
+
+        const updatedPipeline = {
+            ...pipeline,
+            stages: [...pipeline.stages, newStage]
+        };
+        setPipeline(updatedPipeline);
+
+        // Save to localStorage
+        const savedPipelines = localStorage.getItem('pipelines');
+        if (savedPipelines) {
+            const pipelines = JSON.parse(savedPipelines);
+            const idx = pipelines.findIndex((p: Pipeline) => p.id === params.id);
+            if (idx !== -1) {
+                pipelines[idx] = updatedPipeline;
+                localStorage.setItem('pipelines', JSON.stringify(pipelines));
+            }
+        }
+
+        setShowAddStageModal(false);
+        setNewStageName('');
+    };
+
+    const deleteStage = (stageId: string) => {
+        if (!pipeline) return;
+        if (pipeline.stages.length <= 2) {
+            alert('Pipeline must have at least 2 stages');
+            return;
+        }
+
+        const stageName = pipeline.stages.find(s => s.id === stageId)?.name;
+        if (!confirm(`Delete stage "${stageName}"?\n\nLeads in this stage will be moved to the first stage.`)) return;
+
+        // Move leads from deleted stage to first stage
+        const firstStageId = pipeline.stages.find(s => s.id !== stageId)?.id || pipeline.stages[0].id;
+        const updatedLeads = leads.map(lead =>
+            lead.stageId === stageId ? { ...lead, stageId: firstStageId } : lead
+        );
+        saveLeads(updatedLeads);
+
+        const updatedStages = pipeline.stages.filter(s => s.id !== stageId);
+        const updatedPipeline = { ...pipeline, stages: updatedStages };
+        setPipeline(updatedPipeline);
+
+        const savedPipelines = localStorage.getItem('pipelines');
+        if (savedPipelines) {
+            const pipelines = JSON.parse(savedPipelines);
+            const idx = pipelines.findIndex((p: Pipeline) => p.id === params.id);
+            if (idx !== -1) {
+                pipelines[idx] = updatedPipeline;
+                localStorage.setItem('pipelines', JSON.stringify(pipelines));
             }
         }
     };
@@ -649,6 +752,17 @@ export default function PipelineDetailPage() {
                                 >
                                     🔗
                                 </button>
+                                <button
+                                    className={styles.linkAdBtn}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingStage({ id: stage.id, name: stage.name, isGoal: stage.isGoal });
+                                        setShowStageEditModal(true);
+                                    }}
+                                    title="Edit stage"
+                                >
+                                    ✏️
+                                </button>
                             </div>
                         </div>
                         {/* Linked Ads */}
@@ -780,325 +894,335 @@ export default function PipelineDetailPage() {
             </div>
 
             {/* Add Lead Modal */}
-            {showAddLeadModal && (
-                <div className={styles.modalOverlay} onClick={() => setShowAddLeadModal(false)}>
-                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
-                        <div className={styles.modalHeader}>
-                            <h2>Add New Lead</h2>
-                            <button className={styles.closeBtn} onClick={() => setShowAddLeadModal(false)}>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="18" y1="6" x2="6" y2="18" />
-                                    <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className={styles.modalBody}>
-                            <div className="form-group">
-                                <label className="form-label">Name *</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="Lead name"
-                                    value={newLead.name}
-                                    onChange={e => setNewLead({ ...newLead, name: e.target.value })}
-                                />
+            {
+                showAddLeadModal && (
+                    <div className={styles.modalOverlay} onClick={() => setShowAddLeadModal(false)}>
+                        <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                            <div className={styles.modalHeader}>
+                                <h2>Add New Lead</h2>
+                                <button className={styles.closeBtn} onClick={() => setShowAddLeadModal(false)}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">Email</label>
-                                <input
-                                    type="email"
-                                    className="form-input"
-                                    placeholder="email@example.com"
-                                    value={newLead.email}
-                                    onChange={e => setNewLead({ ...newLead, email: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Phone</label>
-                                <input
-                                    type="tel"
-                                    className="form-input"
-                                    placeholder="+1 234 567 8900"
-                                    value={newLead.phone}
-                                    onChange={e => setNewLead({ ...newLead, phone: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Source</label>
-                                <select
-                                    className="form-input"
-                                    value={newLead.source}
-                                    onChange={e => setNewLead({ ...newLead, source: e.target.value })}
-                                >
-                                    <option value="Manual">Manual Entry</option>
-                                    <option value="Facebook Ads">Facebook Ads</option>
-                                    <option value="Instagram Ads">Instagram Ads</option>
-                                    <option value="Messenger">Messenger</option>
-                                    <option value="WhatsApp">WhatsApp</option>
-                                    <option value="Webhook">Webhook</option>
-                                </select>
-                            </div>
-                        </div>
 
-                        <div className={styles.modalFooter}>
-                            <button className="btn btn-secondary" onClick={() => setShowAddLeadModal(false)}>
-                                Cancel
-                            </button>
-                            <button
-                                className="btn btn-primary"
-                                onClick={handleAddLead}
-                                disabled={!newLead.name}
-                            >
-                                Add Lead
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Conversion Value Modal */}
-            {showConversionModal && draggedLead && (
-                <div className={styles.modalOverlay} onClick={() => {
-                    setShowConversionModal(false);
-                    setDraggedLead(null);
-                    setPendingGoalStageId(null);
-                }}>
-                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
-                        <div className={styles.modalHeader} style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1))' }}>
-                            <h2>🎯 Lead Converted!</h2>
-                            <button className={styles.closeBtn} onClick={() => {
-                                setShowConversionModal(false);
-                                setDraggedLead(null);
-                                setPendingGoalStageId(null);
-                            }}>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="18" y1="6" x2="6" y2="18" />
-                                    <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className={styles.modalBody}>
-                            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
-                                <strong>{draggedLead.name}</strong> has reached <strong>{pipeline?.goal}</strong>
-                            </p>
-
-                            <div className="form-group">
-                                <label className="form-label">💰 Purchase Value (for Meta ROAS)</label>
-                                <div style={{ position: 'relative' }}>
-                                    <span style={{
-                                        position: 'absolute',
-                                        left: '12px',
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        color: 'var(--text-muted)',
-                                        fontSize: '1.25rem'
-                                    }}>$</span>
+                            <div className={styles.modalBody}>
+                                <div className="form-group">
+                                    <label className="form-label">Name *</label>
                                     <input
-                                        type="number"
+                                        type="text"
                                         className="form-input"
-                                        placeholder="0.00"
-                                        value={conversionValue}
-                                        onChange={e => setConversionValue(e.target.value)}
-                                        style={{ paddingLeft: '32px', fontSize: '1.25rem' }}
-                                        autoFocus
+                                        placeholder="Lead name"
+                                        value={newLead.name}
+                                        onChange={e => setNewLead({ ...newLead, name: e.target.value })}
                                     />
                                 </div>
-                                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                    This value is sent to Meta for ROAS calculation (Return on Ad Spend)
-                                </small>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Conversion Date (optional)</label>
-                                <input
-                                    type="datetime-local"
-                                    className="form-input"
-                                    value={conversionDate}
-                                    onChange={e => setConversionDate(e.target.value)}
-                                    max={new Date().toISOString().slice(0, 16)}
-                                />
-                                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                    Leave empty for NOW, or select past date for backdated conversions
-                                </small>
-                            </div>
-                        </div>
-
-                        <div className={styles.modalFooter}>
-                            <button className="btn btn-secondary" onClick={handleSkipConversion} disabled={sendingCapi}>
-                                Skip (No Value)
-                            </button>
-                            <button
-                                className="btn btn-primary"
-                                onClick={handleConversionSubmit}
-                                style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
-                                disabled={sendingCapi}
-                            >
-                                {sendingCapi ? '📡 Sending to Facebook...' : '💰 Save & Send to Facebook'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Link Ad Modal */}
-            {showLinkAdModal && (
-                <div className={styles.modalOverlay} onClick={() => setShowLinkAdModal(false)}>
-                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
-                        <div className={styles.modalHeader}>
-                            <h2>🔗 Link Ad to Stage</h2>
-                            <button className={styles.closeBtn} onClick={() => setShowLinkAdModal(false)}>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="18" y1="6" x2="6" y2="18" />
-                                    <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className={styles.modalBody}>
-                            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)', fontSize: '0.875rem' }}>
-                                Link a Facebook ad to track contacts from that ad in this pipeline stage.
-                            </p>
-
-                            {storedAds.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)', color: 'var(--text-muted)' }}>
-                                    <p>No ads imported yet.</p>
-                                    <Link href="/import" className="btn btn-primary" style={{ marginTop: 'var(--spacing-md)' }}>
-                                        📥 Import Ads First
-                                    </Link>
-                                </div>
-                            ) : (
                                 <div className="form-group">
-                                    <label className="form-label">Select Ad</label>
+                                    <label className="form-label">Email</label>
+                                    <input
+                                        type="email"
+                                        className="form-input"
+                                        placeholder="email@example.com"
+                                        value={newLead.email}
+                                        onChange={e => setNewLead({ ...newLead, email: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Phone</label>
+                                    <input
+                                        type="tel"
+                                        className="form-input"
+                                        placeholder="+1 234 567 8900"
+                                        value={newLead.phone}
+                                        onChange={e => setNewLead({ ...newLead, phone: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Source</label>
                                     <select
                                         className="form-input"
-                                        value={selectedAdToLink}
-                                        onChange={e => setSelectedAdToLink(e.target.value)}
+                                        value={newLead.source}
+                                        onChange={e => setNewLead({ ...newLead, source: e.target.value })}
                                     >
-                                        <option value="">-- Select an ad --</option>
-                                        {storedAds.map(ad => {
-                                            const isLinked = adLinks.some(l => l.adId === (ad.facebookAdId || ad.id));
-                                            return (
-                                                <option
-                                                    key={ad.id}
-                                                    value={ad.id}
-                                                    disabled={isLinked}
-                                                >
-                                                    {ad.name || 'Unnamed Ad'} {isLinked ? '(already linked)' : ''}
-                                                </option>
-                                            );
-                                        })}
+                                        <option value="Manual">Manual Entry</option>
+                                        <option value="Facebook Ads">Facebook Ads</option>
+                                        <option value="Instagram Ads">Instagram Ads</option>
+                                        <option value="Messenger">Messenger</option>
+                                        <option value="WhatsApp">WhatsApp</option>
+                                        <option value="Webhook">Webhook</option>
                                     </select>
                                 </div>
-                            )}
-                        </div>
+                            </div>
 
-                        <div className={styles.modalFooter}>
-                            <button className="btn btn-secondary" onClick={() => setShowLinkAdModal(false)}>
-                                Cancel
-                            </button>
-                            <button
-                                className="btn btn-primary"
-                                onClick={handleLinkAd}
-                                disabled={!selectedAdToLink}
-                            >
-                                🔗 Link Ad
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Bulk Move Modal */}
-            {showBulkMoveModal && pipeline && (
-                <div className={styles.modalOverlay} onClick={() => setShowBulkMoveModal(false)}>
-                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
-                        <div className={styles.modalHeader}>
-                            <h2>📦 Move {selectedLeads.size} Lead(s)</h2>
-                            <button className={styles.closeBtn} onClick={() => setShowBulkMoveModal(false)}>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="18" y1="6" x2="6" y2="18" />
-                                    <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className={styles.modalBody}>
-                            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
-                                Select a stage to move the selected leads to:
-                            </p>
-
-                            <div className="form-group">
-                                <label className="form-label">Target Stage</label>
-                                <select
-                                    className="form-input"
-                                    value={bulkMoveTargetStage}
-                                    onChange={e => setBulkMoveTargetStage(e.target.value)}
+                            <div className={styles.modalFooter}>
+                                <button className="btn btn-secondary" onClick={() => setShowAddLeadModal(false)}>
+                                    Cancel
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleAddLead}
+                                    disabled={!newLead.name}
                                 >
-                                    <option value="">-- Select a stage --</option>
-                                    {pipeline.stages.map(stage => (
-                                        <option key={stage.id} value={stage.id}>
-                                            {stage.name} {stage.isGoal ? '(Goal)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
+                                    Add Lead
+                                </button>
                             </div>
                         </div>
+                    </div>
+                )
+            }
 
-                        <div className={styles.modalFooter}>
-                            <button className="btn btn-secondary" onClick={() => setShowBulkMoveModal(false)}>
-                                Cancel
+            {/* Conversion Value Modal */}
+            {
+                showConversionModal && draggedLead && (
+                    <div className={styles.modalOverlay} onClick={() => {
+                        setShowConversionModal(false);
+                        setDraggedLead(null);
+                        setPendingGoalStageId(null);
+                    }}>
+                        <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                            <div className={styles.modalHeader} style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1))' }}>
+                                <h2>🎯 Lead Converted!</h2>
+                                <button className={styles.closeBtn} onClick={() => {
+                                    setShowConversionModal(false);
+                                    setDraggedLead(null);
+                                    setPendingGoalStageId(null);
+                                }}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div className={styles.modalBody}>
+                                <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
+                                    <strong>{draggedLead.name}</strong> has reached <strong>{pipeline?.goal}</strong>
+                                </p>
+
+                                <div className="form-group">
+                                    <label className="form-label">💰 Purchase Value (for Meta ROAS)</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <span style={{
+                                            position: 'absolute',
+                                            left: '12px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            color: 'var(--text-muted)',
+                                            fontSize: '1.25rem'
+                                        }}>$</span>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            placeholder="0.00"
+                                            value={conversionValue}
+                                            onChange={e => setConversionValue(e.target.value)}
+                                            style={{ paddingLeft: '32px', fontSize: '1.25rem' }}
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                        This value is sent to Meta for ROAS calculation (Return on Ad Spend)
+                                    </small>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Conversion Date (optional)</label>
+                                    <input
+                                        type="datetime-local"
+                                        className="form-input"
+                                        value={conversionDate}
+                                        onChange={e => setConversionDate(e.target.value)}
+                                        max={new Date().toISOString().slice(0, 16)}
+                                    />
+                                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                        Leave empty for NOW, or select past date for backdated conversions
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div className={styles.modalFooter}>
+                                <button className="btn btn-secondary" onClick={handleSkipConversion} disabled={sendingCapi}>
+                                    Skip (No Value)
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleConversionSubmit}
+                                    style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                                    disabled={sendingCapi}
+                                >
+                                    {sendingCapi ? '📡 Sending to Facebook...' : '💰 Save & Send to Facebook'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Link Ad Modal */}
+            {
+                showLinkAdModal && (
+                    <div className={styles.modalOverlay} onClick={() => setShowLinkAdModal(false)}>
+                        <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                            <div className={styles.modalHeader}>
+                                <h2>🔗 Link Ad to Stage</h2>
+                                <button className={styles.closeBtn} onClick={() => setShowLinkAdModal(false)}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div className={styles.modalBody}>
+                                <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)', fontSize: '0.875rem' }}>
+                                    Link a Facebook ad to track contacts from that ad in this pipeline stage.
+                                </p>
+
+                                {storedAds.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)', color: 'var(--text-muted)' }}>
+                                        <p>No ads imported yet.</p>
+                                        <Link href="/import" className="btn btn-primary" style={{ marginTop: 'var(--spacing-md)' }}>
+                                            📥 Import Ads First
+                                        </Link>
+                                    </div>
+                                ) : (
+                                    <div className="form-group">
+                                        <label className="form-label">Select Ad</label>
+                                        <select
+                                            className="form-input"
+                                            value={selectedAdToLink}
+                                            onChange={e => setSelectedAdToLink(e.target.value)}
+                                        >
+                                            <option value="">-- Select an ad --</option>
+                                            {storedAds.map(ad => {
+                                                const isLinked = adLinks.some(l => l.adId === (ad.facebookAdId || ad.id));
+                                                return (
+                                                    <option
+                                                        key={ad.id}
+                                                        value={ad.id}
+                                                        disabled={isLinked}
+                                                    >
+                                                        {ad.name || 'Unnamed Ad'} {isLinked ? '(already linked)' : ''}
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className={styles.modalFooter}>
+                                <button className="btn btn-secondary" onClick={() => setShowLinkAdModal(false)}>
+                                    Cancel
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleLinkAd}
+                                    disabled={!selectedAdToLink}
+                                >
+                                    🔗 Link Ad
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Bulk Move Modal */}
+            {
+                showBulkMoveModal && pipeline && (
+                    <div className={styles.modalOverlay} onClick={() => setShowBulkMoveModal(false)}>
+                        <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                            <div className={styles.modalHeader}>
+                                <h2>📦 Move {selectedLeads.size} Lead(s)</h2>
+                                <button className={styles.closeBtn} onClick={() => setShowBulkMoveModal(false)}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div className={styles.modalBody}>
+                                <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
+                                    Select a stage to move the selected leads to:
+                                </p>
+
+                                <div className="form-group">
+                                    <label className="form-label">Target Stage</label>
+                                    <select
+                                        className="form-input"
+                                        value={bulkMoveTargetStage}
+                                        onChange={e => setBulkMoveTargetStage(e.target.value)}
+                                    >
+                                        <option value="">-- Select a stage --</option>
+                                        {pipeline.stages.map(stage => (
+                                            <option key={stage.id} value={stage.id}>
+                                                {stage.name} {stage.isGoal ? '(Goal)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className={styles.modalFooter}>
+                                <button className="btn btn-secondary" onClick={() => setShowBulkMoveModal(false)}>
+                                    Cancel
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleBulkMove}
+                                    disabled={!bulkMoveTargetStage}
+                                >
+                                    Move Leads
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Bulk Actions Bar */}
+            {
+                selectedLeads.size > 0 && (
+                    <div className={styles.bulkActionsBar}>
+                        <div className={styles.bulkActionsLeft}>
+                            <label className={styles.selectAllCheckbox}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedLeads.size === leads.length}
+                                    onChange={selectAllLeads}
+                                />
+                                <span>Select All</span>
+                            </label>
+                            <span className={styles.selectedCount}>
+                                {selectedLeads.size} selected
+                            </span>
+                        </div>
+                        <div className={styles.bulkActionsRight}>
+                            <button
+                                className={styles.bulkActionBtn}
+                                onClick={() => setShowBulkMoveModal(true)}
+                            >
+                                📦 Move to Stage
                             </button>
                             <button
-                                className="btn btn-primary"
-                                onClick={handleBulkMove}
-                                disabled={!bulkMoveTargetStage}
+                                className={`${styles.bulkActionBtn} ${styles.bulkActionBtnDanger}`}
+                                onClick={handleBulkDelete}
                             >
-                                Move Leads
+                                🗑️ Delete Selected
+                            </button>
+                            <button
+                                className={styles.bulkActionBtnClear}
+                                onClick={clearSelection}
+                            >
+                                ✕ Clear
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* Bulk Actions Bar */}
-            {selectedLeads.size > 0 && (
-                <div className={styles.bulkActionsBar}>
-                    <div className={styles.bulkActionsLeft}>
-                        <label className={styles.selectAllCheckbox}>
-                            <input
-                                type="checkbox"
-                                checked={selectedLeads.size === leads.length}
-                                onChange={selectAllLeads}
-                            />
-                            <span>Select All</span>
-                        </label>
-                        <span className={styles.selectedCount}>
-                            {selectedLeads.size} selected
-                        </span>
-                    </div>
-                    <div className={styles.bulkActionsRight}>
-                        <button
-                            className={styles.bulkActionBtn}
-                            onClick={() => setShowBulkMoveModal(true)}
-                        >
-                            📦 Move to Stage
-                        </button>
-                        <button
-                            className={`${styles.bulkActionBtn} ${styles.bulkActionBtnDanger}`}
-                            onClick={handleBulkDelete}
-                        >
-                            🗑️ Delete Selected
-                        </button>
-                        <button
-                            className={styles.bulkActionBtnClear}
-                            onClick={clearSelection}
-                        >
-                            ✕ Clear
-                        </button>
-                    </div>
-                </div>
-            )}
+                )
+            }
 
             <Link
                 href={`/pipeline/${params.id}/contacts`}
@@ -1109,112 +1233,220 @@ export default function PipelineDetailPage() {
             </Link>
 
             {/* Lead Detail Modal */}
-            {showLeadDetailModal && selectedLead && (
-                <div className={styles.modalOverlay} onClick={() => setShowLeadDetailModal(false)}>
-                    <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '80vh', overflow: 'auto' }}>
+            {
+                showLeadDetailModal && selectedLead && (
+                    <div className={styles.modalOverlay} onClick={() => setShowLeadDetailModal(false)}>
+                        <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '80vh', overflow: 'auto' }}>
+                            <div className={styles.modalHeader}>
+                                <h2>{selectedLead.name}</h2>
+                                <button className={styles.closeBtn} onClick={() => setShowLeadDetailModal(false)}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div className={styles.modalBody}>
+                                {/* Contact Info */}
+                                <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+                                    <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>Contact Info</h4>
+                                    {selectedLead.email && <p>📧 <strong>Email:</strong> {selectedLead.email}</p>}
+                                    {selectedLead.phone && <p>📱 <strong>Phone:</strong> {selectedLead.phone}</p>}
+                                    {selectedLead.facebookPsid && <p>🔗 <strong>Facebook ID:</strong> {selectedLead.facebookPsid}</p>}
+                                    {selectedLead.source && <p>📍 <strong>Source:</strong> {selectedLead.source}</p>}
+                                    {selectedLead.sourceAdName && <p>📊 <strong>Ad:</strong> {selectedLead.sourceAdName}</p>}
+                                    <p>📅 <strong>Created:</strong> {new Date(selectedLead.createdAt).toLocaleString()}</p>
+                                </div>
+
+                                {/* AI Analysis */}
+                                {selectedLead.aiAnalysis && (
+                                    <div style={{
+                                        marginBottom: 'var(--spacing-lg)',
+                                        padding: 'var(--spacing-md)',
+                                        background: 'rgba(59, 130, 246, 0.1)',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px solid rgba(59, 130, 246, 0.2)'
+                                    }}>
+                                        <h4 style={{ marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            🤖 AI Analysis
+                                            <span style={{
+                                                fontSize: '0.75rem',
+                                                padding: '2px 8px',
+                                                borderRadius: '12px',
+                                                background: selectedLead.aiAnalysis.sentiment === 'positive' ? 'rgba(16, 185, 129, 0.2)' :
+                                                    selectedLead.aiAnalysis.sentiment === 'negative' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(156, 163, 175, 0.2)',
+                                                color: selectedLead.aiAnalysis.sentiment === 'positive' ? 'var(--success)' :
+                                                    selectedLead.aiAnalysis.sentiment === 'negative' ? 'var(--error)' : 'var(--text-secondary)'
+                                            }}>
+                                                {selectedLead.aiAnalysis.sentiment}
+                                            </span>
+                                        </h4>
+                                        {selectedLead.aiAnalysis.summary && <p style={{ marginBottom: '8px' }}>{selectedLead.aiAnalysis.summary}</p>}
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap', fontSize: '0.875rem' }}>
+                                            {selectedLead.aiAnalysis.intent && <span>🎯 Intent: <strong>{selectedLead.aiAnalysis.intent}</strong></span>}
+                                            {selectedLead.aiAnalysis.leadScore !== undefined && (
+                                                <span>📊 Score: <strong style={{
+                                                    color:
+                                                        selectedLead.aiAnalysis.leadScore >= 70 ? 'var(--success)' :
+                                                            selectedLead.aiAnalysis.leadScore >= 40 ? 'var(--warning)' : 'var(--error)'
+                                                }}>{selectedLead.aiAnalysis.leadScore}</strong>/100</span>
+                                            )}
+                                        </div>
+                                        {selectedLead.aiAnalysis.extractedEmail && <p style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>📧 Extracted: {selectedLead.aiAnalysis.extractedEmail}</p>}
+                                        {selectedLead.aiAnalysis.extractedPhone && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📱 Extracted: {selectedLead.aiAnalysis.extractedPhone}</p>}
+                                    </div>
+                                )}
+
+                                {/* Messages */}
+                                {selectedLead.messages && selectedLead.messages.length > 0 && (
+                                    <div>
+                                        <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>
+                                            💬 Messages ({selectedLead.messages.length})
+                                        </h4>
+                                        <div style={{
+                                            maxHeight: '300px',
+                                            overflow: 'auto',
+                                            background: 'var(--bg-tertiary)',
+                                            borderRadius: 'var(--radius-md)',
+                                            padding: 'var(--spacing-sm)'
+                                        }}>
+                                            {selectedLead.messages.map((msg, idx) => (
+                                                <div key={msg.id || idx} style={{
+                                                    marginBottom: 'var(--spacing-sm)',
+                                                    padding: 'var(--spacing-sm)',
+                                                    background: 'var(--bg-secondary)',
+                                                    borderRadius: 'var(--radius-sm)'
+                                                }}>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                                        <strong>{msg.from}</strong> • {new Date(msg.timestamp).toLocaleString()}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.875rem' }}>{msg.content || '(No content)'}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* No messages fallback */}
+                                {(!selectedLead.messages || selectedLead.messages.length === 0) && selectedLead.lastMessage && (
+                                    <div>
+                                        <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>💬 Last Message</h4>
+                                        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{selectedLead.lastMessage}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+            {/* Stage Edit Modal */}
+            {showStageEditModal && editingStage && (
+                <div className={styles.modalOverlay} onClick={() => setShowStageEditModal(false)}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
                         <div className={styles.modalHeader}>
-                            <h2>{selectedLead.name}</h2>
-                            <button className={styles.closeBtn} onClick={() => setShowLeadDetailModal(false)}>
+                            <h2>Edit Stage</h2>
+                            <button className={styles.closeBtn} onClick={() => setShowStageEditModal(false)}>
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <line x1="18" y1="6" x2="6" y2="18" />
                                     <line x1="6" y1="6" x2="18" y2="18" />
                                 </svg>
                             </button>
                         </div>
-
                         <div className={styles.modalBody}>
-                            {/* Contact Info */}
-                            <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                                <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>Contact Info</h4>
-                                {selectedLead.email && <p>📧 <strong>Email:</strong> {selectedLead.email}</p>}
-                                {selectedLead.phone && <p>📱 <strong>Phone:</strong> {selectedLead.phone}</p>}
-                                {selectedLead.facebookPsid && <p>🔗 <strong>Facebook ID:</strong> {selectedLead.facebookPsid}</p>}
-                                {selectedLead.source && <p>📍 <strong>Source:</strong> {selectedLead.source}</p>}
-                                {selectedLead.sourceAdName && <p>📊 <strong>Ad:</strong> {selectedLead.sourceAdName}</p>}
-                                <p>📅 <strong>Created:</strong> {new Date(selectedLead.createdAt).toLocaleString()}</p>
+                            <div className="form-group">
+                                <label className="form-label">Stage Name</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={editingStage.name}
+                                    onChange={e => setEditingStage({ ...editingStage, name: e.target.value })}
+                                />
                             </div>
-
-                            {/* AI Analysis */}
-                            {selectedLead.aiAnalysis && (
-                                <div style={{
-                                    marginBottom: 'var(--spacing-lg)',
-                                    padding: 'var(--spacing-md)',
-                                    background: 'rgba(59, 130, 246, 0.1)',
-                                    borderRadius: 'var(--radius-md)',
-                                    border: '1px solid rgba(59, 130, 246, 0.2)'
-                                }}>
-                                    <h4 style={{ marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        🤖 AI Analysis
-                                        <span style={{
-                                            fontSize: '0.75rem',
-                                            padding: '2px 8px',
-                                            borderRadius: '12px',
-                                            background: selectedLead.aiAnalysis.sentiment === 'positive' ? 'rgba(16, 185, 129, 0.2)' :
-                                                selectedLead.aiAnalysis.sentiment === 'negative' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(156, 163, 175, 0.2)',
-                                            color: selectedLead.aiAnalysis.sentiment === 'positive' ? 'var(--success)' :
-                                                selectedLead.aiAnalysis.sentiment === 'negative' ? 'var(--error)' : 'var(--text-secondary)'
-                                        }}>
-                                            {selectedLead.aiAnalysis.sentiment}
-                                        </span>
-                                    </h4>
-                                    {selectedLead.aiAnalysis.summary && <p style={{ marginBottom: '8px' }}>{selectedLead.aiAnalysis.summary}</p>}
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap', fontSize: '0.875rem' }}>
-                                        {selectedLead.aiAnalysis.intent && <span>🎯 Intent: <strong>{selectedLead.aiAnalysis.intent}</strong></span>}
-                                        {selectedLead.aiAnalysis.leadScore !== undefined && (
-                                            <span>📊 Score: <strong style={{
-                                                color:
-                                                    selectedLead.aiAnalysis.leadScore >= 70 ? 'var(--success)' :
-                                                        selectedLead.aiAnalysis.leadScore >= 40 ? 'var(--warning)' : 'var(--error)'
-                                            }}>{selectedLead.aiAnalysis.leadScore}</strong>/100</span>
-                                        )}
-                                    </div>
-                                    {selectedLead.aiAnalysis.extractedEmail && <p style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>📧 Extracted: {selectedLead.aiAnalysis.extractedEmail}</p>}
-                                    {selectedLead.aiAnalysis.extractedPhone && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📱 Extracted: {selectedLead.aiAnalysis.extractedPhone}</p>}
-                                </div>
-                            )}
-
-                            {/* Messages */}
-                            {selectedLead.messages && selectedLead.messages.length > 0 && (
-                                <div>
-                                    <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>
-                                        💬 Messages ({selectedLead.messages.length})
-                                    </h4>
-                                    <div style={{
-                                        maxHeight: '300px',
-                                        overflow: 'auto',
-                                        background: 'var(--bg-tertiary)',
-                                        borderRadius: 'var(--radius-md)',
-                                        padding: 'var(--spacing-sm)'
-                                    }}>
-                                        {selectedLead.messages.map((msg, idx) => (
-                                            <div key={msg.id || idx} style={{
-                                                marginBottom: 'var(--spacing-sm)',
-                                                padding: 'var(--spacing-sm)',
-                                                background: 'var(--bg-secondary)',
-                                                borderRadius: 'var(--radius-sm)'
-                                            }}>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                                                    <strong>{msg.from}</strong> • {new Date(msg.timestamp).toLocaleString()}
-                                                </div>
-                                                <div style={{ fontSize: '0.875rem' }}>{msg.content || '(No content)'}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* No messages fallback */}
-                            {(!selectedLead.messages || selectedLead.messages.length === 0) && selectedLead.lastMessage && (
-                                <div>
-                                    <h4 style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>💬 Last Message</h4>
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{selectedLead.lastMessage}</p>
-                                </div>
-                            )}
+                            <div className="form-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={editingStage.isGoal}
+                                        onChange={e => setEditingStage({ ...editingStage, isGoal: e.target.checked })}
+                                    />
+                                    <span>This is the Goal stage (conversions)</span>
+                                </label>
+                            </div>
+                            <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)' }}>
+                                <button className="btn btn-primary" onClick={saveStageEdit} style={{ flex: 1 }}>
+                                    Save Changes
+                                </button>
+                                <button
+                                    className="btn"
+                                    onClick={() => { setShowStageEditModal(false); deleteStage(editingStage.id); }}
+                                    style={{ background: 'rgba(239, 68, 68, 0.2)', color: 'var(--error)' }}
+                                >
+                                    🗑️ Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+
+            {/* Add Stage Modal */}
+            {
+                showAddStageModal && (
+                    <div className={styles.modalOverlay} onClick={() => setShowAddStageModal(false)}>
+                        <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                            <div className={styles.modalHeader}>
+                                <h2>Add New Stage</h2>
+                                <button className={styles.closeBtn} onClick={() => setShowAddStageModal(false)}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className={styles.modalBody}>
+                                <div className="form-group">
+                                    <label className="form-label">Stage Name</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="e.g., Negotiation, Follow-up..."
+                                        value={newStageName}
+                                        onChange={e => setNewStageName(e.target.value)}
+                                    />
+                                </div>
+                                <button className="btn btn-primary" onClick={addNewStage} style={{ width: '100%', marginTop: 'var(--spacing-md)' }}>
+                                    Add Stage
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Add Stage Button */}
+            <button
+                onClick={() => setShowAddStageModal(true)}
+                style={{
+                    position: 'fixed',
+                    bottom: 'var(--spacing-lg)',
+                    right: '100px',
+                    background: 'var(--bg-secondary)',
+                    border: '2px dashed var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: 'var(--spacing-sm) var(--spacing-md)',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}
+            >
+                ➕ Add Stage
+            </button>
+        </div >
     );
 }
 

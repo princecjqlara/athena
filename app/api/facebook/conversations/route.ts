@@ -165,8 +165,8 @@ export async function GET(request: NextRequest) {
 
         // CRITICAL: Use /{page_id}/conversations NOT /me/conversations for Page Messenger
         // /me/conversations only works with user tokens, not page tokens
-        // Include participants.name to get user names directly in the response
-        const conversationsUrl = `https://graph.facebook.com/v24.0/${pageId}/conversations?fields=id,link,updated_time,participants{id,name,email},messages.limit(10){id,message,from,created_time}&limit=${limit}&access_token=${accessToken}`;
+        // NOTE: Only request participants{id,name} - email returns PAGE's email, not user's
+        const conversationsUrl = `https://graph.facebook.com/v24.0/${pageId}/conversations?fields=id,link,updated_time,participants{id,name},messages.limit(10){id,message,from,created_time}&limit=${limit}&access_token=${accessToken}`;
 
         console.log('[Conversations] Request URL:', `graph.facebook.com/v24.0/${pageId}/conversations?fields=...&limit=${limit}`);
 
