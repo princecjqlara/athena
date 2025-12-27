@@ -33,6 +33,46 @@ interface ConversationsResponse {
     };
 }
 
+interface FacebookUserProfile {
+    id: string;
+    first_name?: string;
+    last_name?: string;
+    name?: string;
+    profile_pic?: string;
+    error?: {
+        message: string;
+        code: number;
+    };
+}
+
+/**
+ * Fetch user profile from Facebook Graph API to get real name
+ */
+async function fetchUserProfile(psid: string, accessToken: string): Promise<FacebookUserProfile | null> {
+    try {
+        const url = `https://graph.facebook.com/v24.0/${psid}?fields=first_name,last_name,name,profile_pic&access_token=${accessToken}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            console.log(`[Conversations] Failed to fetch profile for ${psid}: ${response.status}`);
+            return null;
+        }
+
+        const profile = await response.json();
+
+        if (profile.error) {
+            console.log(`[Conversations] Profile error for ${psid}:`, profile.error.message);
+            return null;
+        }
+
+        console.log(`[Conversations] Fetched profile: ${profile.name || profile.first_name || 'Unknown'}`);
+        return profile;
+    } catch (error) {
+        console.error(`[Conversations] Error fetching profile for ${psid}:`, error);
+        return null;
+    }
+}
+
 /**
  * GET /api/facebook/conversations
  * Fetch all Messenger conversations for a Page, including historical ones.
@@ -125,11 +165,23 @@ export async function GET(request: NextRequest) {
 
         console.log(`[Conversations] Found ${data.data?.length || 0} conversations`);
 
-        // Process conversations into contact format
-        let contacts = data.data.map(conv => {
+        // Process conversations into contact format - fetch real names for each
+        const contactPromises = data.data.map(async (conv) => {
             // Get the customer (non-page participant)
             const participants = conv.participants?.data || [];
             const customer = participants.find(p => p.id !== pageId) || participants[0];
+
+            // Fetch real name from Facebook profile API
+            let customerName = 'Unknown';
+            if (customer?.id && accessToken) {
+                const profile = await fetchUserProfile(customer.id, accessToken);
+                if (profile) {
+                    customerName = profile.name ||
+                        (profile.first_name && profile.last_name
+                            ? `${profile.first_name} ${profile.last_name}`
+                            : profile.first_name || 'Unknown');
+                }
+            }
 
             // Get messages
             const messages = conv.messages?.data || [];
@@ -154,7 +206,7 @@ export async function GET(request: NextRequest) {
             return {
                 conversationId: conv.id,
                 facebookPsid: customer?.id,
-                name: customer?.name || 'Unknown',
+                name: customerName,
                 email: customer?.email,
                 link: conv.link,
                 adId: adIdFromLink,
@@ -173,6 +225,8 @@ export async function GET(request: NextRequest) {
                 updatedAt: conv.updated_time
             };
         });
+
+        let contacts = await Promise.all(contactPromises);
 
         // Filter by ad_id if specified
         if (filterAdId) {
