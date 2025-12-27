@@ -262,11 +262,31 @@ export async function POST(request: NextRequest) {
         }, {});
         console.log(`[AI Analysis] Stage distribution:`, stageDistribution);
 
+        // ============================================
+        // VALIDATION: Only suggest stages that have at least 1 lead assigned
+        // This ensures we don't create empty stages
+        // ============================================
+        const suggestedStageLeadCounts: Record<string, number> = {};
+        for (const lead of analyzedLeads) {
+            const stageId = lead.aiAnalysis?.suggestedStage;
+            if (stageId) {
+                suggestedStageLeadCounts[stageId] = (suggestedStageLeadCounts[stageId] || 0) + 1;
+            }
+        }
+
+        // Filter suggested stages to only those that would have leads
+        const validatedSuggestedStages = suggestedNewStages.filter(stage =>
+            suggestedStageLeadCounts[stage.id] && suggestedStageLeadCounts[stage.id] > 0
+        );
+
+        console.log(`[AI Analysis] Stage validation: ${suggestedNewStages.length} suggested → ${validatedSuggestedStages.length} with leads`);
+        console.log(`[AI Analysis] Stage lead counts:`, suggestedStageLeadCounts);
+
         return NextResponse.json({
             success: true,
             leads: analyzedLeads,
             count: analyzedLeads.length,
-            suggestedStages: suggestedNewStages,
+            suggestedStages: validatedSuggestedStages,  // Only return validated stages
             summary: {
                 positive: analyzedLeads.filter(l => l.aiAnalysis?.sentiment === 'positive').length,
                 neutral: analyzedLeads.filter(l => l.aiAnalysis?.sentiment === 'neutral').length,

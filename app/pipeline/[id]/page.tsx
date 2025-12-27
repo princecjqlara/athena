@@ -4,15 +4,29 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from './page.module.css';
-import { adLinksStore, getStoredAds, AdPipelineLink } from '@/lib/contacts-store';
+import { getStoredAds } from '@/lib/contacts-store';
+
+// Predefined Facebook events for CAPI integration
+const FACEBOOK_EVENTS = [
+    { id: 'Lead', name: 'Lead', description: 'Initial contact or inquiry' },
+    { id: 'Contact', name: 'Contact', description: 'Customer reached out' },
+    { id: 'ViewContent', name: 'View Content', description: 'Showed interest in product/service' },
+    { id: 'InitiateCheckout', name: 'Initiate Checkout', description: 'Started purchase process' },
+    { id: 'AddToCart', name: 'Add to Cart', description: 'Added product to cart' },
+    { id: 'Purchase', name: 'Purchase', description: 'Completed sale' },
+    { id: 'CompleteRegistration', name: 'Complete Registration', description: 'Signed up or registered' },
+    { id: 'Schedule', name: 'Schedule', description: 'Booked appointment or scheduled call' },
+    { id: 'Custom', name: 'Custom Event', description: 'User-defined event' },
+];
 
 interface Stage {
     id: string;
     name: string;
+    description?: string;       // Stage purpose/use description
+    facebookEvent?: string;     // Connected Facebook CAPI event
     isGoal: boolean;
     isAutoCreated: boolean;
     leadCount: number;
-    linkedAdIds?: string[];  // Facebook Ad IDs linked to this stage
 }
 
 interface StoredAd {
@@ -95,19 +109,15 @@ export default function PipelineDetailPage() {
     const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
     const [bulkMoveTargetStage, setBulkMoveTargetStage] = useState<string>('');
 
-    // Ad linking state
+    // Stored ads for auto-linking display
     const [storedAds, setStoredAds] = useState<StoredAd[]>([]);
-    const [adLinks, setAdLinks] = useState<AdPipelineLink[]>([]);
-    const [showLinkAdModal, setShowLinkAdModal] = useState(false);
-    const [selectedStageForLinking, setSelectedStageForLinking] = useState<string | null>(null);
-    const [selectedAdToLink, setSelectedAdToLink] = useState<string>('');
 
     // Lead detail modal state
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [showLeadDetailModal, setShowLeadDetailModal] = useState(false);
 
-    // Stage editing state
-    const [editingStage, setEditingStage] = useState<{ id: string; name: string; isGoal: boolean } | null>(null);
+    // Stage editing state - includes new fields for description and facebookEvent
+    const [editingStage, setEditingStage] = useState<{ id: string; name: string; description?: string; facebookEvent?: string; isGoal: boolean } | null>(null);
     const [showStageEditModal, setShowStageEditModal] = useState(false);
     const [showAddStageModal, setShowAddStageModal] = useState(false);
     const [newStageName, setNewStageName] = useState('');
@@ -175,47 +185,26 @@ export default function PipelineDetailPage() {
             }
         }
 
-        // Load stored ads and ad-pipeline links
+        // Load stored ads for auto-linking display (based on lead sourceAdId)
         setStoredAds(getStoredAds());
-        setAdLinks(adLinksStore.getByPipeline(params.id as string));
     }, [params.id]);
 
-    // Handle linking an ad to a stage
-    const handleLinkAd = () => {
-        if (!selectedStageForLinking || !selectedAdToLink) return;
+    // Get ads automatically linked to a stage based on leads' sourceAdId
+    const getAutoLinkedAdsForStage = (stageId: string): { adId: string; adName: string }[] => {
+        const stageLeads = leads.filter(l => l.stageId === stageId && l.sourceAdId);
+        const adMap = new Map<string, string>();
 
-        const ad = storedAds.find(a => a.id === selectedAdToLink);
-        if (!ad) return;
+        for (const lead of stageLeads) {
+            if (lead.sourceAdId && !adMap.has(lead.sourceAdId)) {
+                // Find ad name from stored ads
+                const storedAd = storedAds.find(a =>
+                    a.facebookAdId === lead.sourceAdId || a.id === lead.sourceAdId
+                );
+                adMap.set(lead.sourceAdId, lead.sourceAdName || storedAd?.name || 'Unknown Ad');
+            }
+        }
 
-        const newLink = adLinksStore.create({
-            adId: ad.facebookAdId || ad.id,
-            adName: ad.name || 'Unnamed Ad',
-            pipelineId: params.id as string,
-            stageId: selectedStageForLinking,
-        });
-
-        setAdLinks([...adLinks.filter(l => l.adId !== newLink.adId), newLink]);
-        setShowLinkAdModal(false);
-        setSelectedStageForLinking(null);
-        setSelectedAdToLink('');
-    };
-
-    // Handle unlinking an ad
-    const handleUnlinkAd = (adId: string) => {
-        adLinksStore.delete(adId);
-        setAdLinks(adLinks.filter(l => l.adId !== adId));
-    };
-
-    // Get linked ads for a stage
-    const getLinkedAdsForStage = (stageId: string) => {
-        return adLinks.filter(l => l.stageId === stageId);
-    };
-
-    // Open link ad modal
-    const openLinkAdModal = (stageId: string) => {
-        setSelectedStageForLinking(stageId);
-        setSelectedAdToLink('');
-        setShowLinkAdModal(true);
+        return Array.from(adMap.entries()).map(([adId, adName]) => ({ adId, adName }));
     };
 
     const saveLeads = (updatedLeads: Lead[]) => {
@@ -254,7 +243,13 @@ export default function PipelineDetailPage() {
 
         const updatedStages = pipeline.stages.map(stage => {
             if (stage.id === editingStage.id) {
-                return { ...stage, name: editingStage.name, isGoal: editingStage.isGoal };
+                return {
+                    ...stage,
+                    name: editingStage.name,
+                    description: editingStage.description,
+                    facebookEvent: editingStage.facebookEvent,
+                    isGoal: editingStage.isGoal
+                };
             }
             // Only one goal stage allowed
             if (editingStage.isGoal && stage.isGoal && stage.id !== editingStage.id) {
@@ -758,16 +753,15 @@ export default function PipelineDetailPage() {
                                 <span className={styles.columnCount}>{getLeadsForStage(stage.id).length}</span>
                                 <button
                                     className={styles.linkAdBtn}
-                                    onClick={(e) => { e.stopPropagation(); openLinkAdModal(stage.id); }}
-                                    title="Link an ad to this stage"
-                                >
-                                    🔗
-                                </button>
-                                <button
-                                    className={styles.linkAdBtn}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setEditingStage({ id: stage.id, name: stage.name, isGoal: stage.isGoal });
+                                        setEditingStage({
+                                            id: stage.id,
+                                            name: stage.name,
+                                            description: stage.description,
+                                            facebookEvent: stage.facebookEvent,
+                                            isGoal: stage.isGoal
+                                        });
                                         setShowStageEditModal(true);
                                     }}
                                     title="Edit stage"
@@ -776,19 +770,28 @@ export default function PipelineDetailPage() {
                                 </button>
                             </div>
                         </div>
-                        {/* Linked Ads */}
-                        {getLinkedAdsForStage(stage.id).length > 0 && (
+                        {/* Facebook Event Badge */}
+                        {stage.facebookEvent && (
+                            <div style={{
+                                padding: '4px 8px',
+                                background: 'rgba(99, 102, 241, 0.15)',
+                                borderRadius: '4px',
+                                fontSize: '0.7rem',
+                                color: '#a5b4fc',
+                                marginBottom: '8px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}>
+                                📡 {FACEBOOK_EVENTS.find(e => e.id === stage.facebookEvent)?.name || stage.facebookEvent}
+                            </div>
+                        )}
+                        {/* Auto-Linked Ads based on lead sources */}
+                        {getAutoLinkedAdsForStage(stage.id).length > 0 && (
                             <div className={styles.linkedAds}>
-                                {getLinkedAdsForStage(stage.id).map(link => (
+                                {getAutoLinkedAdsForStage(stage.id).map(link => (
                                     <div key={link.adId} className={styles.linkedAdBadge}>
                                         <span>📊 {link.adName.length > 15 ? link.adName.slice(0, 15) + '...' : link.adName}</span>
-                                        <button
-                                            className={styles.unlinkBtn}
-                                            onClick={() => handleUnlinkAd(link.adId)}
-                                            title="Unlink this ad"
-                                        >
-                                            ×
-                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -1078,77 +1081,6 @@ export default function PipelineDetailPage() {
                     </div>
                 )
             }
-
-            {/* Link Ad Modal */}
-            {
-                showLinkAdModal && (
-                    <div className={styles.modalOverlay} onClick={() => setShowLinkAdModal(false)}>
-                        <div className={styles.modal} onClick={e => e.stopPropagation()}>
-                            <div className={styles.modalHeader}>
-                                <h2>🔗 Link Ad to Stage</h2>
-                                <button className={styles.closeBtn} onClick={() => setShowLinkAdModal(false)}>
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <line x1="18" y1="6" x2="6" y2="18" />
-                                        <line x1="6" y1="6" x2="18" y2="18" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <div className={styles.modalBody}>
-                                <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)', fontSize: '0.875rem' }}>
-                                    Link a Facebook ad to track contacts from that ad in this pipeline stage.
-                                </p>
-
-                                {storedAds.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)', color: 'var(--text-muted)' }}>
-                                        <p>No ads imported yet.</p>
-                                        <Link href="/import" className="btn btn-primary" style={{ marginTop: 'var(--spacing-md)' }}>
-                                            📥 Import Ads First
-                                        </Link>
-                                    </div>
-                                ) : (
-                                    <div className="form-group">
-                                        <label className="form-label">Select Ad</label>
-                                        <select
-                                            className="form-input"
-                                            value={selectedAdToLink}
-                                            onChange={e => setSelectedAdToLink(e.target.value)}
-                                        >
-                                            <option value="">-- Select an ad --</option>
-                                            {storedAds.map(ad => {
-                                                const isLinked = adLinks.some(l => l.adId === (ad.facebookAdId || ad.id));
-                                                return (
-                                                    <option
-                                                        key={ad.id}
-                                                        value={ad.id}
-                                                        disabled={isLinked}
-                                                    >
-                                                        {ad.name || 'Unnamed Ad'} {isLinked ? '(already linked)' : ''}
-                                                    </option>
-                                                );
-                                            })}
-                                        </select>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className={styles.modalFooter}>
-                                <button className="btn btn-secondary" onClick={() => setShowLinkAdModal(false)}>
-                                    Cancel
-                                </button>
-                                <button
-                                    className="btn btn-primary"
-                                    onClick={handleLinkAd}
-                                    disabled={!selectedAdToLink}
-                                >
-                                    🔗 Link Ad
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
             {/* Bulk Move Modal */}
             {
                 showBulkMoveModal && pipeline && (
@@ -1363,7 +1295,7 @@ export default function PipelineDetailPage() {
             {/* Stage Edit Modal */}
             {showStageEditModal && editingStage && (
                 <div className={styles.modalOverlay} onClick={() => setShowStageEditModal(false)}>
-                    <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
                         <div className={styles.modalHeader}>
                             <h2>Edit Stage</h2>
                             <button className={styles.closeBtn} onClick={() => setShowStageEditModal(false)}>
@@ -1382,6 +1314,38 @@ export default function PipelineDetailPage() {
                                     value={editingStage.name}
                                     onChange={e => setEditingStage({ ...editingStage, name: e.target.value })}
                                 />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Stage Description / Use</label>
+                                <textarea
+                                    className="form-input"
+                                    placeholder="e.g., Leads actively inquiring about pricing, or customers who have scheduled a call..."
+                                    value={editingStage.description || ''}
+                                    onChange={e => setEditingStage({ ...editingStage, description: e.target.value })}
+                                    rows={2}
+                                    style={{ resize: 'vertical', minHeight: '60px' }}
+                                />
+                                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                    Describe the purpose of this stage
+                                </small>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Facebook Event (CAPI)</label>
+                                <select
+                                    className="form-input"
+                                    value={editingStage.facebookEvent || ''}
+                                    onChange={e => setEditingStage({ ...editingStage, facebookEvent: e.target.value })}
+                                >
+                                    <option value="">-- Select Facebook Event --</option>
+                                    {FACEBOOK_EVENTS.map(event => (
+                                        <option key={event.id} value={event.id}>
+                                            {event.name} - {event.description}
+                                        </option>
+                                    ))}
+                                </select>
+                                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                    This event will be sent to Facebook when leads reach this stage
+                                </small>
                             </div>
                             <div className="form-group">
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
