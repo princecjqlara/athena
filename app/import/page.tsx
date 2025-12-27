@@ -153,10 +153,6 @@ export default function ImportPage() {
     const [pipelines, setPipelines] = useState<Array<{ id: string; name: string; stages: Array<{ id: string; name: string }> }>>([]);
     const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
 
-    // Business context for AI - optional fields to help AI understand the sales process
-    const [businessType, setBusinessType] = useState<string>('');
-    const [salesProcess, setSalesProcess] = useState<string>('');
-
     // Facebook Page selection for Messenger conversations (loaded from Settings/localStorage)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [facebookPages, setFacebookPages] = useState<Array<{ id: string; name: string; access_token: string }>>([]);
@@ -1528,55 +1524,38 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                         </div>
                     </div>
 
-                    {/* Business Context Section - Optional */}
-                    <div style={{
-                        padding: 'var(--spacing-md)',
-                        background: 'rgba(255, 255, 255, 0.02)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        borderRadius: 'var(--radius-md)',
-                        marginBottom: 'var(--spacing-md)'
-                    }}>
-                        <h4 style={{ margin: '0 0 var(--spacing-sm) 0', fontSize: '0.875rem', fontWeight: 600 }}>
-                            Business Context (Optional)
-                        </h4>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-md)' }}>
-                            Helps AI create relevant pipeline stages for your business.
-                        </p>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
-                            <div className="form-group" style={{ flex: '1', minWidth: '180px', marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.75rem' }}>Business Type</label>
-                                <select
-                                    className="form-select"
-                                    value={businessType}
-                                    onChange={(e) => setBusinessType(e.target.value)}
-                                    style={{ fontSize: '0.875rem' }}
-                                >
-                                    <option value="">Select type...</option>
-                                    <option value="ecommerce">E-commerce</option>
-                                    <option value="services">Services</option>
-                                    <option value="saas">SaaS / Software</option>
-                                    <option value="real-estate">Real Estate</option>
-                                    <option value="coaching">Coaching / Education</option>
-                                    <option value="retail">Retail</option>
-                                    <option value="b2b">B2B Sales</option>
-                                    <option value="healthcare">Healthcare</option>
-                                    <option value="food">Food & Beverage</option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
-                            <div className="form-group" style={{ flex: '2', minWidth: '280px', marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.75rem' }}>Sales Process</label>
+                    {/* Select All Header */}
+                    {facebookAds.length > 0 && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: 'var(--spacing-sm) var(--spacing-md)',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: 'var(--radius-md)',
+                            marginBottom: 'var(--spacing-md)'
+                        }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
                                 <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="e.g., Inquiry → Send pricing → Book call → Close"
-                                    value={salesProcess}
-                                    onChange={(e) => setSalesProcess(e.target.value)}
-                                    style={{ fontSize: '0.875rem' }}
+                                    type="checkbox"
+                                    checked={selectedAds.size === facebookAds.length && facebookAds.length > 0}
+                                    onChange={() => {
+                                        if (selectedAds.size === facebookAds.length) {
+                                            setSelectedAds(new Set());
+                                        } else {
+                                            setSelectedAds(new Set(facebookAds.map(ad => ad.id)));
+                                        }
+                                    }}
+                                    style={{ width: 20, height: 20 }}
                                 />
-                            </div>
+                                <span style={{ fontWeight: 500 }}>Select All</span>
+                            </label>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                                {selectedAds.size} of {facebookAds.length} selected
+                            </span>
                         </div>
-                    </div>
+                    )}
 
                     {/* Import Progress */}
                     {importProgress && (
@@ -1650,6 +1629,30 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                 {ad.effectiveStatus}
                                             </span>
                                         </div>
+
+                                        {/* Campaign / Adset Hierarchy */}
+                                        {(ad.campaign?.name || ad.adset?.name) && (
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: '8px',
+                                                fontSize: '0.7rem',
+                                                color: 'var(--text-muted)',
+                                                marginBottom: '6px',
+                                                flexWrap: 'wrap',
+                                                alignItems: 'center'
+                                            }}>
+                                                {ad.campaign?.name && (
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        📁 <strong>Campaign:</strong> {ad.campaign.name}
+                                                    </span>
+                                                )}
+                                                {ad.adset?.name && (
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        📂 <strong>Ad Set:</strong> {ad.adset.name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
 
                                         {/* Ad Timeline and Spend Summary */}
                                         <div style={{
