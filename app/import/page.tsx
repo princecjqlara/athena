@@ -398,7 +398,7 @@ export default function ImportPage() {
         localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
         setShowContactsModal(false);
         setMessengerContacts([]);
-        alert(`✅ Imported ${importedCount} new contacts! (${contacts.length - importedCount} already existed)`);
+        alert(`Imported ${importedCount} new contacts! (${contacts.length - importedCount} already existed)`);
     };
 
     // Load saved credentials
@@ -610,7 +610,7 @@ ${m.messagesStarted ? `• Messages Started: ${m.messagesStarted}` : ''}
 
             // Save updated ads
             localStorage.setItem('ads', JSON.stringify(updatedAds));
-            setSyncMessage(`✅ Synced ${updatedCount} ads with latest results from Facebook!`);
+            setSyncMessage(`Synced ${updatedCount} ads with latest results from Facebook!`);
 
             // Clear message after 3 seconds
             setTimeout(() => setSyncMessage(null), 3000);
@@ -1173,13 +1173,13 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
             setSelectedAds(new Set());
             setFacebookAds([]);
 
-            let message = `✅ Successfully imported ${newAds.length} ads!`;
+            let message = `Successfully imported ${newAds.length} ads!`;
             if (leadsCreated > 0) {
                 const pipelineName = pipelines.find(p => p.id === selectedPipelineId)?.name;
                 if (pipelineName) {
-                    message += `\n📱 Added ${leadsCreated} verified leads to "${pipelineName}" pipeline!`;
+                    message += `\nAdded ${leadsCreated} verified leads to "${pipelineName}" pipeline!`;
                 } else {
-                    message += `\n📱 Created ${leadsCreated} verified leads (no pipeline selected)`;
+                    message += `\nCreated ${leadsCreated} verified leads (no pipeline selected)`;
                 }
                 message += `\n   ✨ All leads have real names and data from Facebook`;
             } else if (newAds.some((ad: any) => (ad.adInsights?.messagesStarted || 0) > 0 || (ad.adInsights?.leads || 0) > 0)) {
@@ -1207,7 +1207,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
     return (
         <div className={styles.page}>
             <header className={styles.header}>
-                <h1 className={styles.title}>📥 Import from Facebook</h1>
+                <h1 className={styles.title}>Import from Facebook</h1>
                 <p className={styles.subtitle}>
                     Import existing ads with auto-filled results • Tag traits for AI learning
                 </p>
@@ -1215,7 +1215,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
 
             {/* Connection Section */}
             <div className="glass-card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)' }}>
-                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>🔗 Connect to Ad Account</h3>
+                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Connect to Ad Account</h3>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
                     <div className="form-group">
@@ -1280,7 +1280,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                         disabled={isLoading}
                         style={{ marginTop: '24px' }}
                     >
-                        {isLoading ? '🔄 Fetching...' : '📥 Fetch Ads to Import'}
+                        {isLoading ? 'Fetching...' : 'Fetch Ads to Import'}
                     </button>
                     <button
                         className="btn btn-secondary"
@@ -1333,7 +1333,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                 <div className="glass-card" style={{ padding: 'var(--spacing-lg)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap', gap: 'var(--spacing-md)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-lg)', flexWrap: 'wrap' }}>
-                            <h3 style={{ margin: 0 }}>📊 Found {facebookAds.length} Ads</h3>
+                            <h3 style={{ margin: 0 }}>Found {facebookAds.length} Ads</h3>
                             <div style={{
                                 background: 'rgba(200, 245, 96, 0.15)',
                                 padding: '8px 16px',
@@ -1373,10 +1373,10 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                         </div>
                         <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
                             <button className="btn btn-ghost btn-sm" onClick={selectAllAds}>
-                                ✓ Select All
+                                Select All
                             </button>
                             <button className="btn btn-ghost btn-sm" onClick={() => setSelectedAds(new Set())}>
-                                ✗ Clear Selection
+                                Clear Selection
                             </button>
 
                             {/* Pipeline Selector */}
@@ -1393,9 +1393,9 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                     color: 'var(--text-primary)'
                                 }}
                             >
-                                <option value="">📋 Select Pipeline for Leads...</option>
+                                <option value="">Select Pipeline for Leads...</option>
                                 {pipelines.map(p => (
-                                    <option key={p.id} value={p.id}>🎯 {p.name}</option>
+                                    <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
                             </select>
 
@@ -1408,7 +1408,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                     padding: '4px 8px',
                                     borderRadius: 'var(--radius-sm)'
                                 }}>
-                                    📱 Using page from Settings
+                                    Using page from Settings
                                 </span>
                             )}
 
@@ -1417,7 +1417,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                 onClick={handleImportAds}
                                 disabled={selectedAds.size === 0}
                             >
-                                📥 Import {selectedAds.size} Selected
+                                Import {selectedAds.size} Selected
                             </button>
                             <button
                                 className="btn btn-ghost btn-sm"
@@ -1427,7 +1427,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                     border: showDebug ? '1px solid rgba(239, 68, 68, 0.5)' : undefined
                                 }}
                             >
-                                🐛 {showDebug ? 'Hide' : 'Show'} Raw Data
+                                {showDebug ? 'Hide' : 'Show'} Raw Data
                             </button>
                         </div>
                     </div>
@@ -1578,7 +1578,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                 </span>
                                             )}
                                             {ad.dailyBudget && (
-                                                <span title="Daily budget">📊 ₱{ad.dailyBudget.toFixed(2)}/day</span>
+                                                <span title="Daily budget">P{ad.dailyBudget.toFixed(2)}/day</span>
                                             )}
                                         </div>
 
@@ -1639,7 +1639,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                         fontSize: '0.65rem',
                                                         fontFamily: 'monospace'
                                                     }}>
-                                                        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>🐛 RAW API DATA:</div>
+                                                        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>RAW API DATA:</div>
                                                         <div>impressions: {ad.metrics.impressions}</div>
                                                         <div>clicks: {ad.metrics.clicks}</div>
                                                         <div>ctr: {ad.metrics.ctr}</div>
@@ -1688,7 +1688,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                         {/* Only show separate leads if resultType is NOT leads */}
                                                         {(ad.metrics.leads ?? 0) > 0 && ad.metrics.resultType !== 'leads' && (
                                                             <span title="Leads generated from your ad" style={{ background: '#f59e0b', color: '#000', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
-                                                                🎯 <strong>{ad.metrics.leads}</strong> leads
+                                                                <strong>{ad.metrics.leads}</strong> leads
                                                             </span>
                                                         )}
                                                         {/* Fetch Leads Button - shows when there are leads */}
@@ -1706,7 +1706,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                                     fontSize: '0.7rem'
                                                                 }}
                                                             >
-                                                                {adLeads[ad.id]?.loading ? '⏳ Fetching...' : '📥 Fetch Leads'}
+                                                                {adLeads[ad.id]?.loading ? 'Fetching...' : 'Fetch Leads'}
                                                             </button>
                                                         )}
                                                         {/* Only show separate purchases if resultType is NOT purchases */}
@@ -1734,12 +1734,12 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                     }}>
                                                         {adLeads[ad.id].error ? (
                                                             <div style={{ color: '#ef4444', fontSize: '0.75rem' }}>
-                                                                ❌ {adLeads[ad.id].error}
+                                                                Error: {adLeads[ad.id].error}
                                                             </div>
                                                         ) : (
                                                             <>
                                                                 <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px', color: '#f59e0b' }}>
-                                                                    📋 {adLeads[ad.id].leads.length} Lead{adLeads[ad.id].leads.length !== 1 ? 's' : ''} Found
+                                                                    {adLeads[ad.id].leads.length} Lead{adLeads[ad.id].leads.length !== 1 ? 's' : ''} Found
                                                                 </div>
                                                                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                                                                     {adLeads[ad.id].leads.map((lead, idx) => (
@@ -1754,7 +1754,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                                                 {lead.fullName || lead.firstName || 'Unknown Name'}
                                                                             </div>
                                                                             {lead.email && <div>📧 {lead.email}</div>}
-                                                                            {lead.phone && <div>📱 {lead.phone}</div>}
+                                                                            {lead.phone && <div>{lead.phone}</div>}
                                                                             <div style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
                                                                                 {new Date(lead.createdAt).toLocaleDateString()}
                                                                             </div>
@@ -1769,7 +1769,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                 {/* Expandable ALL METRICS section */}
                                                 <details style={{ marginTop: '8px' }}>
                                                     <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '8px', fontWeight: 600 }}>
-                                                        📊 Show ALL Metrics (Complete Data)
+                                                        Show ALL Metrics (Complete Data)
                                                     </summary>
                                                     <div style={{
                                                         background: 'var(--bg-secondary)',
@@ -1793,7 +1793,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
 
                                                         {/* Clicks & Links */}
                                                         <div style={{ marginBottom: '12px' }}>
-                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>🔗 Clicks & Links</div>
+                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>Clicks & Links</div>
                                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '4px' }}>
                                                                 <div>Clicks (all): <strong>{ad.metrics.clicks ?? 0}</strong></div>
                                                                 <div>Link Clicks: <strong>{ad.metrics.linkClicks ?? 0}</strong></div>
@@ -1806,7 +1806,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
 
                                                         {/* Results & Conversions */}
                                                         <div style={{ marginBottom: '12px' }}>
-                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>🎯 Results & Conversions</div>
+                                                            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--primary)' }}>Results & Conversions</div>
                                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '4px' }}>
                                                                 <div>Results: <strong>{ad.metrics.results ?? 0}</strong> ({ad.metrics.resultType ?? 'none'})</div>
                                                                 <div>Cost per Result: <strong>₱{(ad.metrics.costPerResult ?? 0).toFixed(2)}</strong></div>
@@ -2129,14 +2129,14 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                         textAlign: 'center',
                         color: 'var(--text-muted)'
                     }}>
-                        <div style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)' }}>📥</div>
+                        <div style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)' }}>Import</div>
                         <h3>Import Existing Ads</h3>
                         <p>Connect your Facebook Ad Account to import ads with auto-filled results</p>
                         <ul style={{ textAlign: 'left', maxWidth: '400px', margin: '0 auto', marginTop: 'var(--spacing-md)' }}>
-                            <li>✅ Auto-fetch impressions, clicks, CTR, conversions</li>
-                            <li>✅ Import active, paused, or archived ads</li>
-                            <li>✅ Tag traits for AI learning</li>
-                            <li>✅ Sync results anytime to update algorithm</li>
+                            <li>Auto-fetch impressions, clicks, CTR, conversions</li>
+                            <li>Import active, paused, or archived ads</li>
+                            <li>Tag traits for AI learning</li>
+                            <li>Sync results anytime to update algorithm</li>
                         </ul>
                     </div>
                 )
