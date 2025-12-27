@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Default stages - AI will only suggest these if pipeline has very few stages
-const DEFAULT_JOURNEY_STAGES = [
-    { id: 'contacted', name: 'Contacted', isGoal: false },
-    { id: 'interested', name: 'Interested', isGoal: false },
-    { id: 'negotiating', name: 'Negotiating', isGoal: false },
+// Comprehensive sales funnel stages - AI will suggest these if pipeline has few stages
+const COMPREHENSIVE_SALES_STAGES = [
+    { id: 'new-lead', name: 'New Lead', isGoal: false, description: 'Just received, not yet contacted' },
+    { id: 'contacted', name: 'Contacted', isGoal: false, description: 'Initial contact made, awaiting response' },
+    { id: 'engaged', name: 'Engaged', isGoal: false, description: 'Customer responded, conversation started' },
+    { id: 'qualified', name: 'Qualified', isGoal: false, description: 'Customer fits target profile, shows genuine interest' },
+    { id: 'product-aware', name: 'Product Aware', isGoal: false, description: 'Customer knows product details and pricing' },
+    { id: 'considering', name: 'Considering', isGoal: false, description: 'Customer is evaluating, may have questions' },
+    { id: 'negotiating', name: 'Negotiating', isGoal: false, description: 'Discussing terms, price, or conditions' },
+    { id: 'ready-to-buy', name: 'Ready to Buy', isGoal: false, description: 'Customer confirmed intent to purchase' },
+    { id: 'closed-won', name: 'Closed Won', isGoal: true, description: 'Successfully converted to customer' },
 ];
 
 /**
@@ -12,9 +18,9 @@ const DEFAULT_JOURNEY_STAGES = [
  * Analyze conversations with AI to extract:
  * - Contact info (email, phone, name) - ONLY from customer messages
  * - Sentiment (positive, neutral, negative)
- * - Intent (new, inquiry, interested, negotiating, etc.)
+ * - Intent based on detailed conversation analysis
  * - Lead score (1-100)
- * - Suggested stage based on ACTUAL conversation content
+ * - Suggested stage based on ACTUAL conversation content and customer journey
  */
 export async function POST(request: NextRequest) {
     try {
@@ -34,15 +40,22 @@ export async function POST(request: NextRequest) {
         // Check if pipeline already has a goal
         const hasGoal = stagesToUse.some((s: any) => s.isGoal);
 
-        // Only suggest new stages if pipeline has very few (< 3)
-        if (stagesToUse.length < 3) {
-            for (const defaultStage of DEFAULT_JOURNEY_STAGES) {
+        // Suggest comprehensive stages if pipeline has fewer than 5 stages
+        if (stagesToUse.length < 5) {
+            console.log(`[AI] Pipeline has ${stagesToUse.length} stages, suggesting more comprehensive funnel`);
+            for (const stage of COMPREHENSIVE_SALES_STAGES) {
                 const exists = stagesToUse.some((s: any) =>
-                    s.name.toLowerCase().includes(defaultStage.name.toLowerCase()) ||
-                    s.id === defaultStage.id
+                    s.name.toLowerCase() === stage.name.toLowerCase() ||
+                    s.id === stage.id
                 );
                 if (!exists) {
-                    suggestedNewStages.push(defaultStage);
+                    // Skip goal stage if one exists
+                    if (stage.isGoal && hasGoal) continue;
+                    suggestedNewStages.push({
+                        id: stage.id,
+                        name: stage.name,
+                        isGoal: stage.isGoal && !hasGoal
+                    });
                 }
             }
         }
@@ -151,32 +164,57 @@ export async function POST(request: NextRequest) {
             // Map stage to actual pipeline stage ID
             let suggestedStageId = 'new-lead';
 
+            // Map detected stage to comprehensive funnel
             if (stage === 'ready') {
                 const match = allAvailableStages.find((s: any) =>
                     s.name.toLowerCase().includes('ready') ||
-                    s.name.toLowerCase().includes('hot') ||
-                    s.name.toLowerCase().includes('qualified')
+                    s.name.toLowerCase().includes('closed') ||
+                    s.name.toLowerCase().includes('won')
                 );
-                suggestedStageId = match?.id || 'negotiating';
+                suggestedStageId = match?.id || 'ready-to-buy';
             } else if (stage === 'negotiating') {
                 const match = allAvailableStages.find((s: any) =>
                     s.name.toLowerCase().includes('negotiat') ||
+                    s.name.toLowerCase().includes('considering') ||
                     s.name.toLowerCase().includes('quote')
                 );
                 suggestedStageId = match?.id || 'negotiating';
             } else if (stage === 'interested') {
-                const match = allAvailableStages.find((s: any) =>
-                    s.name.toLowerCase().includes('interest') ||
-                    s.name.toLowerCase().includes('warm')
-                );
-                suggestedStageId = match?.id || 'interested';
+                // Check if they know about the product
+                const knowsProduct = customerText.includes('price') ||
+                    customerText.includes('cost') ||
+                    customerText.includes('magkano') ||
+                    customerText.includes('presyo');
+                if (knowsProduct) {
+                    const match = allAvailableStages.find((s: any) =>
+                        s.name.toLowerCase().includes('product') ||
+                        s.name.toLowerCase().includes('aware') ||
+                        s.name.toLowerCase().includes('qualified')
+                    );
+                    suggestedStageId = match?.id || 'product-aware';
+                } else {
+                    const match = allAvailableStages.find((s: any) =>
+                        s.name.toLowerCase().includes('qualified') ||
+                        s.name.toLowerCase().includes('interest') ||
+                        s.name.toLowerCase().includes('engaged')
+                    );
+                    suggestedStageId = match?.id || 'qualified';
+                }
             } else if (stage === 'contacted') {
-                const match = allAvailableStages.find((s: any) =>
-                    s.name.toLowerCase().includes('contact') ||
-                    s.name.toLowerCase().includes('engaged') ||
-                    s.name.toLowerCase().includes('new')
-                );
-                suggestedStageId = match?.id || 'new-lead';
+                // Check if customer engaged (responded) or just contacted
+                if (customerMsgCount >= 2) {
+                    const match = allAvailableStages.find((s: any) =>
+                        s.name.toLowerCase().includes('engaged') ||
+                        s.name.toLowerCase().includes('qualified')
+                    );
+                    suggestedStageId = match?.id || 'engaged';
+                } else if (customerMsgCount >= 1) {
+                    const match = allAvailableStages.find((s: any) =>
+                        s.name.toLowerCase().includes('contacted') ||
+                        s.name.toLowerCase().includes('engaged')
+                    );
+                    suggestedStageId = match?.id || 'contacted';
+                }
             }
 
             // Generate summary
