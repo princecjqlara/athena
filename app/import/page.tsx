@@ -137,6 +137,10 @@ export default function ImportPage() {
     const [pipelines, setPipelines] = useState<Array<{ id: string; name: string; stages: Array<{ id: string; name: string }> }>>([]);
     const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
 
+    // Facebook Page selection for Messenger conversations
+    const [facebookPages, setFacebookPages] = useState<Array<{ id: string; name: string; access_token: string }>>([]);
+    const [selectedPageId, setSelectedPageId] = useState<string>('');
+
     // Traits for each selected ad
     const [adTraits, setAdTraits] = useState<Record<string, {
         categories: string[];
@@ -888,10 +892,22 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                     console.log(`[Import] Pages response:`, { success: pagesData.success, count: pagesData.pages?.length || 0 });
 
                     if (pagesData.success && pagesData.pages?.length > 0) {
-                        const page = pagesData.pages[0];
+                        // Store pages for the selector UI
+                        if (facebookPages.length === 0) {
+                            setFacebookPages(pagesData.pages);
+                        }
+
+                        // Use selected page if available, otherwise use first page
+                        let page = pagesData.pages[0];
+                        if (selectedPageId) {
+                            const selected = pagesData.pages.find((p: { id: string }) => p.id === selectedPageId);
+                            if (selected) {
+                                page = selected;
+                            }
+                        }
                         const pageId = page.id;
                         const pageToken = page.access_token;
-                        console.log(`[Import] Using page: ${page.name} (${pageId})`);
+                        console.log(`[Import] Using page: ${page.name} (${pageId})${selectedPageId ? ' (user selected)' : ' (auto-selected first)'}`);
 
                         // Fetch conversations with real contact names
                         const convoResponse = await fetch(
@@ -1291,6 +1307,26 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                 <option value="">📋 Select Pipeline for Leads...</option>
                                 {pipelines.map(p => (
                                     <option key={p.id} value={p.id}>🎯 {p.name}</option>
+                                ))}
+                            </select>
+
+                            {/* Facebook Page Selector for Messenger conversations */}
+                            <select
+                                value={selectedPageId}
+                                onChange={(e) => setSelectedPageId(e.target.value)}
+                                style={{
+                                    padding: '8px 12px',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: '1px solid var(--border-primary)',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    minWidth: '200px'
+                                }}
+                                title="Select which Facebook Page to fetch Messenger conversations from"
+                            >
+                                <option value="">📱 {facebookPages.length > 0 ? 'Select Page for Conversations...' : 'Load Ads to see Pages'}</option>
+                                {facebookPages.map(p => (
+                                    <option key={p.id} value={p.id}>📄 {p.name}</option>
                                 ))}
                             </select>
 
