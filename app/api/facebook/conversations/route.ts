@@ -166,7 +166,20 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        console.log(`[Conversations] ✅ Found ${data.data?.length || 0} conversations`);
+        console.log(`[Conversations] ✅ Response received. Data array length: ${data.data?.length || 0}`);
+
+        // Debug: Log raw response structure if empty
+        if (!data.data || data.data.length === 0) {
+            console.log('[Conversations] ⚠️ No conversations returned from Facebook. Full response:', JSON.stringify(data).substring(0, 500));
+        } else {
+            console.log(`[Conversations] First conversation structure:`, {
+                id: data.data[0].id,
+                hasParticipants: !!data.data[0].participants,
+                participantCount: data.data[0].participants?.data?.length || 0,
+                hasMessages: !!data.data[0].messages,
+                messageCount: data.data[0].messages?.data?.length || 0
+            });
+        }
 
         // Process conversations into contact format - fetch real names for each
         const contactPromises = data.data.map(async (conv, index) => {
