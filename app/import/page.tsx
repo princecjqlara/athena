@@ -115,6 +115,7 @@ interface StoredAd {
     placements?: { platform?: string; position?: string; impressions?: number; spend?: number }[];
     regions?: { country?: string; impressions?: number; spend?: number }[];
     successScore?: number;
+    scoreReasoning?: string[];  // AI reasoning for the score
     hasResults?: boolean;
     lastSyncedAt?: string;
 }
@@ -521,19 +522,63 @@ export default function ImportPage() {
                     if (fbAd.metrics) {
                         updatedCount++;
 
-                        // Calculate success score based on multiple metrics
+                        // Calculate success score with cost efficiency and reasoning
                         const m = fbAd.metrics;
                         let score = 0, factors = 0;
-                        if (m.ctr && m.ctr > 0) { score += Math.min(40, m.ctr * 10); factors++; }
+                        let syncReasoning: string[] = [];
+
+                        // CTR (0-35 pts)
+                        if (m.ctr && m.ctr > 0) {
+                            score += Math.min(35, m.ctr * 10);
+                            factors++;
+                            if (m.ctr >= 3) syncReasoning.push(`Excellent CTR (${m.ctr.toFixed(2)}%)`);
+                            else if (m.ctr >= 1.5) syncReasoning.push(`Good CTR (${m.ctr.toFixed(2)}%)`);
+                        }
+
+                        // Results (0-35 pts)
                         if (m.results && m.results > 0 && m.impressions && m.impressions > 0) {
-                            score += Math.min(40, (m.results / m.impressions) * 1000); factors++;
+                            score += Math.min(35, (m.results / m.impressions) * 1000);
+                            factors++;
+                            syncReasoning.push(`${m.results} results`);
                         } else if (m.messagesStarted && m.messagesStarted > 0) {
-                            score += Math.min(40, m.messagesStarted * 4); factors++;
+                            score += Math.min(35, m.messagesStarted * 4);
+                            factors++;
+                            syncReasoning.push(`${m.messagesStarted} conversations`);
+                        } else if (m.leads && m.leads > 0) {
+                            score += Math.min(35, m.leads * 5);
+                            factors++;
+                            syncReasoning.push(`${m.leads} leads`);
                         }
+
+                        // Spend efficiency (0-20 pts)
+                        if (m.spend && m.spend > 0) {
+                            const resultCount = m.results || m.leads || m.messagesStarted || 0;
+                            if (resultCount > 0) {
+                                const costPerResult = m.spend / resultCount;
+                                if (costPerResult < 50) { score += 20; syncReasoning.push(`₱${costPerResult.toFixed(0)}/result`); }
+                                else if (costPerResult < 100) { score += 15; syncReasoning.push(`₱${costPerResult.toFixed(0)}/result`); }
+                                else if (costPerResult < 200) { score += 10; syncReasoning.push(`₱${costPerResult.toFixed(0)}/result`); }
+                                else if (costPerResult < 500) { score += 5; }
+                                factors++;
+                            } else if (m.spend > 100) {
+                                score = Math.max(0, score - 10);
+                                syncReasoning.push(`₱${m.spend.toFixed(0)} spent, no results`);
+                            }
+                        }
+
+                        // Engagement (0-10 pts)
                         if (m.pageEngagement && m.pageEngagement > 0 && m.impressions && m.impressions > 0) {
-                            score += Math.min(20, (m.pageEngagement / m.impressions) * 500); factors++;
+                            score += Math.min(10, (m.pageEngagement / m.impressions) * 200);
+                            factors++;
                         }
+
                         const successScore = factors > 0 ? Math.round(Math.min(100, score)) : undefined;
+                        if (successScore !== undefined) {
+                            if (successScore >= 80) syncReasoning.unshift('Top Performer');
+                            else if (successScore >= 60) syncReasoning.unshift('Above Average');
+                            else if (successScore >= 40) syncReasoning.unshift('Average');
+                            else syncReasoning.unshift('Below Average');
+                        }
 
                         // Generate updated results description
                         const resultsDescription = `📊 Facebook Ad Performance Report (Updated: ${new Date().toLocaleString()})
@@ -599,6 +644,7 @@ ${m.messagesStarted ? `• Messages Started: ${m.messagesStarted}` : ''}
                             },
                             hasResults: true,
                             successScore: successScore || ad.successScore,
+                            scoreReasoning: syncReasoning.length > 0 ? syncReasoning : ad.scoreReasoning,
                             resultsDescription,
                             status: fbAd.effectiveStatus,
                             lastSyncedAt: new Date().toISOString(),
@@ -700,43 +746,92 @@ ${m.messagesStarted ? `• Messages Started: ${m.messagesStarted}` : ''}
             const traits = adTraits[adId] || { categories: [], traits: [] };
 
             // Calculate success score based on multiple metrics
-            // Score is 0-100 based on CTR, conversion rate, and overall performance
+            // Score is 0-100 based on CTR, conversion rate, cost efficiency, and overall performance
             let successScore: number | undefined = undefined;
+            let scoreReasoning: string[] = [];
+
             if (fbAd.metrics) {
                 const m = fbAd.metrics;
                 let score = 0;
                 let factors = 0;
 
-                // CTR contribution (0-40 points)
+                // CTR contribution (0-35 points)
                 if (m.ctr && m.ctr > 0) {
-                    // CTR of 2% = 20 points, 5% = 50 points (capped at 40)
-                    score += Math.min(40, m.ctr * 10);
+                    const ctrPoints = Math.min(35, m.ctr * 10);
+                    score += ctrPoints;
                     factors++;
+                    if (m.ctr >= 3) scoreReasoning.push(`Excellent CTR (${m.ctr.toFixed(2)}%)`);
+                    else if (m.ctr >= 1.5) scoreReasoning.push(`Good CTR (${m.ctr.toFixed(2)}%)`);
+                    else if (m.ctr < 0.5) scoreReasoning.push(`Low CTR (${m.ctr.toFixed(2)}%)`);
                 }
 
-                // Results/Conversions contribution (0-40 points)
+                // Results/Conversions contribution (0-35 points)
                 if (m.results && m.results > 0 && m.impressions && m.impressions > 0) {
-                    // Conversion rate: results / impressions * 1000
                     const convRate = (m.results / m.impressions) * 100;
-                    score += Math.min(40, convRate * 10);
+                    score += Math.min(35, convRate * 10);
                     factors++;
+                    scoreReasoning.push(`${m.results} conversions from ${m.impressions.toLocaleString()} impressions`);
                 } else if (m.leads && m.leads > 0) {
-                    score += Math.min(40, m.leads * 5);
+                    score += Math.min(35, m.leads * 5);
                     factors++;
+                    scoreReasoning.push(`${m.leads} leads generated`);
                 } else if (m.messagesStarted && m.messagesStarted > 0) {
-                    score += Math.min(40, m.messagesStarted * 4);
+                    score += Math.min(35, m.messagesStarted * 4);
                     factors++;
+                    scoreReasoning.push(`${m.messagesStarted} messaging conversations started`);
                 }
 
-                // Engagement contribution (0-20 points)
+                // SPEND EFFICIENCY contribution (0-20 points) - NEW!
+                // Ads with high spend but good results get bonus; high spend + poor results get penalty
+                if (m.spend && m.spend > 0) {
+                    const hasResults = (m.results && m.results > 0) || (m.leads && m.leads > 0) || (m.messagesStarted && m.messagesStarted > 0);
+                    const resultCount = m.results || m.leads || m.messagesStarted || 0;
+
+                    if (hasResults && resultCount > 0) {
+                        const costPerResult = m.spend / resultCount;
+                        // Lower cost per result = higher score
+                        if (costPerResult < 50) {
+                            score += 20;
+                            scoreReasoning.push(`Excellent efficiency: ₱${costPerResult.toFixed(0)}/result`);
+                        } else if (costPerResult < 100) {
+                            score += 15;
+                            scoreReasoning.push(`Good efficiency: ₱${costPerResult.toFixed(0)}/result`);
+                        } else if (costPerResult < 200) {
+                            score += 10;
+                            scoreReasoning.push(`Moderate efficiency: ₱${costPerResult.toFixed(0)}/result`);
+                        } else if (costPerResult < 500) {
+                            score += 5;
+                            scoreReasoning.push(`Low efficiency: ₱${costPerResult.toFixed(0)}/result`);
+                        } else {
+                            // Very expensive per result - no bonus
+                            scoreReasoning.push(`High cost: ₱${costPerResult.toFixed(0)}/result`);
+                        }
+                        factors++;
+                    } else if (m.spend > 100 && !hasResults) {
+                        // Spent money but no results - penalty
+                        score = Math.max(0, score - 10);
+                        scoreReasoning.push(`₱${m.spend.toFixed(0)} spent with no tracked results`);
+                    }
+                }
+
+                // Engagement contribution (0-10 points)
                 if (m.pageEngagement && m.pageEngagement > 0 && m.impressions && m.impressions > 0) {
                     const engRate = (m.pageEngagement / m.impressions) * 100;
-                    score += Math.min(20, engRate * 5);
+                    score += Math.min(10, engRate * 2);
                     factors++;
                 }
 
                 // Normalize: if we have metrics, calculate average
                 successScore = factors > 0 ? Math.round(Math.min(100, score)) : undefined;
+
+                // Add overall assessment
+                if (successScore !== undefined) {
+                    if (successScore >= 80) scoreReasoning.unshift('Top Performer');
+                    else if (successScore >= 60) scoreReasoning.unshift('Above Average');
+                    else if (successScore >= 40) scoreReasoning.unshift('Average Performance');
+                    else if (successScore >= 20) scoreReasoning.unshift('Below Average');
+                    else scoreReasoning.unshift('Needs Improvement');
+                }
             }
 
             // Create extractedContent for Algorithm/mindmap compatibility
@@ -823,6 +918,7 @@ ${m.messagesStarted ? `• Messages Started: ${m.messagesStarted}` : ''}
                 // Status flags
                 hasResults: !!fbAd.metrics && (fbAd.metrics.impressions > 0 || fbAd.metrics.clicks > 0),
                 successScore,
+                scoreReasoning,  // AI reasoning for the score
                 status: fbAd.effectiveStatus,
                 importedFromFacebook: true,
                 createdAt: fbAd.createdAt,

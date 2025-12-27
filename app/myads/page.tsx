@@ -43,6 +43,7 @@ interface Ad {
     ctr?: number;
     roas?: number;
     successScore?: number;
+    scoreReasoning?: string[];  // AI reasoning for the score
     impressions?: number;
     spend?: number;
     hasResults?: boolean;
@@ -469,7 +470,11 @@ export default function MyAdsPage() {
                                             <span className={styles.videoStatValue}>₱{getAdSpend(ad).toFixed(0)}</span>
                                         </div>
                                         {ad.successScore && (
-                                            <div className={styles.videoStat}>
+                                            <div
+                                                className={styles.videoStat}
+                                                title={ad.scoreReasoning?.join(' • ') || 'AI Score'}
+                                                style={{ cursor: 'help' }}
+                                            >
                                                 <span className={styles.videoStatLabel}>Score</span>
                                                 <span className={`${styles.videoStatValue} ${styles.score}`}>{ad.successScore}%</span>
                                             </div>
