@@ -79,6 +79,64 @@ interface FacebookUserProfile {
     profile_pic?: string;
 }
 
+// Trigger AI analysis for a lead (runs in background, non-blocking)
+async function triggerLeadAnalysis(contactId: string, contactName: string) {
+    try {
+        // Fetch recent messages for this contact
+        const messages = await supabaseMessagesStore.getByContact(contactId);
+
+        if (!messages || messages.length === 0) {
+            console.log('[Webhook] No messages to analyze for contact:', contactId);
+            return;
+        }
+
+        // Call the analyze-conversation API
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : 'http://localhost:3000';
+
+        const response = await fetch(`${baseUrl}/api/ai/analyze-conversation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages: messages.slice(-20).map((m: { content: string; direction: string; timestamp?: string }) => ({  // Last 20 messages
+                    content: m.content,
+                    direction: m.direction,
+                    timestamp: m.timestamp
+                })),
+                contactName
+            })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                // Update contact with AI analysis results (using ai_analysis nested object)
+                await supabaseContactsStore.update(contactId, {
+                    ai_analysis: {
+                        sentiment: result.data.sentiment,
+                        intent: result.data.intent,
+                        lead_score: result.data.leadScore,
+                        summary: result.data.summary,
+                    },
+                });
+
+                console.log('[Webhook] AI Re-analyzed lead:', {
+                    contactId,
+                    contactName,
+                    newScore: result.data.leadScore,
+                    intent: result.data.intent?.substring(0, 50)
+                });
+            }
+        } else {
+            console.log('[Webhook] AI analysis failed:', response.status);
+        }
+    } catch (error) {
+        // Don't let analysis failures affect webhook
+        console.error('[Webhook] AI analysis error (non-blocking):', error);
+    }
+}
+
 // GET - Webhook Verification (Facebook verifies your endpoint)
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -314,12 +372,15 @@ async function handleMessagingEvent(pageId: string, event: MessagingEvent) {
             last_message_at: new Date(timestamp).toISOString(),
         });
 
-        console.log('[Webhook] 💬 Message stored:', {
+        console.log('[Webhook] Message stored:', {
             contactId: contact.id,
             contactName: contact.name,
             preview: messageContent.substring(0, 50),
             fromAd: !!contact.source_ad_id
         });
+
+        // Trigger async AI re-analysis for stage placement (don't await - run in background)
+        triggerLeadAnalysis(contact.id!, contact.name);
     }
 
     // Handle postback (button click)
