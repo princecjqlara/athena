@@ -1057,55 +1057,13 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
             } catch (err) {
                 console.log('[Import] Could not fetch leads for ad:', adName, err);
             }
-
-            // Fallback: Create placeholder leads based on metrics count
-            // Only if we couldn't get real data from Lead Forms or Conversations API
-            const totalLeads = Math.max(messagesStarted, leadCount);
-            if (totalLeads > 0) {
-                console.log(`[Import] Creating ${Math.min(totalLeads, 50)} placeholder leads for ad: ${adName}`);
-
-                for (let i = 0; i < Math.min(totalLeads, 50); i++) {
-                    const leadId = `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-                    // Create a more descriptive placeholder name
-                    // Format: "AdName Lead 1" or "Contact from AdName"
-                    const shortAdName = adName.length > 20 ? adName.substring(0, 20) + '...' : adName;
-                    const leadData = {
-                        id: leadId,
-                        name: `${shortAdName} - Contact ${i + 1}`,
-                        sourceAdId: adId,
-                        sourceAdName: adName,
-                        facebookAdId: adId,
-                        source: messagesStarted > 0 ? 'Facebook Messenger' : 'Facebook Ad',
-                        stageId: 'new-lead',
-                        pipelineId: selectedPipelineId || undefined,
-                        createdAt: adCreatedAt || new Date().toISOString(),
-                        lastActivity: new Date().toISOString(),
-                        isPlaceholder: true, // Mark as placeholder (no real data from API)
-                        isRealLead: false,
-                        needsDataFetch: true, // Flag that this needs real data
-                    };
-
-                    if (selectedPipelineId) {
-                        const pipelineLeadsKey = `leads_${selectedPipelineId}`;
-                        const existingLeads = JSON.parse(localStorage.getItem(pipelineLeadsKey) || '[]');
-                        existingLeads.push(leadData);
-                        localStorage.setItem(pipelineLeadsKey, JSON.stringify(existingLeads));
-
-                        const pipelinesData = JSON.parse(localStorage.getItem('pipelines') || '[]');
-                        const pIndex = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
-                        if (pIndex !== -1) {
-                            pipelinesData[pIndex].leadCount = (pipelinesData[pIndex].leadCount || 0) + 1;
-                            localStorage.setItem('pipelines', JSON.stringify(pipelinesData));
-                        }
-                    } else {
-                        const existingContacts = JSON.parse(localStorage.getItem('pipeline_contacts') || '[]');
-                        existingContacts.push(leadData);
-                        localStorage.setItem('pipeline_contacts', JSON.stringify(existingContacts));
-                    }
-                    leadsCreated++;
-                    placeholderLeadsCount++;
-                }
+            // NO PLACEHOLDERS: Only import leads with real verified data
+            // If we couldn't get real data from Lead Forms or Conversations API, skip lead creation
+            const totalExpectedLeads = Math.max(messagesStarted, leadCount);
+            if (totalExpectedLeads > 0 && realLeadsCount === 0) {
+                console.log(`[Import] ⚠️ Skipping lead creation for ${adName} - no verified lead data available`);
+                console.log(`[Import] Expected ${totalExpectedLeads} leads but couldn't fetch real data from Facebook`);
+                // Don't create placeholder leads - user must have real data
             }
         }
 
@@ -1119,23 +1077,19 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
             if (leadsCreated > 0) {
                 const pipelineName = pipelines.find(p => p.id === selectedPipelineId)?.name;
                 if (pipelineName) {
-                    message += `\n📱 Added ${leadsCreated} leads to "${pipelineName}" pipeline!`;
+                    message += `\n📱 Added ${leadsCreated} verified leads to "${pipelineName}" pipeline!`;
                 } else {
-                    message += `\n📱 Created ${leadsCreated} leads (no pipeline selected)`;
+                    message += `\n📱 Created ${leadsCreated} verified leads (no pipeline selected)`;
                 }
-
-                // Show breakdown of real vs placeholder leads
-                if (realLeadsCount > 0) {
-                    message += `\n   ✨ ${realLeadsCount} leads with full details (name, email, phone)`;
-                }
-                if (placeholderLeadsCount > 0) {
-                    message += `\n   ⏳ ${placeholderLeadsCount} placeholder leads (awaiting webhook data)`;
-                    message += `\n\n💡 Tip: For Messages/Messenger ads, lead details arrive via webhooks when contacts message your page.`;
-                }
+                message += `\n   ✨ All leads have real names and data from Facebook`;
+            } else if (newAds.some((ad: any) => (ad.adInsights?.messagesStarted || 0) > 0 || (ad.adInsights?.leads || 0) > 0)) {
+                message += `\n\n⚠️ Some ads have expected leads but we couldn't fetch the data.`;
+                message += `\n   This may be due to Facebook API permissions.`;
+                message += `\n   Ensure you have pages_messaging permission enabled.`;
             }
             message += '\n\nYour ads are now available in the Algorithm and My Ads pages.';
             if (leadsCreated > 0 && selectedPipelineId) {
-                message += '\nGo to Pipeline page to view your leads!';
+                message += '\nGo to Pipeline page to view your verified leads!';
             }
             alert(message);
         }, 500);
