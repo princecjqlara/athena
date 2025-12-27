@@ -702,7 +702,7 @@ export default function PipelineDetailPage() {
                         </div>
                         <div className={styles.statItem}>
                             <span className={styles.statValue} style={{ color: 'var(--success)' }}>
-                                ${leads.reduce((sum, l) => sum + (l.conversionValue || 0), 0).toLocaleString()}
+                                ₱{leads.reduce((sum, l) => sum + (l.conversionValue || 0), 0).toLocaleString()}
                             </span>
                             <span className={styles.statLabel}>Revenue</span>
                         </div>
@@ -872,7 +872,7 @@ export default function PipelineDetailPage() {
                                             fontWeight: 600,
                                             color: 'var(--success)'
                                         }}>
-                                            💰 ${lead.conversionValue.toLocaleString()}
+                                            💰 ₱{lead.conversionValue.toLocaleString()}
                                         </div>
                                     )}
                                     <div className={styles.leadMeta}>
