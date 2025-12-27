@@ -1083,12 +1083,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                         conversations: convoData.contacts, // Send ALL contacts, not a slice
-                                        pipelineStages,
-                                        // Pass business context to help AI understand the business
-                                        businessContext: (businessType || salesProcess) ? {
-                                            businessType,
-                                            salesProcess
-                                        } : undefined
+                                        pipelineStages
                                     })
                                 });
                                 const aiData = await aiResponse.json();
