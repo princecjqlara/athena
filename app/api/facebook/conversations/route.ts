@@ -165,7 +165,8 @@ export async function GET(request: NextRequest) {
 
         // CRITICAL: Use /{page_id}/conversations NOT /me/conversations for Page Messenger
         // /me/conversations only works with user tokens, not page tokens
-        const conversationsUrl = `https://graph.facebook.com/v24.0/${pageId}/conversations?fields=id,link,updated_time,participants,messages.limit(10){id,message,from,created_time}&limit=${limit}&access_token=${accessToken}`;
+        // Include participants.name to get user names directly in the response
+        const conversationsUrl = `https://graph.facebook.com/v24.0/${pageId}/conversations?fields=id,link,updated_time,participants{id,name,email},messages.limit(10){id,message,from,created_time}&limit=${limit}&access_token=${accessToken}`;
 
         console.log('[Conversations] Request URL:', `graph.facebook.com/v24.0/${pageId}/conversations?fields=...&limit=${limit}`);
 
@@ -200,18 +201,30 @@ export async function GET(request: NextRequest) {
             // Get the customer (non-page participant)
             const participants = conv.participants?.data || [];
             const customer = participants.find(p => p.id !== pageId) || participants[0];
-            console.log(`[Conversations] Conv ${index + 1}: PSID=${customer?.id}, participants=${participants.length}`);
 
-            // Fetch real name from Facebook profile API
+            // Try to get name from participant first (already included in some responses)
+            // The participants field can include 'name' if you request it
             let customerName = 'Unknown';
-            if (customer?.id && accessToken) {
+
+            // Check if participant already has name (some API responses include it)
+            if (customer?.name) {
+                customerName = customer.name;
+                console.log(`[Conversations] Conv ${index + 1}: Got name from participant: "${customerName}"`);
+            } else if (customer?.id && accessToken) {
+                // Fall back to profile fetch if participant doesn't have name
+                console.log(`[Conversations] Conv ${index + 1}: Fetching profile for PSID=${customer.id}`);
                 const profile = await fetchUserProfile(customer.id, accessToken);
                 if (profile) {
                     customerName = profile.name ||
                         (profile.first_name && profile.last_name
                             ? `${profile.first_name} ${profile.last_name}`
                             : profile.first_name || 'Unknown');
+                    console.log(`[Conversations] Conv ${index + 1}: Got name from profile: "${customerName}"`);
+                } else {
+                    console.log(`[Conversations] Conv ${index + 1}: Profile fetch failed, using Unknown`);
                 }
+            } else {
+                console.log(`[Conversations] Conv ${index + 1}: No customer ID or token, using Unknown`);
             }
 
             // Get messages
