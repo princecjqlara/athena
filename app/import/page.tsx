@@ -983,6 +983,8 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                     existingStages.push({
                                                         id: newStage.id,
                                                         name: newStage.name,
+                                                        description: newStage.description,       // AI auto-filled
+                                                        facebookEvent: newStage.facebookEvent,   // AI auto-filled
                                                         // Don't set as goal if one already exists
                                                         isGoal: newStage.isGoal && !hasExistingGoal,
                                                         isAutoCreated: true,

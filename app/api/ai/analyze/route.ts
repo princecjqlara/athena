@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Comprehensive sales funnel stages - AI will suggest these if pipeline has few stages
+// Comprehensive sales funnel stages with Facebook CAPI events
+// AI will suggest these if pipeline has few stages
 const COMPREHENSIVE_SALES_STAGES = [
-    { id: 'new-lead', name: 'New Lead', isGoal: false, description: 'Just received, not yet contacted' },
-    { id: 'contacted', name: 'Contacted', isGoal: false, description: 'Initial contact made, awaiting response' },
-    { id: 'engaged', name: 'Engaged', isGoal: false, description: 'Customer responded, conversation started' },
-    { id: 'qualified', name: 'Qualified', isGoal: false, description: 'Customer fits target profile, shows genuine interest' },
-    { id: 'product-aware', name: 'Product Aware', isGoal: false, description: 'Customer knows product details and pricing' },
-    { id: 'considering', name: 'Considering', isGoal: false, description: 'Customer is evaluating, may have questions' },
-    { id: 'negotiating', name: 'Negotiating', isGoal: false, description: 'Discussing terms, price, or conditions' },
-    { id: 'ready-to-buy', name: 'Ready to Buy', isGoal: false, description: 'Customer confirmed intent to purchase' },
-    { id: 'closed-won', name: 'Closed Won', isGoal: true, description: 'Successfully converted to customer' },
+    { id: 'new-lead', name: 'New Lead', isGoal: false, description: 'Just received, not yet contacted', facebookEvent: 'Lead' },
+    { id: 'contacted', name: 'Contacted', isGoal: false, description: 'Initial contact made, awaiting response', facebookEvent: 'Contact' },
+    { id: 'engaged', name: 'Engaged', isGoal: false, description: 'Customer responded, conversation started', facebookEvent: 'ViewContent' },
+    { id: 'qualified', name: 'Qualified', isGoal: false, description: 'Customer fits target profile, shows genuine interest', facebookEvent: 'Lead' },
+    { id: 'product-aware', name: 'Product Aware', isGoal: false, description: 'Customer knows product details and pricing', facebookEvent: 'ViewContent' },
+    { id: 'considering', name: 'Considering', isGoal: false, description: 'Customer is evaluating, may have questions', facebookEvent: 'AddToCart' },
+    { id: 'negotiating', name: 'Negotiating', isGoal: false, description: 'Discussing terms, price, or conditions', facebookEvent: 'InitiateCheckout' },
+    { id: 'ready-to-buy', name: 'Ready to Buy', isGoal: false, description: 'Customer confirmed intent to purchase', facebookEvent: 'InitiateCheckout' },
+    { id: 'closed-won', name: 'Closed Won', isGoal: true, description: 'Successfully converted to customer', facebookEvent: 'Purchase' },
 ];
 
 /**
@@ -35,7 +36,14 @@ export async function POST(request: NextRequest) {
 
         // Get existing stages
         let stagesToUse = pipelineStages || [];
-        const suggestedNewStages: Array<{ id: string; name: string; isGoal: boolean }> = [];
+        const suggestedNewStages: Array<{
+            id: string;
+            name: string;
+            isGoal: boolean;
+            description: string;
+            facebookEvent: string;
+            isAutoCreated: boolean;
+        }> = [];
 
         // Check if pipeline already has a goal
         const hasGoal = stagesToUse.some((s: any) => s.isGoal);
@@ -54,7 +62,10 @@ export async function POST(request: NextRequest) {
                     suggestedNewStages.push({
                         id: stage.id,
                         name: stage.name,
-                        isGoal: stage.isGoal && !hasGoal
+                        isGoal: stage.isGoal && !hasGoal,
+                        description: stage.description,          // Auto-fill description
+                        facebookEvent: stage.facebookEvent,      // Auto-fill Facebook event
+                        isAutoCreated: true                      // Mark as AI-created
                     });
                 }
             }
@@ -263,8 +274,8 @@ export async function POST(request: NextRequest) {
         console.log(`[AI Analysis] Stage distribution:`, stageDistribution);
 
         // ============================================
-        // VALIDATION: Only suggest stages that have at least 1 lead assigned
-        // This ensures we don't create empty stages
+        // SMART VALIDATION: Include stages with leads AND earlier funnel stages
+        // This creates a complete progression path for leads
         // ============================================
         const suggestedStageLeadCounts: Record<string, number> = {};
         for (const lead of analyzedLeads) {
@@ -274,19 +285,35 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Filter suggested stages to only those that would have leads
-        const validatedSuggestedStages = suggestedNewStages.filter(stage =>
-            suggestedStageLeadCounts[stage.id] && suggestedStageLeadCounts[stage.id] > 0
-        );
+        // Find the highest stage index that has leads
+        let highestUsedStageIndex = -1;
+        for (let i = 0; i < suggestedNewStages.length; i++) {
+            const stageId = suggestedNewStages[i].id;
+            if (suggestedStageLeadCounts[stageId] && suggestedStageLeadCounts[stageId] > 0) {
+                highestUsedStageIndex = Math.max(highestUsedStageIndex, i);
+            }
+        }
 
-        console.log(`[AI Analysis] Stage validation: ${suggestedNewStages.length} suggested → ${validatedSuggestedStages.length} with leads`);
+        // Include all stages UP TO and including the highest used stage
+        // This ensures leads have a complete path through the funnel
+        let validatedSuggestedStages = suggestedNewStages;
+        if (highestUsedStageIndex >= 0) {
+            // Keep stages from 0 to highestUsedStageIndex + 1 (include next stage for progression)
+            // Also always include the goal stage
+            validatedSuggestedStages = suggestedNewStages.filter((stage, index) =>
+                index <= highestUsedStageIndex + 1 || stage.isGoal
+            );
+        }
+
+        console.log(`[AI Analysis] Stage validation: ${suggestedNewStages.length} suggested → ${validatedSuggestedStages.length} in funnel`);
         console.log(`[AI Analysis] Stage lead counts:`, suggestedStageLeadCounts);
+        console.log(`[AI Analysis] Highest used stage index: ${highestUsedStageIndex}`);
 
         return NextResponse.json({
             success: true,
             leads: analyzedLeads,
             count: analyzedLeads.length,
-            suggestedStages: validatedSuggestedStages,  // Only return validated stages
+            suggestedStages: validatedSuggestedStages,  // Return funnel stages
             summary: {
                 positive: analyzedLeads.filter(l => l.aiAnalysis?.sentiment === 'positive').length,
                 neutral: analyzedLeads.filter(l => l.aiAnalysis?.sentiment === 'neutral').length,
