@@ -11,8 +11,8 @@ export async function POST(request: NextRequest) {
     try {
         const { shortLivedToken, appId, appSecret } = await request.json();
 
-        // Use environment variables if not provided
-        const fbAppId = appId || process.env.FACEBOOK_APP_ID;
+        // Use environment variables if not provided - check both naming conventions
+        const fbAppId = appId || process.env.FACEBOOK_APP_ID || process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
         const fbAppSecret = appSecret || process.env.FACEBOOK_APP_SECRET;
 
         if (!shortLivedToken) {
