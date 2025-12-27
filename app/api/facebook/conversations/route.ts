@@ -147,13 +147,14 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        console.log('[Conversations] Fetching conversations with token type:',
-            pageAccessToken ? 'page_access_token' : userAccessToken ? 'user_token_exchanged' : 'unknown');
+        console.log('[Conversations] Fetching conversations for pageId:', pageId);
+        console.log('[Conversations] Token type:', pageAccessToken ? 'page_access_token' : userAccessToken ? 'user_token_exchanged' : 'unknown');
 
-        // Fetch conversations with participants and messages
-        const conversationsUrl = `https://graph.facebook.com/v24.0/me/conversations?fields=id,link,updated_time,participants,messages.limit(10){id,message,from,created_time}&limit=${limit}&access_token=${accessToken}`;
+        // CRITICAL: Use /{page_id}/conversations NOT /me/conversations for Page Messenger
+        // /me/conversations only works with user tokens, not page tokens
+        const conversationsUrl = `https://graph.facebook.com/v24.0/${pageId}/conversations?fields=id,link,updated_time,participants,messages.limit(10){id,message,from,created_time}&limit=${limit}&access_token=${accessToken}`;
 
-        console.log('[Conversations] Request URL (without token):', conversationsUrl.split('&access_token')[0]);
+        console.log('[Conversations] Request URL:', `graph.facebook.com/v24.0/${pageId}/conversations?fields=...&limit=${limit}`);
 
         const response = await fetch(conversationsUrl);
         const data: ConversationsResponse = await response.json();
