@@ -247,11 +247,16 @@ export async function GET(request: NextRequest) {
                 conv.link.includes('referral')
             )));
 
-            // Extract email and phone from messages using regex
-            const allMessageText = messages.map(m => m.message || '').join(' ');
-            const emailMatch = allMessageText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-            const phoneMatch = allMessageText.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+            // Extract email and phone ONLY from customer messages (NOT from page responses)
+            // Page responses often contain the page's own email/phone which we don't want
+            const customerMessages = messages.filter(m => m.from?.id === customer?.id);
+            const customerMessageText = customerMessages.map(m => m.message || '').join(' ');
 
+            // Only extract if we have customer messages
+            const emailMatch = customerMessageText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            const phoneMatch = customerMessageText.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+
+            // ONLY use extracted values - never fallback to page data
             const extractedEmail = emailMatch ? emailMatch[0] : null;
             const extractedPhone = phoneMatch ? phoneMatch[0] : null;
 

@@ -972,6 +972,9 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                         const pIdx = pipelinesData.findIndex((p: any) => p.id === selectedPipelineId);
                                         if (pIdx !== -1) {
                                             const existingStages = pipelinesData[pIdx].stages || [];
+                                            // Check if pipeline already has a goal
+                                            const hasExistingGoal = existingStages.some((s: any) => s.isGoal);
+
                                             for (const newStage of aiData.suggestedStages) {
                                                 const exists = existingStages.some((s: any) =>
                                                     s.name.toLowerCase() === newStage.name.toLowerCase()
@@ -980,7 +983,8 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                     existingStages.push({
                                                         id: newStage.id,
                                                         name: newStage.name,
-                                                        isGoal: newStage.isGoal,
+                                                        // Don't set as goal if one already exists
+                                                        isGoal: newStage.isGoal && !hasExistingGoal,
                                                         isAutoCreated: true,
                                                         leadCount: 0
                                                     });
