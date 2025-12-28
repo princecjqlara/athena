@@ -72,6 +72,8 @@ export default function OrganizerDashboard() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy' | 'marketplace'>('users');
     const [inviteCode, setInviteCode] = useState<string | null>(null);
+    const [selectedCodeRole, setSelectedCodeRole] = useState<'admin' | 'marketer' | 'client'>('admin');
+    const [generatedCodeType, setGeneratedCodeType] = useState<string | null>(null);
 
     // Marketplace modal state
     const [showCreatePool, setShowCreatePool] = useState(false);
@@ -174,12 +176,17 @@ export default function OrganizerDashboard() {
         window.location.href = '/organizer';
     };
 
-    const generateAdminCode = async () => {
+    const generateInviteCode = async () => {
         try {
-            const res = await fetch('/api/invite-codes', { method: 'POST' });
+            const res = await fetch('/api/invite-codes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roleType: selectedCodeRole })
+            });
             const data = await res.json();
             if (data.success) {
                 setInviteCode(data.code);
+                setGeneratedCodeType(data.codeType);
             }
         } catch (error) {
             console.error('Error generating code:', error);
@@ -277,15 +284,49 @@ export default function OrganizerDashboard() {
             </div>
 
 
-            {/* Admin Code Generator */}
+            {/* Invite Code Generator */}
             <div className="code-generator">
-                <h3>Generate Admin Invite Code</h3>
-                <button onClick={generateAdminCode} className="generate-btn">
-                    🔑 Generate Code
-                </button>
+                <h3>Generate Invite Codes</h3>
+                <p style={{ fontSize: '0.85rem', color: '#888', marginBottom: '12px' }}>
+                    Create invite codes for new users. Select the role to assign.
+                </p>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <select
+                        value={selectedCodeRole}
+                        onChange={(e) => setSelectedCodeRole(e.target.value as 'admin' | 'marketer' | 'client')}
+                        style={{
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            background: 'rgba(255,255,255,0.1)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            color: 'inherit',
+                            fontSize: '0.95rem'
+                        }}
+                    >
+                        <option value="admin">Admin (can create marketers)</option>
+                        <option value="marketer">Marketer (can create clients)</option>
+                        <option value="client">Client (end user)</option>
+                    </select>
+                    <button onClick={generateInviteCode} className="generate-btn">
+                        Generate Code
+                    </button>
+                </div>
                 {inviteCode && (
-                    <div className="code-display">
-                        <code>{inviteCode}</code>
+                    <div className="code-display" style={{ marginTop: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <code style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{inviteCode}</code>
+                            <span style={{
+                                background: generatedCodeType === 'admin' ? '#8b5cf6' :
+                                    generatedCodeType === 'marketer' ? '#3b82f6' : '#10b981',
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                fontSize: '0.75rem',
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase'
+                            }}>
+                                {generatedCodeType}
+                            </span>
+                        </div>
                         <span className="code-timer">Expires in 10 minutes</span>
                     </div>
                 )}

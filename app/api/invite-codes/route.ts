@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/invite-codes
  * Generate a new invite code
+ * Body: { roleType?: 'admin' | 'marketer' | 'client' } - for organizers only
  */
 export async function POST(request: NextRequest) {
     if (!isSupabaseConfigured()) {
@@ -50,15 +51,29 @@ export async function POST(request: NextRequest) {
     }
 
     const role = user.profile.role;
+    let body: { roleType?: string } = {};
+
+    try {
+        body = await request.json();
+    } catch {
+        // No body is fine
+    }
 
     // Determine what type of code this user can generate
     let codeType: string | null = null;
-    if (role === 'marketer') {
-        codeType = 'client';
+
+    if (role === 'organizer') {
+        // Organizers can generate codes for any role
+        const requestedType = body.roleType;
+        if (requestedType && ['admin', 'marketer', 'client'].includes(requestedType)) {
+            codeType = requestedType;
+        } else {
+            codeType = 'admin'; // Default for organizers
+        }
     } else if (role === 'admin') {
         codeType = 'marketer';
-    } else if (role === 'organizer') {
-        codeType = 'admin';
+    } else if (role === 'marketer') {
+        codeType = 'client';
     }
 
     if (!codeType) {
@@ -99,3 +114,4 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to generate code' }, { status: 500 });
     }
 }
+
