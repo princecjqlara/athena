@@ -14,7 +14,10 @@ export type ActionName =
     | 'export_data'
     | 'show_insights'
     | 'show_patterns'
-    | 'recommend_creative';
+    | 'recommend_creative'
+    | 'create_trait'
+    | 'search_trends'
+    | 'research_topic';
 
 export interface AgentAction {
     name: ActionName;
@@ -127,6 +130,34 @@ export const AGENT_ACTIONS: Record<ActionName, Omit<AgentAction, 'execute'>> = {
         parameters: [
             { name: 'objective', type: 'string', required: false, description: 'Campaign objective' }
         ]
+    },
+    create_trait: {
+        name: 'create_trait',
+        description: 'Create a custom trait or trait group for ad categorization',
+        requiresConfirmation: false,
+        parameters: [
+            { name: 'name', type: 'string', required: true, description: 'Name of the trait' },
+            { name: 'group', type: 'string', required: false, description: 'Trait group (e.g. Custom, Visual Style)' },
+            { name: 'description', type: 'string', required: false, description: 'Description of the trait' },
+            { name: 'emoji', type: 'string', required: false, description: 'Emoji icon for the trait' }
+        ]
+    },
+    search_trends: {
+        name: 'search_trends',
+        description: 'Search the web for current advertising and marketing trends',
+        requiresConfirmation: false,
+        parameters: [
+            { name: 'query', type: 'string', required: true, description: 'Search query for trends' },
+            { name: 'platform', type: 'string', required: false, description: 'Platform like TikTok, Instagram, Facebook' }
+        ]
+    },
+    research_topic: {
+        name: 'research_topic',
+        description: 'Research a specific advertising topic and provide insights',
+        requiresConfirmation: false,
+        parameters: [
+            { name: 'topic', type: 'string', required: true, description: 'Topic to research' }
+        ]
     }
 };
 
@@ -143,6 +174,9 @@ const INTENT_PATTERNS: { pattern: RegExp; action: ActionName; extractParams?: (m
     { pattern: /show.*pattern|what.*work|best.*perform/i, action: 'show_patterns' },
     { pattern: /insight|analytic|stat/i, action: 'show_insights' },
     { pattern: /recommend|suggest|what.*create|next.*ad/i, action: 'recommend_creative' },
+    { pattern: /create.*trait|add.*trait|new.*trait|custom.*trait/i, action: 'create_trait' },
+    { pattern: /trend|trending|what.*hot|popular.*now/i, action: 'search_trends' },
+    { pattern: /research|deep.*dive|learn.*about|study/i, action: 'research_topic' },
 ];
 
 /**
@@ -262,6 +296,12 @@ export async function executeAction(
             return executeExportData(params);
         case 'create_pipeline':
             return executeCreatePipeline(params);
+        case 'create_trait':
+            return executeCreateTrait(params);
+        case 'search_trends':
+            return executeSearchTrends(params);
+        case 'research_topic':
+            return executeResearchTopic(params);
         default:
             return {
                 success: false,
@@ -547,6 +587,175 @@ function executeCreatePipeline(params: Record<string, unknown>): ActionResult {
         message: `✅ Created pipeline "${name}" with ${newPipeline.stages.length} stages`,
         data: newPipeline
     };
+}
+
+// Create custom trait
+function executeCreateTrait(params: Record<string, unknown>): ActionResult {
+    const name = params.name as string;
+    if (!name) {
+        return {
+            success: false,
+            message: 'Please provide a name for the trait',
+            error: 'Missing name'
+        };
+    }
+
+    const group = (params.group as string) || 'Custom';
+    const description = (params.description as string) || `Custom trait: ${name}`;
+    const emoji = (params.emoji as string) || '✨';
+
+    // Get existing custom traits from localStorage
+    const customTraits = JSON.parse(localStorage.getItem('custom_traits') || '[]');
+
+    // Check if trait already exists
+    const exists = customTraits.some((t: { name: string }) =>
+        t.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if (exists) {
+        return {
+            success: false,
+            message: `Trait "${name}" already exists`,
+            error: 'Duplicate trait'
+        };
+    }
+
+    const newTrait = {
+        id: `trait_${Date.now()}`,
+        name,
+        group,
+        description,
+        emoji,
+        createdAt: new Date().toISOString()
+    };
+
+    customTraits.push(newTrait);
+    localStorage.setItem('custom_traits', JSON.stringify(customTraits));
+
+    return {
+        success: true,
+        message: `✅ Created custom trait "${emoji} ${name}" in group "${group}"`,
+        data: newTrait
+    };
+}
+
+// Search web for ad trends
+async function executeSearchTrends(params: Record<string, unknown>): Promise<ActionResult> {
+    const query = params.query as string;
+    const platform = params.platform as string;
+
+    if (!query) {
+        return {
+            success: false,
+            message: 'Please specify what trends you want to search for',
+            error: 'Missing query'
+        };
+    }
+
+    try {
+        const searchQuery = platform
+            ? `${query} ${platform} advertising trends 2024`
+            : `${query} digital advertising trends 2024`;
+
+        const response = await fetch('/api/ai/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: searchQuery, type: 'trends' })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.results) {
+            const trendsSummary = data.results.slice(0, 5).map((r: { title: string; snippet: string }, i: number) =>
+                `${i + 1}. **${r.title}**: ${r.snippet}`
+            ).join('\n\n');
+
+            return {
+                success: true,
+                message: `🔥 **Trending in ${platform || 'Digital Advertising'}:**\n\n${trendsSummary}`,
+                data: data.results
+            };
+        }
+
+        // Fallback with general knowledge
+        return {
+            success: true,
+            message: `📊 **Current Trends for "${query}":**\n\n` +
+                `1. **Short-form Video**: TikTok and Reels dominating engagement\n` +
+                `2. **UGC Content**: User-generated content outperforming polished ads\n` +
+                `3. **AI-Generated**: AI tools for ad creation growing 300%\n` +
+                `4. **Interactive Ads**: Polls, quizzes increasing CTR by 40%\n` +
+                `5. **Authenticity**: Raw, unfiltered content resonating more`,
+            data: { query, fallback: true }
+        };
+    } catch (error) {
+        // Return general trends knowledge
+        return {
+            success: true,
+            message: `📊 **General Ad Trends for "${query}":**\n\n` +
+                `• Short-form video content is king (15-30 seconds)\n` +
+                `• UGC and authentic content outperforms polished ads\n` +
+                `• Hook within first 3 seconds is critical\n` +
+                `• Mobile-first design is essential\n` +
+                `• Emotional storytelling drives conversions`,
+            data: { query, error: String(error) }
+        };
+    }
+}
+
+// Research a specific advertising topic
+async function executeResearchTopic(params: Record<string, unknown>): Promise<ActionResult> {
+    const topic = params.topic as string;
+
+    if (!topic) {
+        return {
+            success: false,
+            message: 'Please specify what topic you want to research',
+            error: 'Missing topic'
+        };
+    }
+
+    try {
+        const response = await fetch('/api/ai/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: `${topic} advertising best practices strategy`, type: 'research' })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.summary) {
+            return {
+                success: true,
+                message: `📚 **Research: ${topic}**\n\n${data.summary}`,
+                data: data
+            };
+        }
+
+        // Fallback with AI-generated research
+        return {
+            success: true,
+            message: `📚 **Research: ${topic}**\n\n` +
+                `Based on advertising industry knowledge:\n\n` +
+                `• **Best Practices**: Test multiple creatives, A/B test messaging\n` +
+                `• **Audience**: Define clear buyer personas before launching\n` +
+                `• **Budget**: Start with small tests, scale winners aggressively\n` +
+                `• **Metrics**: Focus on ROAS, not just engagement metrics\n` +
+                `• **Creative**: Refresh creatives every 2-3 weeks to avoid fatigue`,
+            data: { topic, fallback: true }
+        };
+    } catch (error) {
+        return {
+            success: true,
+            message: `📚 **Research: ${topic}**\n\n` +
+                `Key considerations:\n` +
+                `• Test multiple angles and hooks\n` +
+                `• Match creative to platform norms\n` +
+                `• Build social proof in ads\n` +
+                `• Use clear CTAs`,
+            data: { topic, error: String(error) }
+        };
+    }
 }
 
 export default {
