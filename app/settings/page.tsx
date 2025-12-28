@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import styles from './page.module.css';
 import UndoPanel from '@/components/UndoPanel';
 import FacebookLogin from '@/components/FacebookLogin';
+import { saveToCloud, loadFromCloud, exportBackup, importBackup, getLastSyncTime, getUserId } from '@/lib/sync';
 
 // Facebook App ID - set in environment variable
 const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
@@ -41,6 +42,12 @@ export default function SettingsPage() {
         lastTrained: '-',
     });
 
+    // Cloud Sync State
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncMessage, setSyncMessage] = useState('');
+    const [lastSync, setLastSync] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     // Load saved API settings from localStorage
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -73,6 +80,9 @@ export default function SettingsPage() {
             if (savedSelectedPage) {
                 setSelectedPageId(savedSelectedPage);
             }
+
+            // Initialize last sync time
+            setLastSync(getLastSyncTime());
         }
     }, []);
 
@@ -136,6 +146,46 @@ export default function SettingsPage() {
         localStorage.setItem('meta_marketing_token', marketingAccessToken);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
+    };
+
+    // Cloud Sync Handlers
+    const handleSaveToCloud = async () => {
+        setIsSyncing(true);
+        setSyncMessage('');
+        const result = await saveToCloud();
+        setSyncMessage(result.message);
+        if (result.success) {
+            setLastSync(getLastSyncTime());
+        }
+        setIsSyncing(false);
+    };
+
+    const handleLoadFromCloud = async () => {
+        if (!confirm('This will replace your local data with data from the cloud. Continue?')) return;
+        setIsSyncing(true);
+        setSyncMessage('');
+        const result = await loadFromCloud();
+        setSyncMessage(result.message);
+        if (result.success) {
+            setLastSync(getLastSyncTime());
+            setTimeout(() => window.location.reload(), 1500);
+        }
+        setIsSyncing(false);
+    };
+
+    const handleExportBackup = () => {
+        exportBackup();
+        setSyncMessage('Backup file downloaded');
+    };
+
+    const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const result = await importBackup(file);
+        setSyncMessage(result.message);
+        if (result.success) {
+            setTimeout(() => window.location.reload(), 1500);
+        }
     };
 
     // Test Marketing API connection
@@ -676,6 +726,101 @@ export default function SettingsPage() {
                         </svg>
                         Export All Data
                     </button>
+                </div>
+
+                {/* Cloud Sync & Backup Section */}
+                <div className={`glass-card ${styles.settingsCard}`} style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                    <div className={styles.cardHeader}>
+                        <div className={styles.cardIcon} style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10B981' }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 style={{ color: '#10B981' }}>☁️ Cloud Sync & Backup</h3>
+                            <p>Sync your data to the cloud to prevent data loss</p>
+                        </div>
+                    </div>
+
+                    <p className={styles.exportDescription} style={{ color: 'var(--text-muted)' }}>
+                        🔒 Your ads, pipelines, leads, and settings are stored locally in your browser.
+                        Save them to the cloud to restore on any device or after clearing cookies.
+                    </p>
+
+                    {lastSync && (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                            Last synced: {new Date(lastSync).toLocaleString()}
+                        </p>
+                    )}
+
+                    {syncMessage && (
+                        <div style={{
+                            padding: '10px 16px',
+                            borderRadius: '8px',
+                            marginBottom: '16px',
+                            background: syncMessage.includes('failed') || syncMessage.includes('error')
+                                ? 'rgba(239, 68, 68, 0.1)'
+                                : 'rgba(16, 185, 129, 0.1)',
+                            border: `1px solid ${syncMessage.includes('failed') || syncMessage.includes('error')
+                                ? 'rgba(239, 68, 68, 0.3)'
+                                : 'rgba(16, 185, 129, 0.3)'}`
+                        }}>
+                            {syncMessage}
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                        <button
+                            className="btn"
+                            onClick={handleSaveToCloud}
+                            disabled={isSyncing}
+                            style={{
+                                background: 'rgba(16, 185, 129, 0.2)',
+                                border: '1px solid rgba(16, 185, 129, 0.4)',
+                                color: '#10B981'
+                            }}
+                        >
+                            {isSyncing ? '⏳ Syncing...' : '☁️ Save to Cloud'}
+                        </button>
+                        <button
+                            className="btn"
+                            onClick={handleLoadFromCloud}
+                            disabled={isSyncing}
+                            style={{
+                                background: 'rgba(99, 102, 241, 0.2)',
+                                border: '1px solid rgba(99, 102, 241, 0.4)',
+                                color: '#6366F1'
+                            }}
+                        >
+                            {isSyncing ? '⏳ Loading...' : '⬇️ Load from Cloud'}
+                        </button>
+                    </div>
+
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '16px 0' }} />
+
+                    <p style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '8px' }}>📁 Local Backup</p>
+                    <p className={styles.exportDescription} style={{ color: 'var(--text-muted)', marginBottom: '12px' }}>
+                        Download a backup file to your computer or restore from a previous backup.
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <button className="btn btn-secondary" onClick={handleExportBackup}>
+                            💾 Download Backup
+                        </button>
+                        <button
+                            className="btn btn-secondary"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            📂 Restore from Backup
+                        </button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleImportBackup}
+                            accept=".json"
+                            style={{ display: 'none' }}
+                        />
+                    </div>
                 </div>
 
                 {/* Danger Zone - Delete All Data */}
