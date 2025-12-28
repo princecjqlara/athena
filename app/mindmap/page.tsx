@@ -866,6 +866,83 @@ export default function MindMapPage() {
                     }
                 });
             }
+
+            // ===== Generate DAILY ORBS for ads with dailyReports =====
+            if (ad.dailyReports && ad.dailyReports.length > 0) {
+                const adNodeX = radius * Math.cos(theta) * Math.sin(phi);
+                const adNodeY = radius * Math.sin(theta) * Math.sin(phi);
+                const adNodeZ = radius * Math.cos(phi);
+                const dailyRadius = 50; // Distance from ad node
+
+                ad.dailyReports.forEach((day, dayIdx) => {
+                    // Arrange days in a timeline arc
+                    const totalDays = ad.dailyReports!.length;
+                    const arcAngle = (dayIdx / Math.max(totalDays - 1, 1)) * Math.PI - Math.PI / 2;
+
+                    // Create orbs for key metrics of each day
+                    const dailyMetrics = [
+                        { key: 'impressions', value: day.impressions, icon: '👁️', color: CATEGORY_COLORS.Impressions },
+                        { key: 'clicks', value: day.clicks, icon: '👆', color: CATEGORY_COLORS.Clicks },
+                        { key: 'ctr', value: day.ctr, suffix: '%', icon: '📈', color: CATEGORY_COLORS.CTR },
+                        { key: 'spend', value: day.spend, prefix: '₱', icon: '💰', color: CATEGORY_COLORS.Spend },
+                    ];
+
+                    // Create a parent "day" orb
+                    const dayX = adNodeX + dailyRadius * Math.cos(arcAngle);
+                    const dayY = adNodeY + dailyRadius * Math.sin(arcAngle);
+                    const dayZ = adNodeZ + dayIdx * 5;
+                    const dateStr = new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const colors = CATEGORY_COLORS.Metric;
+
+                    nodesList.push({
+                        id: `daily:${ad.id}:${day.date}`,
+                        label: `📅 ${dateStr}`,
+                        category: 'Daily',
+                        parentGroup: '📊 Results & Metrics',
+                        type: 'daily' as 'trait' | 'ad' | 'category' | 'metric' | 'daily',
+                        x: dayX,
+                        y: dayY,
+                        z: dayZ,
+                        size: 25,
+                        color: colors.primary,
+                        colorLight: colors.light,
+                        colorDark: colors.dark,
+                        connections: [ad.id],
+                        successRate: day.ctr * 10, // Scale CTR for visualization
+                        frequency: 1,
+                    });
+
+                    // Create child metric orbs around each day
+                    dailyMetrics.forEach((metric, metricIdx) => {
+                        if (metric.value !== undefined && metric.value > 0) {
+                            const metricAngle = (metricIdx / dailyMetrics.length) * Math.PI * 2;
+                            const metricRadius = 15;
+
+                            let displayValue = metric.value.toLocaleString();
+                            if (metric.prefix) displayValue = metric.prefix + displayValue;
+                            if (metric.suffix) displayValue = displayValue + metric.suffix;
+
+                            nodesList.push({
+                                id: `daily-metric:${ad.id}:${day.date}:${metric.key}`,
+                                label: `${metric.icon} ${displayValue}`,
+                                category: metric.key,
+                                parentGroup: '📊 Results & Metrics',
+                                type: 'daily' as 'trait' | 'ad' | 'category' | 'metric' | 'daily',
+                                x: dayX + metricRadius * Math.cos(metricAngle),
+                                y: dayY + metricRadius * Math.sin(metricAngle),
+                                z: dayZ,
+                                size: 14,
+                                color: metric.color.primary,
+                                colorLight: metric.color.light,
+                                colorDark: metric.color.dark,
+                                connections: [`daily:${ad.id}:${day.date}`],
+                                successRate: 50,
+                                frequency: 1,
+                            });
+                        }
+                    });
+                });
+            }
         });
 
         setNodes(nodesList);

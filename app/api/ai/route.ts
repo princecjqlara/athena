@@ -38,10 +38,23 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'parse-content':
-        systemMessage = `You are an expert ad analyst. Extract all ad attributes from user descriptions.
-        Always respond with valid JSON containing all identified attributes.
-        Be thorough - extract every detail mentioned and infer reasonable defaults for missing fields.`;
-        prompt = buildContentParsingPrompt(data.rawText);
+        // Use custom prompt if provided (from organizer prompts), otherwise use default
+        if (data.customPrompt) {
+          systemMessage = `You are an expert ad analyst. Extract all ad attributes from user descriptions using the provided prompt template.
+          Always respond with valid JSON containing all identified attributes.
+          Be thorough - extract every detail mentioned and infer reasonable defaults for missing fields.`;
+          prompt = `${data.customPrompt}
+
+Ad/Content to analyze:
+"${data.rawText}"
+
+Respond with valid JSON only.`;
+        } else {
+          systemMessage = `You are an expert ad analyst. Extract all ad attributes from user descriptions.
+          Always respond with valid JSON containing all identified attributes.
+          Be thorough - extract every detail mentioned and infer reasonable defaults for missing fields.`;
+          prompt = buildContentParsingPrompt(data.rawText);
+        }
         break;
 
       case 'parse-results':
