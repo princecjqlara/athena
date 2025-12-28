@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
+import DailyReportsViewer from '@/components/DailyReportsViewer';
 
 // Unified Ad interface that handles both imported and uploaded ads
 interface Ad {
@@ -142,6 +143,41 @@ export default function MyAdsPage() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);  // AI analysis state
     const [viewMode, setViewMode] = useState<'grid' | 'folders'>('grid');  // View mode toggle
     const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());  // Expanded folder state
+
+    // Daily Reports Modal State
+    const [selectedAdForReport, setSelectedAdForReport] = useState<Ad | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [dailyReportData, setDailyReportData] = useState<any>(null);
+    const [isLoadingReport, setIsLoadingReport] = useState(false);
+
+    // Fetch daily report for an ad
+    const fetchDailyReport = async (ad: Ad) => {
+        setSelectedAdForReport(ad);
+        setIsLoadingReport(true);
+        setDailyReportData(null);
+
+        try {
+            const accessToken = localStorage.getItem('fb_access_token');
+            if (!accessToken || !ad.facebookAdId) {
+                console.log('No access token or Facebook ID');
+                setIsLoadingReport(false);
+                return;
+            }
+
+            const response = await fetch(
+                `/api/facebook/insights?adId=${ad.facebookAdId}&accessToken=${accessToken}`
+            );
+            const data = await response.json();
+
+            if (data.success && data.data?.dailyReport) {
+                setDailyReportData(data.data.dailyReport);
+            }
+        } catch (error) {
+            console.error('Error fetching daily report:', error);
+        } finally {
+            setIsLoadingReport(false);
+        }
+    };
 
     // Load ads from localStorage
     useEffect(() => {
@@ -737,6 +773,21 @@ Ad description: ${adDescription}`,
                                         <line x1="6" y1="20" x2="6" y2="16" />
                                     </svg>
                                 </a>
+                                {ad.facebookAdId && (
+                                    <button
+                                        className="btn btn-ghost btn-icon"
+                                        title="View Daily Report"
+                                        onClick={() => fetchDailyReport(ad)}
+                                        style={{ color: 'var(--accent-primary)' }}
+                                    >
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                            <line x1="16" y1="2" x2="16" y2="6" />
+                                            <line x1="8" y1="2" x2="8" y2="6" />
+                                            <line x1="3" y1="10" x2="21" y2="10" />
+                                        </svg>
+                                    </button>
+                                )}
                                 <button
                                     className="btn btn-ghost btn-icon"
                                     title="Delete"
@@ -910,6 +961,47 @@ Ad description: ${adDescription}`,
                             <button className="btn btn-primary" onClick={saveTraitEdits}>
                                 Save Traits
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Daily Report Modal */}
+            {selectedAdForReport && (
+                <div
+                    className={styles.modalOverlay}
+                    onClick={() => setSelectedAdForReport(null)}
+                    style={{ zIndex: 1000 }}
+                >
+                    <div
+                        className={styles.modal}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            maxWidth: '900px',
+                            width: '95%',
+                            maxHeight: '90vh',
+                            overflow: 'auto'
+                        }}
+                    >
+                        <div className={styles.modalHeader}>
+                            <h3>📅 Daily Performance Report</h3>
+                            <button
+                                className="btn btn-ghost btn-icon"
+                                onClick={() => setSelectedAdForReport(null)}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div style={{ padding: '20px' }}>
+                            <DailyReportsViewer
+                                data={dailyReportData}
+                                adName={getAdName(selectedAdForReport)}
+                                isLoading={isLoadingReport}
+                            />
                         </div>
                     </div>
                 </div>
