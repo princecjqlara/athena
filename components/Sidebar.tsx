@@ -204,6 +204,29 @@ export function Sidebar() {
           height: 40px;
           padding: 0;
         }
+
+        /* Light Mode Sidebar */
+        :global([data-theme="light"]) .sidebar,
+        :global(.light) .sidebar {
+          background: rgba(255, 255, 255, 0.95);
+          border-right: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        :global([data-theme="light"]) .collapse-btn,
+        :global(.light) .collapse-btn {
+          background: rgba(0, 0, 0, 0.03);
+          border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        :global([data-theme="light"]) .collapse-btn:hover,
+        :global(.light) .collapse-btn:hover {
+          background: rgba(0, 0, 0, 0.08);
+        }
+
+        :global([data-theme="light"]) .user-session,
+        :global(.light) .user-session {
+          color: rgba(0, 0, 0, 0.6) !important;
+        }
       `}</style>
     </aside>
   );
@@ -359,6 +382,21 @@ function NavItem({ href, icon, label, collapsed, active }: { href: string; icon:
           font-size: 0.875rem;
           font-weight: 500;
           white-space: nowrap;
+        }
+
+        /* Light Mode NavItem */
+        :global([data-theme="light"]) .nav-icon,
+        :global(.light) .nav-icon {
+          background: rgba(0, 0, 0, 0.05);
+        }
+
+        :global([data-theme="light"]) .nav-item:hover .nav-icon,
+        :global([data-theme="light"]) .nav-item.active .nav-icon,
+        :global(.light) .nav-item:hover .nav-icon,
+        :global(.light) .nav-item.active .nav-icon {
+          background: rgba(22, 163, 74, 0.15);
+          color: #16a34a;
+          box-shadow: 0 0 20px rgba(22, 163, 74, 0.2);
         }
       `}</style>
     </a>
