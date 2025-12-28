@@ -6,6 +6,7 @@ import styles from './page.module.css';
 import UndoPanel from '@/components/UndoPanel';
 import FacebookLogin from '@/components/FacebookLogin';
 import { saveToCloud, loadFromCloud, exportBackup, importBackup, getLastSyncTime, getUserId } from '@/lib/sync';
+import { checkTokenStatus, getTokenExpiryDisplay, TokenStatus } from '@/lib/token';
 
 // Facebook App ID - set in environment variable
 const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
@@ -48,6 +49,9 @@ export default function SettingsPage() {
     const [lastSync, setLastSync] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Token Status
+    const [tokenStatus, setTokenStatus] = useState<TokenStatus | null>(null);
+
     // Load saved API settings from localStorage
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -83,6 +87,9 @@ export default function SettingsPage() {
 
             // Initialize last sync time
             setLastSync(getLastSyncTime());
+
+            // Check token status
+            setTokenStatus(checkTokenStatus());
         }
     }, []);
 
