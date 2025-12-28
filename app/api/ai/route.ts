@@ -39,11 +39,16 @@ export async function POST(request: NextRequest) {
 
       case 'parse-content':
         // Use custom prompt if provided (from organizer prompts), otherwise use default
+        // Also include learned traits if provided
+        const learnedTraitsSection = data.learnedTraits?.length > 0
+          ? `\n\nADDITIONAL COMMUNITY LEARNED TRAITS TO EXTRACT:\n${data.learnedTraits.map((t: { trait_name: string; definition: string }) => `- ${t.trait_name}: ${t.definition}`).join('\n')}\n`
+          : '';
+
         if (data.customPrompt) {
           systemMessage = `You are an expert ad analyst. Extract all ad attributes from user descriptions using the provided prompt template.
           Always respond with valid JSON containing all identified attributes.
           Be thorough - extract every detail mentioned and infer reasonable defaults for missing fields.`;
-          prompt = `${data.customPrompt}
+          prompt = `${data.customPrompt}${learnedTraitsSection}
 
 Ad/Content to analyze:
 "${data.rawText}"
@@ -53,7 +58,7 @@ Respond with valid JSON only.`;
           systemMessage = `You are an expert ad analyst. Extract all ad attributes from user descriptions.
           Always respond with valid JSON containing all identified attributes.
           Be thorough - extract every detail mentioned and infer reasonable defaults for missing fields.`;
-          prompt = buildContentParsingPrompt(data.rawText);
+          prompt = buildContentParsingPrompt(data.rawText) + learnedTraitsSection;
         }
         break;
 

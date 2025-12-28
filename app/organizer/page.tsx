@@ -70,7 +70,7 @@ export default function OrganizerDashboard() {
     const [loading, setLoading] = useState(true);
     const [impersonating, setImpersonating] = useState<ImpersonationSession | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy' | 'marketplace' | 'prompts'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy' | 'marketplace' | 'prompts' | 'traits'>('users');
     const [inviteCode, setInviteCode] = useState<string | null>(null);
     const [selectedCodeRole, setSelectedCodeRole] = useState<'admin' | 'marketer' | 'client'>('admin');
     const [generatedCodeType, setGeneratedCodeType] = useState<string | null>(null);
@@ -95,6 +95,19 @@ export default function OrganizerDashboard() {
     const [editingPrompt, setEditingPrompt] = useState<any>(null);
     const [newPrompt, setNewPrompt] = useState({ name: '', description: '', mediaType: 'video', promptText: '' });
 
+    // Learned traits management state
+    const [learnedTraits, setLearnedTraits] = useState<Array<{
+        id: string;
+        trait_name: string;
+        trait_category: string;
+        definition: string;
+        business_type?: string;
+        usage_count: number;
+        created_at: string;
+    }>>([]);
+    const [showAddTrait, setShowAddTrait] = useState(false);
+    const [newTrait, setNewTrait] = useState({ traitName: '', traitCategory: 'Custom', definition: '', businessType: '' });
+
     useEffect(() => {
         fetchData();
         checkImpersonation();
@@ -106,6 +119,9 @@ export default function OrganizerDashboard() {
         }
         if (activeTab === 'prompts') {
             fetchPrompts();
+        }
+        if (activeTab === 'traits') {
+            fetchLearnedTraits();
         }
     }, [activeTab]);
 
@@ -192,6 +208,50 @@ export default function OrganizerDashboard() {
             fetchPrompts();
         } catch (error) {
             console.error('Error deleting prompt:', error);
+        }
+    };
+
+    // Learned Traits CRUD Functions
+    const fetchLearnedTraits = async () => {
+        try {
+            const res = await fetch('/api/ai/learned-traits');
+            if (res.ok) {
+                const data = await res.json();
+                setLearnedTraits(data.traits || []);
+            }
+        } catch (error) {
+            console.error('Error fetching learned traits:', error);
+        }
+    };
+
+    const addTrait = async () => {
+        if (!newTrait.traitName || !newTrait.definition) {
+            alert('Trait name and definition are required');
+            return;
+        }
+        try {
+            const res = await fetch('/api/ai/learned-traits', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newTrait)
+            });
+            if (res.ok) {
+                setNewTrait({ traitName: '', traitCategory: 'Custom', definition: '', businessType: '' });
+                setShowAddTrait(false);
+                fetchLearnedTraits();
+            }
+        } catch (error) {
+            console.error('Error adding trait:', error);
+        }
+    };
+
+    const deleteTrait = async (id: string) => {
+        if (!confirm('Delete this learned trait?')) return;
+        try {
+            await fetch(`/api/ai/learned-traits?id=${id}`, { method: 'DELETE' });
+            fetchLearnedTraits();
+        } catch (error) {
+            console.error('Error deleting trait:', error);
         }
     };
 
@@ -424,6 +484,12 @@ export default function OrganizerDashboard() {
                     onClick={() => setActiveTab('prompts')}
                 >
                     📝 Prompts
+                </button>
+                <button
+                    className={`tab ${activeTab === 'traits' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('traits')}
+                >
+                    🧬 Traits
                 </button>
             </div>
 
@@ -720,6 +786,122 @@ export default function OrganizerDashboard() {
                                 When users add custom traits to their ads, the AI automatically learns and incorporates them into future analysis.
                                 These user-defined traits are stored and suggested to other users with similar business profiles.
                             </p>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'traits' && (
+                    <div className="traits-panel">
+                        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <div>
+                                <h2>🧬 Learned Traits</h2>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '4px 0 0' }}>
+                                    User-submitted custom traits that are learned and suggested to similar users
+                                </p>
+                            </div>
+                            <button
+                                className="create-btn"
+                                onClick={() => setShowAddTrait(!showAddTrait)}
+                                style={{ padding: '10px 20px', background: 'var(--primary)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
+                            >
+                                {showAddTrait ? '✕ Cancel' : '+ Add Trait'}
+                            </button>
+                        </div>
+
+                        {/* Add Trait Form */}
+                        {showAddTrait && (
+                            <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid var(--border)' }}>
+                                <h3 style={{ marginTop: 0 }}>Add New Trait</h3>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Trait Name *</label>
+                                            <input
+                                                type="text"
+                                                value={newTrait.traitName}
+                                                onChange={(e) => setNewTrait({ ...newTrait, traitName: e.target.value })}
+                                                placeholder="e.g., hasUnboxing"
+                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Category</label>
+                                            <select
+                                                value={newTrait.traitCategory}
+                                                onChange={(e) => setNewTrait({ ...newTrait, traitCategory: e.target.value })}
+                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                            >
+                                                <option value="Custom">Custom</option>
+                                                <option value="Visual">Visual</option>
+                                                <option value="Audio">Audio</option>
+                                                <option value="Content">Content</option>
+                                                <option value="Style">Style</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Definition *</label>
+                                        <input
+                                            type="text"
+                                            value={newTrait.definition}
+                                            onChange={(e) => setNewTrait({ ...newTrait, definition: e.target.value })}
+                                            placeholder="boolean - Whether the ad shows product unboxing"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Business Type (optional)</label>
+                                        <input
+                                            type="text"
+                                            value={newTrait.businessType}
+                                            onChange={(e) => setNewTrait({ ...newTrait, businessType: e.target.value })}
+                                            placeholder="e.g., E-commerce"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                        />
+                                    </div>
+                                    <button onClick={addTrait} style={{ padding: '12px', background: 'var(--success)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontWeight: 600 }}>
+                                        ✓ Save Trait
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Traits List */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {learnedTraits.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                    <p>No learned traits yet. Add one or wait for users to submit custom traits.</p>
+                                </div>
+                            ) : (
+                                learnedTraits.map(trait => (
+                                    <div key={trait.id} style={{ padding: '16px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                    <strong>{trait.trait_name}</strong>
+                                                    <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(139,92,246,0.2)', borderRadius: '12px', color: '#8B5CF6' }}>
+                                                        {trait.trait_category}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(16,185,129,0.2)', borderRadius: '12px', color: 'var(--success)' }}>
+                                                        {trait.usage_count}x used
+                                                    </span>
+                                                </div>
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                                                    {trait.definition}
+                                                </p>
+                                                {trait.business_type && (
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '4px', display: 'inline-block' }}>
+                                                        🏢 {trait.business_type}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <button onClick={() => deleteTrait(trait.id)} style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px 8px' }}>
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 )}
