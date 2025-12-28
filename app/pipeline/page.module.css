@@ -219,7 +219,7 @@
 
 .aiStage {
     background: rgba(139, 92, 246, 0.15);
-    color: #a78bfa;
+    color: var(--purple-light);
 }
 
 /* Modal */
