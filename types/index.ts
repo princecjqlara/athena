@@ -165,6 +165,51 @@ export type TimeOfDay =
   | 'evening'         // 5-9pm
   | 'night';          // 9pm-5am
 
+// ===== NEW ML-CRITICAL TYPES =====
+
+// Budget Tiers - categorize campaign budget for better predictions
+export type BudgetTier =
+  | 'micro'      // $0-$50
+  | 'small'      // $50-$200
+  | 'medium'     // $200-$1000
+  | 'large'      // $1000-$5000
+  | 'enterprise'; // $5000+
+
+// Campaign Objective Types - affects expected outcomes
+export type ObjectiveType =
+  | 'awareness'      // Brand awareness, reach
+  | 'traffic'        // Website clicks
+  | 'engagement'     // Likes, comments, shares
+  | 'leads'          // Lead generation
+  | 'conversions'    // Purchases, signups
+  | 'messages'       // Messenger conversations
+  | 'video_views';   // Video view campaigns
+
+// Audience Types - cold vs warm audiences
+export type AudienceType =
+  | 'cold'           // Never seen brand before
+  | 'warm'           // Engaged with content
+  | 'retargeting'    // Website visitors, cart abandoners
+  | 'lookalike'      // Similar to existing customers
+  | 'custom';        // Custom audience
+
+// Hook Retention Quality - first 3 seconds effectiveness
+export type HookRetention =
+  | 'poor'           // <25% watch past 3s
+  | 'below_average'  // 25-50% watch past 3s
+  | 'average'        // 50-75% watch past 3s
+  | 'good'           // 75-90% watch past 3s
+  | 'excellent';     // >90% watch past 3s
+
+// Target Age Group - demographic targeting
+export type TargetAgeGroup =
+  | 'gen_z'          // 18-24
+  | 'younger_millennial' // 25-34
+  | 'older_millennial'   // 35-44
+  | 'gen_x'          // 45-54
+  | 'boomer'         // 55+
+  | 'broad';         // Multiple age groups
+
 // Combined type for full video data
 export interface FullVideoData {
   video: Video;
@@ -388,6 +433,13 @@ export interface ExtractedAdData {
   numberOfActors: number;
   talentType?: 'ugc_creator' | 'influencer' | 'model' | 'none' | 'multiple';
   isUGCStyle: boolean;
+
+  // ===== ML-CRITICAL CAMPAIGN DATA =====
+  budgetTier?: BudgetTier;           // Budget category for prediction
+  objectiveType?: ObjectiveType;     // Campaign objective
+  audienceType?: AudienceType;       // Cold vs warm audience
+  hookRetention?: HookRetention;     // First 3 seconds retention quality
+  targetAgeGroup?: TargetAgeGroup;   // Target demographic
 
   // ===== CUSTOM TRAITS =====
   customTraits: string[];
