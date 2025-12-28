@@ -2,12 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react';
 import styles from './ChatBot.module.css';
+import { parseAIResponse, executeAction, ActionResult, ActionName } from '@/lib/athena-agent';
 
 interface Message {
     id: string;
-    role: 'user' | 'assistant';
+    role: 'user' | 'assistant' | 'system';
     content: string;
     timestamp: Date;
+    actionResult?: ActionResult;
 }
 
 interface ChatBotProps {
@@ -19,11 +21,12 @@ export default function ChatBot({ onClose }: ChatBotProps) {
     const [messages, setMessages] = useState<Message[]>([{
         id: 'welcome',
         role: 'assistant',
-        content: "Hi! I'm Athena AI 🧠 I have access to all your ad data, metrics, and insights. Ask me anything about your ads, what's working, or what creatives to make next!",
+        content: "Hi! I'm Athena AI 🧠 I can analyze your ads, show patterns, and even **execute tasks** for you! Try saying 'Import my ads' or 'Show me patterns'.",
         timestamp: new Date()
     }]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [pendingAction, setPendingAction] = useState<{ action: ActionName; params: Record<string, unknown> } | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to bottom on new messages
@@ -120,16 +123,50 @@ export default function ChatBot({ onClose }: ChatBotProps) {
 
             const result = await response.json();
 
-            const assistantMessage: Message = {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: result.success && result.data?.response
-                    ? result.data.response
-                    : "I'm having trouble analyzing right now. Please try again!",
-                timestamp: new Date()
-            };
+            if (result.success && result.data?.response) {
+                // Parse AI response for action commands
+                const parsed = parseAIResponse(result.data.response);
 
-            setMessages(prev => [...prev, assistantMessage]);
+                if (parsed.action) {
+                    // AI wants to execute an action!
+                    const assistantMessage: Message = {
+                        id: (Date.now() + 1).toString(),
+                        role: 'assistant',
+                        content: parsed.message || `Executing ${parsed.action}...`,
+                        timestamp: new Date()
+                    };
+                    setMessages(prev => [...prev, assistantMessage]);
+
+                    // Execute the action
+                    const actionResult = await executeAction(parsed.action, parsed.params);
+
+                    // Add action result message
+                    const resultMessage: Message = {
+                        id: (Date.now() + 2).toString(),
+                        role: 'system',
+                        content: actionResult.message,
+                        timestamp: new Date(),
+                        actionResult
+                    };
+                    setMessages(prev => [...prev, resultMessage]);
+                } else {
+                    // Regular response
+                    const assistantMessage: Message = {
+                        id: (Date.now() + 1).toString(),
+                        role: 'assistant',
+                        content: parsed.message,
+                        timestamp: new Date()
+                    };
+                    setMessages(prev => [...prev, assistantMessage]);
+                }
+            } else {
+                setMessages(prev => [...prev, {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: "I'm having trouble analyzing right now. Please try again!",
+                    timestamp: new Date()
+                }]);
+            }
         } catch (error) {
             console.error('Chat error:', error);
             setMessages(prev => [...prev, {
@@ -190,13 +227,23 @@ export default function ChatBot({ onClose }: ChatBotProps) {
                 {messages.map((message) => (
                     <div
                         key={message.id}
-                        className={`${styles.message} ${message.role === 'user' ? styles.userMessage : styles.assistantMessage}`}
+                        className={`${styles.message} ${message.role === 'user'
+                                ? styles.userMessage
+                                : message.role === 'system'
+                                    ? styles.systemMessage
+                                    : styles.assistantMessage
+                            }`}
                     >
                         {message.role === 'assistant' && (
                             <span className={styles.messageIcon}>🧠</span>
                         )}
+                        {message.role === 'system' && (
+                            <span className={styles.messageIcon}>{message.actionResult?.success ? '✅' : '⚠️'}</span>
+                        )}
                         <div className={styles.messageContent}>
-                            {message.content}
+                            {message.content.split('\n').map((line, i) => (
+                                <span key={i}>{line}<br /></span>
+                            ))}
                         </div>
                     </div>
                 ))}
