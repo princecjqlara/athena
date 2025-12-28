@@ -73,6 +73,25 @@ const INTENDED_USES = [
 export default function MarketplacePage() {
     const [pools, setPools] = useState<DataPool[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // AI Suggestion Mode (replaces manual filters)
+    const [useAiMode, setUseAiMode] = useState(true);
+    const [businessType, setBusinessType] = useState('');
+    const [targetAudience, setTargetAudience] = useState('');
+    const [products, setProducts] = useState('');
+    const [aiSuggestions, setAiSuggestions] = useState<Array<{
+        poolName: string;
+        industry: string;
+        platform: string;
+        audience: string;
+        format: string;
+        relevanceScore: number;
+        reasoning: string;
+        expectedInsights: string[];
+    }>>([]);
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+    // Legacy filters (for manual mode)
     const [filters, setFilters] = useState<Filters>({
         industry: '',
         platform: '',
@@ -128,6 +147,49 @@ export default function MarketplacePage() {
             console.error('Failed to fetch data pools:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Fetch AI suggestions based on business profile
+    const fetchAiSuggestions = async () => {
+        if (!businessType.trim()) {
+            alert('Please describe your business type first');
+            return;
+        }
+
+        setLoadingSuggestions(true);
+        try {
+            const response = await fetch('/api/ai/suggest-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    businessType,
+                    targetAudience,
+                    products,
+                    currentAds: parseInt(localStorage.getItem('ads_count') || '0')
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.suggestions) {
+                setAiSuggestions(data.suggestions);
+
+                // Apply first suggestion's filters to match pools
+                if (data.suggestions.length > 0) {
+                    const first = data.suggestions[0];
+                    setFilters({
+                        industry: first.industry || '',
+                        platform: first.platform || '',
+                        audience: first.audience || '',
+                        format: first.format || ''
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to get AI suggestions:', error);
+        } finally {
+            setLoadingSuggestions(false);
         }
     };
 
@@ -228,55 +290,184 @@ export default function MarketplacePage() {
                 />
             </div>
 
-            {/* Filters */}
-            <div className={styles.filters}>
-                <div className={styles.filterGroup}>
-                    <label>Industry</label>
-                    <select
-                        value={filters.industry}
-                        onChange={(e) => setFilters({ ...filters, industry: e.target.value })}
+            {/* AI-Powered Business Profile */}
+            <div className={styles.filters} style={{ flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem' }}>🧠 AI-Powered Suggestions</h3>
+                    <button
+                        className="btn btn-sm btn-ghost"
+                        onClick={() => setUseAiMode(!useAiMode)}
+                        style={{ fontSize: '0.8rem' }}
                     >
-                        {INDUSTRIES.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                    </select>
+                        {useAiMode ? '⚙️ Manual Mode' : '🤖 AI Mode'}
+                    </button>
                 </div>
 
-                <div className={styles.filterGroup}>
-                    <label>Platform</label>
-                    <select
-                        value={filters.platform}
-                        onChange={(e) => setFilters({ ...filters, platform: e.target.value })}
-                    >
-                        {PLATFORMS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                    </select>
-                </div>
+                {useAiMode ? (
+                    <>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                            <div className={styles.filterGroup}>
+                                <label>🏢 Your Business Type *</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g., E-commerce, SaaS, Local Services..."
+                                    value={businessType}
+                                    onChange={(e) => setBusinessType(e.target.value)}
+                                    className={styles.searchInput}
+                                    style={{ background: 'var(--bg-secondary)', padding: '10px 12px' }}
+                                />
+                            </div>
+                            <div className={styles.filterGroup}>
+                                <label>🎯 Target Audience</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g., Gen Z, Business owners, Parents..."
+                                    value={targetAudience}
+                                    onChange={(e) => setTargetAudience(e.target.value)}
+                                    className={styles.searchInput}
+                                    style={{ background: 'var(--bg-secondary)', padding: '10px 12px' }}
+                                />
+                            </div>
+                            <div className={styles.filterGroup}>
+                                <label>📦 Products/Services</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g., Skincare products, Project management SaaS..."
+                                    value={products}
+                                    onChange={(e) => setProducts(e.target.value)}
+                                    className={styles.searchInput}
+                                    style={{ background: 'var(--bg-secondary)', padding: '10px 12px' }}
+                                />
+                            </div>
+                        </div>
+                        <button
+                            className="btn btn-primary"
+                            onClick={fetchAiSuggestions}
+                            disabled={loadingSuggestions || !businessType.trim()}
+                            style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        >
+                            {loadingSuggestions ? (
+                                <>
+                                    <span className={styles.spinner} style={{ width: 16, height: 16 }}></span>
+                                    Analyzing...
+                                </>
+                            ) : (
+                                '✨ Suggest for Me'
+                            )}
+                        </button>
 
-                <div className={styles.filterGroup}>
-                    <label>Audience</label>
-                    <select
-                        value={filters.audience}
-                        onChange={(e) => setFilters({ ...filters, audience: e.target.value })}
-                    >
-                        {AUDIENCES.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className={styles.filterGroup}>
-                    <label>Format</label>
-                    <select
-                        value={filters.format}
-                        onChange={(e) => setFilters({ ...filters, format: e.target.value })}
-                    >
-                        {FORMATS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                    </select>
-                </div>
+                        {/* AI Suggestions Display */}
+                        {aiSuggestions.length > 0 && (
+                            <div style={{
+                                marginTop: '16px',
+                                padding: '16px',
+                                background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(59,130,246,0.1))',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(16,185,129,0.3)'
+                            }}>
+                                <h4 style={{ margin: '0 0 12px', fontSize: '0.9rem', color: 'var(--success)' }}>
+                                    🎯 Recommended for Your Business
+                                </h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {aiSuggestions.map((suggestion, idx) => (
+                                        <div key={idx} style={{
+                                            padding: '12px',
+                                            background: 'var(--bg-secondary)',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            border: filters.industry === suggestion.industry ? '2px solid var(--primary)' : '2px solid transparent'
+                                        }}
+                                            onClick={() => setFilters({
+                                                industry: suggestion.industry || '',
+                                                platform: suggestion.platform || '',
+                                                audience: suggestion.audience || '',
+                                                format: suggestion.format || ''
+                                            })}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                <strong style={{ fontSize: '0.9rem' }}>{suggestion.poolName}</strong>
+                                                <span style={{
+                                                    fontSize: '0.75rem',
+                                                    padding: '2px 8px',
+                                                    background: suggestion.relevanceScore >= 90 ? 'var(--success)' : 'var(--warning)',
+                                                    borderRadius: '12px',
+                                                    color: 'white'
+                                                }}>
+                                                    {suggestion.relevanceScore}% Match
+                                                </span>
+                                            </div>
+                                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 8px' }}>
+                                                💡 {suggestion.reasoning}
+                                            </p>
+                                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                {suggestion.expectedInsights?.map((insight, i) => (
+                                                    <span key={i} style={{
+                                                        fontSize: '0.7rem',
+                                                        padding: '2px 6px',
+                                                        background: 'rgba(99,102,241,0.2)',
+                                                        borderRadius: '4px',
+                                                        color: 'var(--primary)'
+                                                    }}>
+                                                        {insight}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    /* Manual Filter Mode (legacy) */
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <div className={styles.filterGroup}>
+                            <label>Industry</label>
+                            <select
+                                value={filters.industry}
+                                onChange={(e) => setFilters({ ...filters, industry: e.target.value })}
+                            >
+                                {INDUSTRIES.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className={styles.filterGroup}>
+                            <label>Platform</label>
+                            <select
+                                value={filters.platform}
+                                onChange={(e) => setFilters({ ...filters, platform: e.target.value })}
+                            >
+                                {PLATFORMS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className={styles.filterGroup}>
+                            <label>Audience</label>
+                            <select
+                                value={filters.audience}
+                                onChange={(e) => setFilters({ ...filters, audience: e.target.value })}
+                            >
+                                {AUDIENCES.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className={styles.filterGroup}>
+                            <label>Format</label>
+                            <select
+                                value={filters.format}
+                                onChange={(e) => setFilters({ ...filters, format: e.target.value })}
+                            >
+                                {FORMATS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Data Pools Grid */}
