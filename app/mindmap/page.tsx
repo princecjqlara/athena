@@ -268,7 +268,7 @@ interface Node3D {
     label: string;
     category: string;
     parentGroup: string; // Parent group for organized hierarchy
-    type: 'trait' | 'ad' | 'category' | 'metric';
+    type: 'trait' | 'ad' | 'category' | 'metric' | 'daily';
     x: number;
     y: number;
     z: number;
@@ -393,6 +393,15 @@ interface AdEntry {
         engagementRateRanking?: string;
         conversionRateRanking?: string;
     };
+    // Daily breakdown data for day-by-day orbs
+    dailyReports?: Array<{
+        date: string;
+        impressions: number;
+        reach: number;
+        clicks: number;
+        ctr: number;
+        spend: number;
+    }>;
     resultsDescription?: string;
     status?: string;
 }
@@ -406,7 +415,7 @@ export default function MindMapPage() {
     const [rotation, setRotation] = useState({ x: 0, y: 0 });
     const [isAutoRotate, setIsAutoRotate] = useState(true);
     const [zoom, setZoom] = useState(1);
-    const [viewMode, setViewMode] = useState<'all' | 'ads' | 'traits' | 'metrics'>('all');
+    const [viewMode, setViewMode] = useState<'all' | 'ads' | 'traits' | 'metrics' | 'daily'>('all');
     const [viewDimension, setViewDimension] = useState<'3d' | '2d'>('3d');
 
     // Edit mode state
@@ -1066,6 +1075,7 @@ export default function MindMapPage() {
         if (viewMode === 'ads') filtered = nodes.filter(n => n.type === 'ad');
         if (viewMode === 'traits') filtered = nodes.filter(n => n.type === 'trait' || n.type === 'category');
         if (viewMode === 'metrics') filtered = nodes.filter(n => n.type === 'ad' || n.type === 'metric');
+        if (viewMode === 'daily') filtered = nodes.filter(n => n.type === 'ad' || n.type === 'daily');
 
         const projectFn = viewDimension === '2d' ? project2D : project;
 
@@ -1288,6 +1298,10 @@ export default function MindMapPage() {
                         className={`btn btn-sm ${viewMode === 'metrics' ? 'btn-primary' : 'btn-ghost'}`}
                         onClick={() => setViewMode('metrics')}
                     >📊 Metrics</button>
+                    <button
+                        className={`btn btn-sm ${viewMode === 'daily' ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setViewMode('daily')}
+                    >📅 Daily</button>
                 </div>
 
                 {viewDimension === '3d' && (

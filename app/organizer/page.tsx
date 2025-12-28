@@ -70,7 +70,7 @@ export default function OrganizerDashboard() {
     const [loading, setLoading] = useState(true);
     const [impersonating, setImpersonating] = useState<ImpersonationSession | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy' | 'marketplace'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy' | 'marketplace' | 'prompts'>('users');
     const [inviteCode, setInviteCode] = useState<string | null>(null);
     const [selectedCodeRole, setSelectedCodeRole] = useState<'admin' | 'marketer' | 'client'>('admin');
     const [generatedCodeType, setGeneratedCodeType] = useState<string | null>(null);
@@ -81,6 +81,20 @@ export default function OrganizerDashboard() {
     const [aiSuggestion, setAiSuggestion] = useState<{ industry: string | null; platform: string | null; target_audience: string | null; creative_format: string | null; confidence: number } | null>(null);
     const [isCreating, setIsCreating] = useState(false);
 
+    // Prompts management state
+    const [prompts, setPrompts] = useState<Array<{
+        id: string;
+        name: string;
+        description: string;
+        mediaType: string;
+        isDefault: boolean;
+        promptText: string;
+        schema?: Record<string, string>;
+    }>>([]);
+    const [showCreatePrompt, setShowCreatePrompt] = useState(false);
+    const [editingPrompt, setEditingPrompt] = useState<any>(null);
+    const [newPrompt, setNewPrompt] = useState({ name: '', description: '', mediaType: 'video', promptText: '' });
+
     useEffect(() => {
         fetchData();
         checkImpersonation();
@@ -89,6 +103,9 @@ export default function OrganizerDashboard() {
     useEffect(() => {
         if (activeTab === 'marketplace') {
             fetchMarketplace();
+        }
+        if (activeTab === 'prompts') {
+            fetchPrompts();
         }
     }, [activeTab]);
 
@@ -132,6 +149,49 @@ export default function OrganizerDashboard() {
             }
         } catch (error) {
             console.error('Error fetching marketplace:', error);
+        }
+    };
+
+    const fetchPrompts = async () => {
+        try {
+            const res = await fetch('/api/organizer/prompts');
+            if (res.ok) {
+                const data = await res.json();
+                setPrompts(data.prompts || []);
+            }
+        } catch (error) {
+            console.error('Error fetching prompts:', error);
+        }
+    };
+
+    const createPrompt = async () => {
+        if (!newPrompt.name || !newPrompt.promptText) {
+            alert('Name and prompt text are required');
+            return;
+        }
+        try {
+            const res = await fetch('/api/organizer/prompts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newPrompt)
+            });
+            if (res.ok) {
+                setNewPrompt({ name: '', description: '', mediaType: 'video', promptText: '' });
+                setShowCreatePrompt(false);
+                fetchPrompts();
+            }
+        } catch (error) {
+            console.error('Error creating prompt:', error);
+        }
+    };
+
+    const deletePrompt = async (id: string) => {
+        if (!confirm('Delete this prompt?')) return;
+        try {
+            await fetch(`/api/organizer/prompts?id=${id}`, { method: 'DELETE' });
+            fetchPrompts();
+        } catch (error) {
+            console.error('Error deleting prompt:', error);
         }
     };
 
@@ -359,6 +419,12 @@ export default function OrganizerDashboard() {
                 >
                     🧠 Algorithm
                 </button>
+                <button
+                    className={`tab ${activeTab === 'prompts' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('prompts')}
+                >
+                    📝 Prompts
+                </button>
             </div>
 
             <div className="content-panel">
@@ -491,6 +557,169 @@ export default function OrganizerDashboard() {
                                 <span className="value">-</span>
                                 <span className="label">Avg Confidence</span>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'prompts' && (
+                    <div className="prompts-panel">
+                        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <div>
+                                <h2>📝 AI Prompt Management</h2>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '4px 0 0' }}>
+                                    Configure custom prompts for AI trait extraction from photo and video ads
+                                </p>
+                            </div>
+                            <button
+                                className="create-btn"
+                                onClick={() => setShowCreatePrompt(!showCreatePrompt)}
+                                style={{ padding: '10px 20px', background: 'var(--primary)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
+                            >
+                                {showCreatePrompt ? '✕ Cancel' : '+ New Prompt'}
+                            </button>
+                        </div>
+
+                        {/* Create Prompt Form */}
+                        {showCreatePrompt && (
+                            <div style={{
+                                background: 'var(--bg-secondary)',
+                                padding: '20px',
+                                borderRadius: '12px',
+                                marginBottom: '20px',
+                                border: '1px solid var(--border)'
+                            }}>
+                                <h3 style={{ marginTop: 0 }}>Create Custom Prompt</h3>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Prompt Name *</label>
+                                        <input
+                                            type="text"
+                                            value={newPrompt.name}
+                                            onChange={(e) => setNewPrompt({ ...newPrompt, name: e.target.value })}
+                                            placeholder="e.g., TikTok UGC Analyzer"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Description</label>
+                                        <input
+                                            type="text"
+                                            value={newPrompt.description}
+                                            onChange={(e) => setNewPrompt({ ...newPrompt, description: e.target.value })}
+                                            placeholder="What this prompt analyzes"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Media Type</label>
+                                        <select
+                                            value={newPrompt.mediaType}
+                                            onChange={(e) => setNewPrompt({ ...newPrompt, mediaType: e.target.value })}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                        >
+                                            <option value="video">Video Ads</option>
+                                            <option value="photo">Photo Ads</option>
+                                            <option value="both">Both</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Prompt Text (JSON instructions) *</label>
+                                        <textarea
+                                            value={newPrompt.promptText}
+                                            onChange={(e) => setNewPrompt({ ...newPrompt, promptText: e.target.value })}
+                                            placeholder={'Analyze this ad and extract traits in JSON format:\n{\n  "customTrait1": "value",\n  "customTrait2": "value"\n}'}
+                                            rows={8}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)', fontFamily: 'monospace', fontSize: '0.85rem' }}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={createPrompt}
+                                        style={{ padding: '12px', background: 'var(--success)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontWeight: 600 }}
+                                    >
+                                        ✓ Save Prompt
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Prompts List */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {prompts.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                    <p>No prompts configured. Click "New Prompt" to create one.</p>
+                                </div>
+                            ) : (
+                                prompts.map(prompt => (
+                                    <div key={prompt.id} style={{
+                                        padding: '16px',
+                                        background: 'var(--bg-secondary)',
+                                        borderRadius: '12px',
+                                        border: prompt.isDefault ? '1px solid var(--primary)' : '1px solid var(--border)'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                    <strong>{prompt.name}</strong>
+                                                    <span style={{
+                                                        fontSize: '0.7rem',
+                                                        padding: '2px 8px',
+                                                        background: prompt.mediaType === 'video' ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)',
+                                                        borderRadius: '12px',
+                                                        color: prompt.mediaType === 'video' ? '#EF4444' : '#3B82F6'
+                                                    }}>
+                                                        {prompt.mediaType === 'video' ? '🎬 Video' : '📸 Photo'}
+                                                    </span>
+                                                    {prompt.isDefault && (
+                                                        <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(16,185,129,0.2)', borderRadius: '12px', color: 'var(--success)' }}>
+                                                            Default
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
+                                                    {prompt.description || 'No description'}
+                                                </p>
+                                            </div>
+                                            {!prompt.isDefault && (
+                                                <button
+                                                    onClick={() => deletePrompt(prompt.id)}
+                                                    style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px 8px' }}
+                                                >
+                                                    🗑️
+                                                </button>
+                                            )}
+                                        </div>
+                                        <details style={{ marginTop: '12px' }}>
+                                            <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: 'var(--primary)' }}>View Prompt Text</summary>
+                                            <pre style={{
+                                                marginTop: '8px',
+                                                padding: '12px',
+                                                background: 'var(--bg-tertiary)',
+                                                borderRadius: '8px',
+                                                fontSize: '0.75rem',
+                                                overflow: 'auto',
+                                                maxHeight: '200px'
+                                            }}>
+                                                {prompt.promptText}
+                                            </pre>
+                                        </details>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {/* Self-Adding Prompts Info */}
+                        <div style={{
+                            marginTop: '24px',
+                            padding: '16px',
+                            background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.1))',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(99,102,241,0.3)'
+                        }}>
+                            <h4 style={{ margin: '0 0 8px', color: 'var(--primary)' }}>💡 Self-Adding Prompts</h4>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
+                                When users add custom traits to their ads, the AI automatically learns and incorporates them into future analysis.
+                                These user-defined traits are stored and suggested to other users with similar business profiles.
+                            </p>
                         </div>
                     </div>
                 )}
