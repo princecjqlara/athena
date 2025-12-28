@@ -1,14 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
+  const pathname = usePathname();
 
-  // Load collapsed state from localStorage
+  // Load collapsed state and user session from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('sidebar_collapsed');
     if (saved === 'true') setIsCollapsed(true);
+
+    // Load user session for display
+    const userName = localStorage.getItem('fb_user_name') || localStorage.getItem('athena_user_email');
+    if (userName) {
+      setUser({ name: userName });
+    }
   }, []);
 
   const toggleCollapsed = () => {
@@ -17,6 +26,12 @@ export function Sidebar() {
     localStorage.setItem('sidebar_collapsed', String(newState));
     // Dispatch event for main content to adjust
     window.dispatchEvent(new CustomEvent('sidebar-toggle', { detail: { collapsed: newState } }));
+  };
+
+  // Check if nav item is active based on current pathname
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === '/';
+    return pathname?.startsWith(href);
   };
 
   return (
@@ -31,19 +46,24 @@ export function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        <NavItem href="/" icon="dashboard" label="Dashboard" collapsed={isCollapsed} />
-        <NavItem href="/upload" icon="upload" label="Upload Ad" collapsed={isCollapsed} />
-        <NavItem href="/import" icon="download" label="Import from FB" collapsed={isCollapsed} />
-        <NavItem href="/results" icon="chart" label="Add Results" collapsed={isCollapsed} />
-        <NavItem href="/mindmap" icon="mindmap" label="Algorithm" collapsed={isCollapsed} />
-        <NavItem href="/pipeline" icon="pipeline" label="Pipeline" collapsed={isCollapsed} />
-        <NavItem href="/marketplace" icon="marketplace" label="Marketplace" collapsed={isCollapsed} />
-        <NavItem href="/myads" icon="ads" label="My Ads" collapsed={isCollapsed} />
-        <NavItem href="/settings" icon="settings" label="Settings" collapsed={isCollapsed} />
-        <NavItem href="/organizer" icon="organizer" label="Organizer" collapsed={isCollapsed} />
+        <NavItem href="/" icon="dashboard" label="Dashboard" collapsed={isCollapsed} active={isActive('/')} />
+        <NavItem href="/upload" icon="upload" label="Upload Ad" collapsed={isCollapsed} active={isActive('/upload')} />
+        <NavItem href="/import" icon="download" label="Import from FB" collapsed={isCollapsed} active={isActive('/import')} />
+        <NavItem href="/results" icon="chart" label="Add Results" collapsed={isCollapsed} active={isActive('/results')} />
+        <NavItem href="/mindmap" icon="mindmap" label="Algorithm" collapsed={isCollapsed} active={isActive('/mindmap')} />
+        <NavItem href="/pipeline" icon="pipeline" label="Pipeline" collapsed={isCollapsed} active={isActive('/pipeline')} />
+        <NavItem href="/marketplace" icon="marketplace" label="Marketplace" collapsed={isCollapsed} active={isActive('/marketplace')} />
+        <NavItem href="/myads" icon="ads" label="My Ads" collapsed={isCollapsed} active={isActive('/myads')} />
+        <NavItem href="/settings" icon="settings" label="Settings" collapsed={isCollapsed} active={isActive('/settings')} />
+        <NavItem href="/organizer" icon="organizer" label="Organizer" collapsed={isCollapsed} active={isActive('/organizer')} />
       </nav>
 
       <div className="sidebar-footer">
+        {!isCollapsed && user && (
+          <div className="user-session" style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>
+            👤 {user.name}
+          </div>
+        )}
         {!isCollapsed && (
           <div className="ml-status">
             <div className="status-dot"></div>
@@ -190,7 +210,7 @@ export function Sidebar() {
 }
 
 
-function NavItem({ href, icon, label, collapsed }: { href: string; icon: string; label: string; collapsed?: boolean }) {
+function NavItem({ href, icon, label, collapsed, active }: { href: string; icon: string; label: string; collapsed?: boolean; active?: boolean }) {
   const icons: Record<string, React.ReactNode> = {
     dashboard: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -289,8 +309,8 @@ function NavItem({ href, icon, label, collapsed }: { href: string; icon: string;
   };
 
   return (
-    <a href={href} className={`nav-item ${collapsed ? 'collapsed' : ''}`} title={collapsed ? label : undefined}>
-      <span className="nav-icon">{icons[icon]}</span>
+    <a href={href} className={`nav-item ${collapsed ? 'collapsed' : ''} ${active ? 'active' : ''}`} title={collapsed ? label : undefined}>
+      <span className={`nav-icon ${active ? 'active' : ''}`}>{icons[icon]}</span>
       {!collapsed && <span className="nav-label">{label}</span>}
 
       <style jsx>{`
@@ -310,11 +330,14 @@ function NavItem({ href, icon, label, collapsed }: { href: string; icon: string;
           padding: 0;
         }
         
-        .nav-item:hover {
+        .nav-item:hover,
+        .nav-item.active {
           color: var(--text-primary);
         }
         
-        .nav-item:hover .nav-icon {
+        .nav-item:hover .nav-icon,
+        .nav-item.active .nav-icon,
+        .nav-icon.active {
           background: rgba(200, 245, 96, 0.15);
           color: #c8f560;
           box-shadow: 0 0 20px rgba(200, 245, 96, 0.2);
@@ -341,3 +364,4 @@ function NavItem({ href, icon, label, collapsed }: { href: string; icon: string;
     </a>
   );
 }
+

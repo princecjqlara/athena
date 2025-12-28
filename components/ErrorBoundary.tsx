@@ -39,6 +39,7 @@ class ErrorBoundary extends Component<Props, State> {
         // logErrorToService(error, errorInfo);
     }
 
+    // Reset error state to retry rendering
     handleReset = (): void => {
         this.setState({
             hasError: false,
@@ -47,6 +48,7 @@ class ErrorBoundary extends Component<Props, State> {
         });
     };
 
+    // Try again / retry by reloading page
     handleReload = (): void => {
         window.location.reload();
     };

@@ -160,3 +160,7 @@ export function clearFacebookTokens(): void {
     localStorage.removeItem('fb_pages');
     localStorage.removeItem('fb_selected_page_id');
 }
+
+// Alias for clearFacebookTokens
+export const clearTokens = clearFacebookTokens;
+
