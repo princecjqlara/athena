@@ -44,8 +44,8 @@ export async function GET(request: NextRequest) {
             fetchInsightsWithBreakdown(adId, accessToken, 'device_platform', 'impressions,clicks,spend,reach'),
             // Hourly breakdown (for most active time)
             fetchInsightsWithBreakdown(adId, accessToken, 'hourly_stats_aggregated_by_advertiser_time_zone', 'impressions,clicks'),
-            // Daily breakdown (day-by-day performance)
-            fetchDailyInsights(adId, accessToken, 'impressions,reach,clicks,spend,ctr,cpc,cpm,actions')
+            // Daily breakdown (day-by-day performance with ALL metrics)
+            fetchDailyInsights(adId, accessToken, 'impressions,reach,frequency,clicks,ctr,cpc,cpm,cpp,spend,actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_avg_time_watched_actions,video_play_actions,inline_link_clicks,inline_post_engagement,unique_clicks,cost_per_unique_click,outbound_clicks,cost_per_outbound_click')
         ]);
 
         // Process and aggregate the data
@@ -341,25 +341,45 @@ function processHourlyBreakdown(data: Array<{ hourly_stats_aggregated_by_adverti
     return hourlyData.sort((a, b) => a.hour - b.hour);
 }
 
-// Interface for daily data
+// Interface for daily data with ALL metrics
 interface DailyDataItem {
     date_start: string;
     date_stop: string;
     impressions?: string;
     reach?: string;
+    frequency?: string;
     clicks?: string;
+    unique_clicks?: string;
     spend?: string;
     ctr?: string;
     cpc?: string;
     cpm?: string;
+    cpp?: string;
+    cost_per_unique_click?: string;
+    inline_link_clicks?: string;
+    inline_post_engagement?: string;
+    outbound_clicks?: Array<{ value: string }>;
+    cost_per_outbound_click?: Array<{ value: string }>;
+    video_p25_watched_actions?: Array<{ value: string }>;
+    video_p50_watched_actions?: Array<{ value: string }>;
+    video_p75_watched_actions?: Array<{ value: string }>;
+    video_p100_watched_actions?: Array<{ value: string }>;
+    video_avg_time_watched_actions?: Array<{ value: string }>;
+    video_play_actions?: Array<{ value: string }>;
     actions?: Array<{ action_type: string; value: string }>;
 }
 
-// Process daily breakdown for day-by-day reports
+// Helper to get first value from action array
+function getFirstValue(arr: Array<{ value: string }> | undefined): number {
+    return parseInt(arr?.[0]?.value || '0');
+}
+
+// Process daily breakdown for day-by-day reports with ALL metrics
 function processDailyBreakdown(data: DailyDataItem[]) {
     if (!data || data.length === 0) {
         return {
             days: [],
+            videoRetention: null,
             summary: {
                 totalDays: 0,
                 startDate: null,
@@ -368,7 +388,9 @@ function processDailyBreakdown(data: DailyDataItem[]) {
                 avgDailyClicks: 0,
                 avgDailyImpressions: 0,
                 bestDay: null,
-                worstDay: null
+                worstDay: null,
+                totalVideoPlays: 0,
+                avgWatchTime: 0
             }
         };
     }
@@ -378,20 +400,70 @@ function processDailyBreakdown(data: DailyDataItem[]) {
         new Date(a.date_start).getTime() - new Date(b.date_start).getTime()
     );
 
+    // Aggregate video retention data across all days
+    let totalVideoPlays = 0;
+    let totalP25 = 0, totalP50 = 0, totalP75 = 0, totalP100 = 0;
+    let totalWatchTime = 0;
+    let watchTimeCount = 0;
+
     const days = sortedData.map(item => {
         const actions = item.actions || [];
+
+        // Video metrics
+        const videoPlays = getFirstValue(item.video_play_actions);
+        const p25 = getFirstValue(item.video_p25_watched_actions);
+        const p50 = getFirstValue(item.video_p50_watched_actions);
+        const p75 = getFirstValue(item.video_p75_watched_actions);
+        const p100 = getFirstValue(item.video_p100_watched_actions);
+        const avgWatchTime = parseFloat(item.video_avg_time_watched_actions?.[0]?.value || '0');
+
+        // Aggregate for retention graph
+        totalVideoPlays += videoPlays;
+        totalP25 += p25;
+        totalP50 += p50;
+        totalP75 += p75;
+        totalP100 += p100;
+        if (avgWatchTime > 0) {
+            totalWatchTime += avgWatchTime;
+            watchTimeCount++;
+        }
+
         return {
             date: item.date_start,
+            // Core metrics
             impressions: parseInt(item.impressions || '0'),
             reach: parseInt(item.reach || '0'),
+            frequency: parseFloat(item.frequency || '0'),
             clicks: parseInt(item.clicks || '0'),
+            uniqueClicks: parseInt(item.unique_clicks || '0'),
             spend: parseFloat(item.spend || '0'),
             ctr: parseFloat(item.ctr || '0'),
             cpc: parseFloat(item.cpc || '0'),
             cpm: parseFloat(item.cpm || '0'),
+            cpp: parseFloat(item.cpp || '0'),
+            costPerUniqueClick: parseFloat(item.cost_per_unique_click || '0'),
+
+            // Engagement metrics
+            linkClicks: parseInt(item.inline_link_clicks || '0'),
+            postEngagement: parseInt(item.inline_post_engagement || '0'),
+            outboundClicks: getFirstValue(item.outbound_clicks),
+
+            // Video metrics (per day)
+            videoPlays,
+            videoP25: p25,
+            videoP50: p50,
+            videoP75: p75,
+            videoP100: p100,
+            avgWatchTime,
+
+            // Conversion metrics
             leads: parseInt(actions.find(a => a.action_type === 'lead')?.value || '0'),
             purchases: parseInt(actions.find(a => a.action_type === 'purchase')?.value || '0'),
-            conversions: parseInt(actions.find(a => a.action_type === 'onsite_conversion.messaging_conversation_started_7d')?.value || '0')
+            messagesStarted: parseInt(actions.find(a => a.action_type === 'onsite_conversion.messaging_conversation_started_7d')?.value || '0'),
+            pageEngagement: parseInt(actions.find(a => a.action_type === 'page_engagement')?.value || '0'),
+            postReactions: parseInt(actions.find(a => a.action_type === 'post_reaction')?.value || '0'),
+            comments: parseInt(actions.find(a => a.action_type === 'comment')?.value || '0'),
+            shares: parseInt(actions.find(a => a.action_type === 'post')?.value || '0')
         };
     });
 
@@ -409,17 +481,48 @@ function processDailyBreakdown(data: DailyDataItem[]) {
         ? daysWithData.reduce((worst, d) => d.ctr < worst.ctr ? d : worst)
         : null;
 
+    // Build video retention graph data (aggregated percentages)
+    const videoRetention = totalVideoPlays > 0 ? {
+        totalPlays: totalVideoPlays,
+        retention: [
+            { point: '0%', viewers: totalVideoPlays, percent: 100 },
+            { point: '25%', viewers: totalP25, percent: Math.round((totalP25 / totalVideoPlays) * 100) },
+            { point: '50%', viewers: totalP50, percent: Math.round((totalP50 / totalVideoPlays) * 100) },
+            { point: '75%', viewers: totalP75, percent: Math.round((totalP75 / totalVideoPlays) * 100) },
+            { point: '100%', viewers: totalP100, percent: Math.round((totalP100 / totalVideoPlays) * 100) }
+        ],
+        avgWatchTime: watchTimeCount > 0 ? totalWatchTime / watchTimeCount : 0,
+        completionRate: Math.round((totalP100 / totalVideoPlays) * 100)
+    } : null;
+
+    // Build daily watch time trend for graph
+    const watchTimeTrend = days
+        .filter(d => d.avgWatchTime > 0)
+        .map(d => ({
+            date: d.date,
+            avgWatchTime: d.avgWatchTime,
+            videoPlays: d.videoPlays
+        }));
+
     return {
         days,
+        videoRetention,
+        watchTimeTrend,
         summary: {
             totalDays: days.length,
             startDate: days[0]?.date || null,
             endDate: days[days.length - 1]?.date || null,
-            avgDailySpend: days.length > 0 ? totalSpend / days.length : 0,
-            avgDailyClicks: days.length > 0 ? totalClicks / days.length : 0,
-            avgDailyImpressions: days.length > 0 ? totalImpressions / days.length : 0,
-            bestDay: bestDay ? { date: bestDay.date, ctr: bestDay.ctr, clicks: bestDay.clicks } : null,
-            worstDay: worstDay ? { date: worstDay.date, ctr: worstDay.ctr, clicks: worstDay.clicks } : null
+            avgDailySpend: days.length > 0 ? Math.round((totalSpend / days.length) * 100) / 100 : 0,
+            avgDailyClicks: days.length > 0 ? Math.round(totalClicks / days.length) : 0,
+            avgDailyImpressions: days.length > 0 ? Math.round(totalImpressions / days.length) : 0,
+            totalSpend: Math.round(totalSpend * 100) / 100,
+            totalClicks,
+            totalImpressions,
+            totalVideoPlays,
+            avgWatchTime: watchTimeCount > 0 ? Math.round((totalWatchTime / watchTimeCount) * 10) / 10 : 0,
+            videoCompletionRate: totalVideoPlays > 0 ? Math.round((totalP100 / totalVideoPlays) * 100) : 0,
+            bestDay: bestDay ? { date: bestDay.date, ctr: bestDay.ctr, clicks: bestDay.clicks, spend: bestDay.spend } : null,
+            worstDay: worstDay ? { date: worstDay.date, ctr: worstDay.ctr, clicks: worstDay.clicks, spend: worstDay.spend } : null
         }
     };
 }
