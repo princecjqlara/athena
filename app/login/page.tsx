@@ -111,6 +111,15 @@ export default function LoginPage() {
                 } else if (data.user?.profile?.status === 'suspended') {
                     setError('Your account has been suspended.');
                 } else {
+                    // FIXED: Set session cookies and localStorage for persistence
+                    // This prevents random logouts when Supabase cookies expire
+                    if (data.user) {
+                        document.cookie = `athena_user_id=${data.user.id}; path=/; max-age=604800; SameSite=Lax`;
+                        localStorage.setItem('athena_user_id', data.user.id);
+                        localStorage.setItem('athena_user_email', data.user.email || email);
+                        localStorage.setItem('athena_user_role', data.user.profile?.role || 'marketer');
+                        localStorage.setItem('athena_session_time', new Date().toISOString());
+                    }
                     redirectToRoleHome(data.user?.profile?.role || 'marketer');
                 }
             }

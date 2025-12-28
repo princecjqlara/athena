@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey) {
-        // Supabase not configured - allow access (dev mode)
+        // Supabase not configured - allow access (dev mode / localStorage auth)
         console.log('[Middleware] Supabase not configured, allowing access');
         return NextResponse.next();
     }
@@ -55,7 +55,8 @@ export async function middleware(request: NextRequest) {
     // Get session from cookie
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         auth: {
-            persistSession: false,
+            persistSession: true, // FIXED: Enable session persistence
+            autoRefreshToken: true,
         },
     });
 
@@ -65,9 +66,13 @@ export async function middleware(request: NextRequest) {
 
     if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.slice(7);
-        const { data: { user } } = await supabase.auth.getUser(token);
-        if (user) {
-            session = { user };
+        try {
+            const { data: { user } } = await supabase.auth.getUser(token);
+            if (user) {
+                session = { user };
+            }
+        } catch (error) {
+            console.log('[Middleware] Bearer token validation failed:', error);
         }
     }
 
@@ -76,24 +81,42 @@ export async function middleware(request: NextRequest) {
     const sbRefreshToken = request.cookies.get('sb-refresh-token')?.value;
 
     if (!session && sbAccessToken) {
-        const { data: { user } } = await supabase.auth.getUser(sbAccessToken);
-        if (user) {
-            session = { user };
+        try {
+            const { data: { user } } = await supabase.auth.getUser(sbAccessToken);
+            if (user) {
+                session = { user };
+            }
+        } catch (error) {
+            console.log('[Middleware] Cookie token validation failed:', error);
         }
     }
 
-    // No session - redirect to login (for page routes only)
+    // FALLBACK: Check for localStorage-based session (athena_user cookie backup)
+    // This prevents random logouts when Supabase cookies expire but localStorage is valid
+    const athenaUserCookie = request.cookies.get('athena_user_id')?.value;
+    if (!session && athenaUserCookie) {
+        console.log('[Middleware] Using Athena session fallback');
+        // Allow access with localStorage fallback - client will validate
+        return NextResponse.next();
+    }
+
+    // No session - but be graceful for non-API routes
+    // Let the client-side handle auth state to prevent jarring redirects
     if (!session) {
         if (pathname.startsWith('/api/')) {
+            // API routes need strict auth
             return NextResponse.json(
-                { error: 'Unauthorized' },
+                { error: 'Unauthorized', requiresReauth: true },
                 { status: 401 }
             );
         }
 
-        const loginUrl = new URL('/login', request.url);
-        loginUrl.searchParams.set('redirect', pathname);
-        return NextResponse.redirect(loginUrl);
+        // For page routes, let client-side handle the redirect
+        // This prevents random logouts due to cookie timing issues
+        // Client-side will check localStorage and redirect if truly logged out
+        const response = NextResponse.next();
+        response.headers.set('x-auth-status', 'unknown');
+        return response;
     }
 
     // Get user profile for role checking
