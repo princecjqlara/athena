@@ -731,3 +731,28 @@
         display: none;
     }
 }
+
+/* ====== LIGHT MODE ====== */
+[data-theme="light"] .legend,
+.light .legend {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .searchResults,
+.light .searchResults {
+    background: var(--bg-secondary);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .dragHint,
+.light .dragHint {
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+}
+
+[data-theme="light"] .canvas3d,
+.light .canvas3d {
+    background: radial-gradient(ellipse at center, rgba(200, 245, 96, 0.1) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 70%);
+}

@@ -23,11 +23,11 @@ function PageTransition({ children }: { children: React.ReactNode }) {
         if (previousPathname.current !== pathname) {
             setIsTransitioning(true);
 
-            // Quick fade out then update content
+            // Show loader then update content
             const timer = setTimeout(() => {
                 setDisplayChildren(children);
                 setIsTransitioning(false);
-            }, 100);
+            }, 150);
 
             previousPathname.current = pathname;
             return () => clearTimeout(timer);
@@ -37,16 +37,47 @@ function PageTransition({ children }: { children: React.ReactNode }) {
         }
     }, [pathname, children]);
 
+    if (isTransitioning) {
+        return (
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '50vh',
+                gap: '1rem',
+            }}>
+                <div style={{
+                    width: '40px',
+                    height: '40px',
+                    border: '3px solid var(--border-primary)',
+                    borderTop: '3px solid var(--primary, #c8f560)',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite',
+                }} />
+                <style jsx>{`
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
     return (
         <div
-            className={`page-transition ${isTransitioning ? 'transitioning' : ''}`}
             style={{
-                opacity: isTransitioning ? 0 : 1,
-                transition: 'opacity 100ms ease-in-out',
+                animation: 'fadeIn 150ms ease-out',
                 minHeight: '100%',
             }}
         >
             {displayChildren}
+            <style jsx>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+            `}</style>
         </div>
     );
 }
