@@ -35,6 +35,13 @@ const CATEGORY_COLORS: Record<string, { primary: string; light: string; dark: st
     Media: { primary: '#818CF8', light: '#C7D2FE', dark: '#4338CA' },
     Scene: { primary: '#34D399', light: '#6EE7B7', dark: '#059669' },
     Brand: { primary: '#F472B6', light: '#FBCFE8', dark: '#DB2777' },
+    // Metric orbs for performance visualization
+    Metric: { primary: '#22C55E', light: '#86EFAC', dark: '#166534' },
+    Impressions: { primary: '#3B82F6', light: '#93C5FD', dark: '#1D4ED8' },
+    Reach: { primary: '#10B981', light: '#6EE7B7', dark: '#047857' },
+    Clicks: { primary: '#8B5CF6', light: '#C4B5FD', dark: '#5B21B6' },
+    CTR: { primary: '#F59E0B', light: '#FCD34D', dark: '#B45309' },
+    Spend: { primary: '#EC4899', light: '#F9A8D4', dark: '#9D174D' },
 };
 
 // ===== PARENT GROUP HIERARCHY =====
@@ -106,6 +113,7 @@ const PARENT_GROUP_COLORS: Record<string, string> = {
     '🎯 CTA & Engagement': '#F43F5E',
     '🏷️ Brand & Logo': '#2DD4BF',
     '✨ Custom': '#6366F1',
+    '📊 Results & Metrics': '#22C55E',
 };
 
 // ===== DETAILED DESCRIPTIONS FOR CATEGORIES =====
@@ -260,7 +268,7 @@ interface Node3D {
     label: string;
     category: string;
     parentGroup: string; // Parent group for organized hierarchy
-    type: 'trait' | 'ad' | 'category';
+    type: 'trait' | 'ad' | 'category' | 'metric';
     x: number;
     y: number;
     z: number;
@@ -398,7 +406,7 @@ export default function MindMapPage() {
     const [rotation, setRotation] = useState({ x: 0, y: 0 });
     const [isAutoRotate, setIsAutoRotate] = useState(true);
     const [zoom, setZoom] = useState(1);
-    const [viewMode, setViewMode] = useState<'all' | 'ads' | 'traits'>('all');
+    const [viewMode, setViewMode] = useState<'all' | 'ads' | 'traits' | 'metrics'>('all');
     const [viewDimension, setViewDimension] = useState<'3d' | '2d'>('3d');
 
     // Edit mode state
@@ -802,6 +810,53 @@ export default function MindMapPage() {
                 resultsDescription: ad.resultsDescription,
                 status: ad.status,
             });
+
+            // ===== Generate METRIC ORBS for ads with adInsights =====
+            if (ad.adInsights) {
+                const insights = ad.adInsights;
+                const adNodeX = radius * Math.cos(theta) * Math.sin(phi);
+                const adNodeY = radius * Math.sin(theta) * Math.sin(phi);
+                const adNodeZ = radius * Math.cos(phi);
+                const metricRadius = 35; // Distance from ad node
+
+                const metricTypes = [
+                    { key: 'impressions', label: 'Impressions', value: insights.impressions, icon: '👁️' },
+                    { key: 'reach', label: 'Reach', value: insights.reach, icon: '📣' },
+                    { key: 'clicks', label: 'Clicks', value: insights.clicks, icon: '👆' },
+                    { key: 'ctr', label: 'CTR', value: insights.ctr, suffix: '%', icon: '📈' },
+                    { key: 'spend', label: 'Spend', value: insights.spend, prefix: '₱', icon: '💰' },
+                ];
+
+                metricTypes.forEach((metric, metricIdx) => {
+                    if (metric.value !== undefined && metric.value !== null) {
+                        const metricAngle = (metricIdx / metricTypes.length) * Math.PI * 2;
+                        const colors = CATEGORY_COLORS[metric.label] || CATEGORY_COLORS.Metric;
+
+                        // Format the display value
+                        let displayValue = metric.value.toLocaleString();
+                        if (metric.prefix) displayValue = metric.prefix + displayValue;
+                        if (metric.suffix) displayValue = displayValue + metric.suffix;
+
+                        nodesList.push({
+                            id: `metric:${ad.id}:${metric.key}`,
+                            label: `${metric.icon} ${displayValue}`,
+                            category: metric.label,
+                            parentGroup: '📊 Results & Metrics',
+                            type: 'metric' as 'trait' | 'ad' | 'category',
+                            x: adNodeX + metricRadius * Math.cos(metricAngle),
+                            y: adNodeY + metricRadius * Math.sin(metricAngle),
+                            z: adNodeZ + (metricIdx - 2) * 8, // Slight z offset
+                            size: 20,
+                            color: colors.primary,
+                            colorLight: colors.light,
+                            colorDark: colors.dark,
+                            connections: [ad.id],
+                            successRate: typeof metric.value === 'number' ? Math.min(100, metric.value / 10) : 50,
+                            frequency: 1,
+                        });
+                    }
+                });
+            }
         });
 
         setNodes(nodesList);
@@ -1010,6 +1065,7 @@ export default function MindMapPage() {
         let filtered = nodes;
         if (viewMode === 'ads') filtered = nodes.filter(n => n.type === 'ad');
         if (viewMode === 'traits') filtered = nodes.filter(n => n.type === 'trait' || n.type === 'category');
+        if (viewMode === 'metrics') filtered = nodes.filter(n => n.type === 'ad' || n.type === 'metric');
 
         const projectFn = viewDimension === '2d' ? project2D : project;
 
@@ -1227,7 +1283,11 @@ export default function MindMapPage() {
                     <button
                         className={`btn btn-sm ${viewMode === 'traits' ? 'btn-primary' : 'btn-ghost'}`}
                         onClick={() => setViewMode('traits')}
-                    >📁 Categories + 🏷️ Traits ({categoryNodes.length + traitNodes.length})</button>
+                    >🏷️ Traits</button>
+                    <button
+                        className={`btn btn-sm ${viewMode === 'metrics' ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setViewMode('metrics')}
+                    >📊 Metrics</button>
                 </div>
 
                 {viewDimension === '3d' && (
