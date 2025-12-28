@@ -117,10 +117,15 @@ export default function SettingsPage() {
             return;
         }
 
-        if (confirm(`⚠️ DELETE ALL DATA?\n\nThis will permanently delete:\n• ${ads.length} ad(s)\n• All trait connections\n• All prediction data\n\nThis action cannot be undone!`)) {
+        if (confirm(`⚠️ DELETE ADS & LEADS DATA?\n\nThis will permanently delete:\n• ${ads.length} ad(s)\n• All leads and contacts\n• All trait connections\n• All prediction data\n\n✅ Your Facebook connection will be preserved.\n\nThis action cannot be undone!`)) {
+            // Only remove ads and related data, keep Facebook connection
             localStorage.removeItem('ads');
             localStorage.removeItem('undoHistory');
-            alert('✅ All Algorithm data has been deleted.');
+            localStorage.removeItem('leads');
+            localStorage.removeItem('contacts');
+            localStorage.removeItem('pipelines');
+            // Keep: fb_access_token, fb_ad_accounts, fb_pages, meta_* settings
+            alert('✅ Ads and leads data deleted. Your Facebook connection is preserved.');
             window.location.reload();
         }
     };
@@ -691,7 +696,8 @@ export default function SettingsPage() {
                     </div>
 
                     <p className={styles.exportDescription} style={{ color: 'var(--text-muted)' }}>
-                        ⚠️ This will permanently delete all your ads, trait connections, and prediction data.
+                        ⚠️ This will permanently delete all your ads, leads, contacts, and prediction data.
+                        Your Facebook API connection will be preserved.
                         Make sure to export your data first if you want to keep a backup.
                     </p>
 

@@ -22,8 +22,11 @@ interface Ad {
     traits?: string[];
     adInsights?: {
         impressions?: number;
+        reach?: number;
         clicks?: number;
         ctr?: number;
+        cpc?: number;
+        cpm?: number;
         spend?: number;
         leads?: number;
         purchases?: number;
@@ -141,7 +144,7 @@ export default function MyAdsPage() {
     });
     const [adDescription, setAdDescription] = useState('');  // Document-style input
     const [isAnalyzing, setIsAnalyzing] = useState(false);  // AI analysis state
-    const [viewMode, setViewMode] = useState<'grid' | 'folders'>('grid');  // View mode toggle
+    const [viewMode, setViewMode] = useState<'grid' | 'folders'>('folders');  // View mode toggle - default to folders
     const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());  // Expanded folder state
 
     // Daily Reports Modal State
@@ -640,33 +643,64 @@ Ad description: ${adDescription}`,
                                                     <div
                                                         key={ad.id}
                                                         style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: 'var(--spacing-sm)',
-                                                            padding: 'var(--spacing-sm)',
+                                                            padding: 'var(--spacing-sm) var(--spacing-md)',
                                                             background: 'var(--bg-tertiary)',
-                                                            borderRadius: 'var(--radius-sm)',
+                                                            borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border)'
                                                         }}
                                                     >
-                                                        <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                            {ad.thumbnailUrl ? (
-                                                                <img src={ad.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-sm)' }} />
-                                                            ) : (
-                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                    <polygon points="5 3 19 12 5 21 5 3" />
-                                                                </svg>
+                                                        {/* Ad Header */}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
+                                                            <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                {ad.thumbnailUrl ? (
+                                                                    <img src={ad.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-sm)' }} />
+                                                                ) : (
+                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                        <polygon points="5 3 19 12 5 21 5 3" />
+                                                                    </svg>
+                                                                )}
+                                                            </div>
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <div style={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getAdName(ad)}</div>
+                                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{ad.importedFromFacebook ? '📊 Imported' : '📤 Uploaded'}</div>
+                                                            </div>
+                                                            {ad.successScore && (
+                                                                <span className="tag tag-primary" style={{ fontSize: '0.7rem', fontWeight: 600 }}>{ad.successScore}%</span>
                                                             )}
                                                         </div>
-                                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                                            <div style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getAdName(ad)}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                                CTR: {getAdCtr(ad).toFixed(1)}% • ₱{getAdSpend(ad).toFixed(0)}
+                                                        {/* Detailed Metrics Grid */}
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-xs)', fontSize: '0.7rem' }}>
+                                                            <div style={{ textAlign: 'center', padding: '4px', background: 'rgba(59,130,246,0.1)', borderRadius: '4px' }}>
+                                                                <div style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{(ad.adInsights?.impressions || 0).toLocaleString()}</div>
+                                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>Impressions</div>
+                                                            </div>
+                                                            <div style={{ textAlign: 'center', padding: '4px', background: 'rgba(16,185,129,0.1)', borderRadius: '4px' }}>
+                                                                <div style={{ fontWeight: 600, color: 'var(--success)' }}>{(ad.adInsights?.reach || 0).toLocaleString()}</div>
+                                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>Reach</div>
+                                                            </div>
+                                                            <div style={{ textAlign: 'center', padding: '4px', background: 'rgba(139,92,246,0.1)', borderRadius: '4px' }}>
+                                                                <div style={{ fontWeight: 600, color: '#a78bfa' }}>{(ad.adInsights?.clicks || 0).toLocaleString()}</div>
+                                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>Clicks</div>
+                                                            </div>
+                                                            <div style={{ textAlign: 'center', padding: '4px', background: 'rgba(236,72,153,0.1)', borderRadius: '4px' }}>
+                                                                <div style={{ fontWeight: 600, color: '#f472b6' }}>₱{getAdSpend(ad).toFixed(0)}</div>
+                                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>Spend</div>
                                                             </div>
                                                         </div>
-                                                        {ad.successScore && (
-                                                            <span className="tag tag-primary" style={{ fontSize: '0.7rem' }}>{ad.successScore}%</span>
-                                                        )}
+                                                        {/* Secondary Metrics */}
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--spacing-xs)', padding: '4px 0', borderTop: '1px solid var(--border)', fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                                            <span>CTR: <strong style={{ color: getAdCtr(ad) > 2 ? 'var(--success)' : getAdCtr(ad) > 1 ? 'var(--warning)' : 'var(--error)' }}>{getAdCtr(ad).toFixed(2)}%</strong></span>
+                                                            <span>CPC: <strong>₱{ad.adInsights?.cpc?.toFixed(2) || '0.00'}</strong></span>
+                                                            <span>CPM: <strong>₱{ad.adInsights?.cpm?.toFixed(2) || '0.00'}</strong></span>
+                                                            {ad.facebookAdId && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); fetchDailyReport(ad); }}
+                                                                    style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', fontSize: '0.65rem', padding: 0 }}
+                                                                >
+                                                                    📅 Daily
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>

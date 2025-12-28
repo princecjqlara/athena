@@ -297,15 +297,16 @@ export default function OrganizerDashboard() {
                         style={{
                             padding: '8px 16px',
                             borderRadius: '8px',
-                            background: 'rgba(255,255,255,0.1)',
+                            background: 'var(--bg-secondary, #1a1a2e)',
                             border: '1px solid rgba(255,255,255,0.2)',
                             color: 'inherit',
-                            fontSize: '0.95rem'
+                            fontSize: '0.95rem',
+                            cursor: 'pointer'
                         }}
                     >
-                        <option value="admin">Admin (can create marketers)</option>
-                        <option value="marketer">Marketer (can create clients)</option>
-                        <option value="client">Client (end user)</option>
+                        <option value="admin" style={{ background: 'var(--bg-secondary, #1a1a2e)', color: 'inherit' }}>Admin (can create marketers)</option>
+                        <option value="marketer" style={{ background: 'var(--bg-secondary, #1a1a2e)', color: 'inherit' }}>Marketer (can create clients)</option>
+                        <option value="client" style={{ background: 'var(--bg-secondary, #1a1a2e)', color: 'inherit' }}>Client (end user)</option>
                     </select>
                     <button onClick={generateInviteCode} className="generate-btn">
                         Generate Code
@@ -356,7 +357,7 @@ export default function OrganizerDashboard() {
                     className={`tab ${activeTab === 'galaxy' ? 'active' : ''}`}
                     onClick={() => setActiveTab('galaxy')}
                 >
-                    🌌 Collective Galaxy
+                    🧠 Algorithm
                 </button>
             </div>
 
@@ -469,12 +470,12 @@ export default function OrganizerDashboard() {
 
                 {activeTab === 'galaxy' && (
                     <div className="galaxy-panel">
-                        <h2>🌌 Collective Intelligence Galaxy</h2>
+                        <h2>🧠 Algorithm System</h2>
                         <p className="galaxy-desc">
                             View aggregated, anonymized insights from all public data contributions.
                         </p>
                         <Link href="/settings/collective" className="galaxy-link">
-                            View Collective Intelligence →
+                            View Algorithm Data →
                         </Link>
 
                         <div className="galaxy-stats">

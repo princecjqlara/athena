@@ -1260,7 +1260,7 @@ export default function MindMapPage() {
                 {nodes.length === 0 ? (
                     <div className={styles.emptyState}>
                         <div className={styles.emptyIcon}>🌌</div>
-                        <h3>Your Galaxy Awaits</h3>
+                        <h3>Your Algorithm Awaits</h3>
                         <p>Upload ads to see your pattern universe</p>
                         <a href="/upload" className="btn btn-primary">📤 Upload First Ad</a>
                     </div>

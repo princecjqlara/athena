@@ -340,11 +340,12 @@
 .pipelinePreview {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: var(--spacing-md);
     padding: var(--spacing-lg);
     background: rgba(0, 0, 0, 0.2);
     border-radius: var(--radius-md);
+    overflow-x: auto;
+    min-width: 0;
 }
 
 .previewStage {
