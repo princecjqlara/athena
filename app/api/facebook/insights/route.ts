@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
             platformBreakdown,
             placementBreakdown,
             deviceBreakdown,
-            hourlyBreakdown
+            hourlyBreakdown,
+            dailyBreakdown
         ] = await Promise.all([
             // Basic metrics
             fetchInsights(adId, accessToken,
@@ -42,7 +43,9 @@ export async function GET(request: NextRequest) {
             // Device breakdown
             fetchInsightsWithBreakdown(adId, accessToken, 'device_platform', 'impressions,clicks,spend,reach'),
             // Hourly breakdown (for most active time)
-            fetchInsightsWithBreakdown(adId, accessToken, 'hourly_stats_aggregated_by_advertiser_time_zone', 'impressions,clicks')
+            fetchInsightsWithBreakdown(adId, accessToken, 'hourly_stats_aggregated_by_advertiser_time_zone', 'impressions,clicks'),
+            // Daily breakdown (day-by-day performance)
+            fetchDailyInsights(adId, accessToken, 'impressions,reach,clicks,spend,ctr,cpc,cpm,actions')
         ]);
 
         // Process and aggregate the data
@@ -74,11 +77,15 @@ export async function GET(request: NextRequest) {
                 hourlyData: processHourlyBreakdown(hourlyBreakdown),
             },
 
+            // Daily breakdown (day-by-day report)
+            dailyReport: processDailyBreakdown(dailyBreakdown),
+
             // Raw data for debugging
             _raw: {
                 basic: basicInsights,
                 ageGender: ageGenderBreakdown,
                 country: countryBreakdown,
+                daily: dailyBreakdown,
             }
         };
 
@@ -114,6 +121,16 @@ async function fetchInsightsWithBreakdown(
 ) {
     const response = await fetch(
         `https://graph.facebook.com/v24.0/${adId}/insights?fields=${fields}&breakdowns=${breakdown}&access_token=${accessToken}`
+    );
+    const data = await response.json();
+    return data.data || [];
+}
+
+// Helper: Fetch daily insights (day-by-day breakdown)
+async function fetchDailyInsights(adId: string, accessToken: string, fields: string) {
+    // Use time_increment=1 for daily breakdown, date_preset=maximum for all time data
+    const response = await fetch(
+        `https://graph.facebook.com/v24.0/${adId}/insights?fields=${fields},date_start,date_stop&time_increment=1&date_preset=maximum&access_token=${accessToken}`
     );
     const data = await response.json();
     return data.data || [];
@@ -322,4 +339,87 @@ function processHourlyBreakdown(data: Array<{ hourly_stats_aggregated_by_adverti
     });
 
     return hourlyData.sort((a, b) => a.hour - b.hour);
+}
+
+// Interface for daily data
+interface DailyDataItem {
+    date_start: string;
+    date_stop: string;
+    impressions?: string;
+    reach?: string;
+    clicks?: string;
+    spend?: string;
+    ctr?: string;
+    cpc?: string;
+    cpm?: string;
+    actions?: Array<{ action_type: string; value: string }>;
+}
+
+// Process daily breakdown for day-by-day reports
+function processDailyBreakdown(data: DailyDataItem[]) {
+    if (!data || data.length === 0) {
+        return {
+            days: [],
+            summary: {
+                totalDays: 0,
+                startDate: null,
+                endDate: null,
+                avgDailySpend: 0,
+                avgDailyClicks: 0,
+                avgDailyImpressions: 0,
+                bestDay: null,
+                worstDay: null
+            }
+        };
+    }
+
+    // Sort by date
+    const sortedData = [...data].sort((a, b) =>
+        new Date(a.date_start).getTime() - new Date(b.date_start).getTime()
+    );
+
+    const days = sortedData.map(item => {
+        const actions = item.actions || [];
+        return {
+            date: item.date_start,
+            impressions: parseInt(item.impressions || '0'),
+            reach: parseInt(item.reach || '0'),
+            clicks: parseInt(item.clicks || '0'),
+            spend: parseFloat(item.spend || '0'),
+            ctr: parseFloat(item.ctr || '0'),
+            cpc: parseFloat(item.cpc || '0'),
+            cpm: parseFloat(item.cpm || '0'),
+            leads: parseInt(actions.find(a => a.action_type === 'lead')?.value || '0'),
+            purchases: parseInt(actions.find(a => a.action_type === 'purchase')?.value || '0'),
+            conversions: parseInt(actions.find(a => a.action_type === 'onsite_conversion.messaging_conversation_started_7d')?.value || '0')
+        };
+    });
+
+    // Calculate summary stats
+    const totalSpend = days.reduce((sum, d) => sum + d.spend, 0);
+    const totalClicks = days.reduce((sum, d) => sum + d.clicks, 0);
+    const totalImpressions = days.reduce((sum, d) => sum + d.impressions, 0);
+
+    // Find best and worst days by CTR (if they have impressions)
+    const daysWithData = days.filter(d => d.impressions > 0);
+    const bestDay = daysWithData.length > 0
+        ? daysWithData.reduce((best, d) => d.ctr > best.ctr ? d : best)
+        : null;
+    const worstDay = daysWithData.length > 0
+        ? daysWithData.reduce((worst, d) => d.ctr < worst.ctr ? d : worst)
+        : null;
+
+    return {
+        days,
+        summary: {
+            totalDays: days.length,
+            startDate: days[0]?.date || null,
+            endDate: days[days.length - 1]?.date || null,
+            avgDailySpend: days.length > 0 ? totalSpend / days.length : 0,
+            avgDailyClicks: days.length > 0 ? totalClicks / days.length : 0,
+            avgDailyImpressions: days.length > 0 ? totalImpressions / days.length : 0,
+            bestDay: bestDay ? { date: bestDay.date, ctr: bestDay.ctr, clicks: bestDay.clicks } : null,
+            worstDay: worstDay ? { date: worstDay.date, ctr: worstDay.ctr, clicks: worstDay.clicks } : null
+        }
+    };
 }
