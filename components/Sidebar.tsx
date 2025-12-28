@@ -394,9 +394,9 @@ function NavItem({ href, icon, label, collapsed, active }: { href: string; icon:
         :global([data-theme="light"]) .nav-item.active .nav-icon,
         :global(.light) .nav-item:hover .nav-icon,
         :global(.light) .nav-item.active .nav-icon {
-          background: rgba(22, 163, 74, 0.15);
-          color: #16a34a;
-          box-shadow: 0 0 20px rgba(22, 163, 74, 0.2);
+          background: rgba(200, 245, 96, 0.15);
+          color: #c8f560;
+          box-shadow: 0 0 20px rgba(200, 245, 96, 0.2);
         }
       `}</style>
     </a>
