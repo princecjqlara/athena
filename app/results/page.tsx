@@ -812,8 +812,7 @@ export default function ResultsPage() {
                                 const showSocialSection = adsetHasSocialMetrics(adsInAdset);
                                 const showVideoSection = adsetHasVideoMetrics(adsInAdset);
                                 const showQualitySection = adsetHasQualityMetrics(adsInAdset);
-                                const showMessagingSection = adsetHasMessagingMetrics(adsInAdset);
-                                const showConversionsSection = adsetHasConversionMetrics(adsInAdset);
+                                const showMessagingSection = adsetHasMessageMetrics(adsInAdset);
                                 const showRoasSection = adsetHasRoasMetrics(adsInAdset);
                                 const showLeadFormSection = adsetHasLeadAdsMetrics(adsInAdset);
                                 const showAppSection = adsetHasAppMetrics(adsInAdset);
