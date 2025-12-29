@@ -62,6 +62,30 @@ interface AccessRequest {
     data_pools: { name: string };
 }
 
+interface Announcement {
+    id: string;
+    title: string;
+    content: string;
+    target_audience: 'all' | 'admin' | 'marketer' | 'client';
+    priority: 'low' | 'normal' | 'high' | 'urgent';
+    created_by: string;
+    is_active: boolean;
+    created_at: string;
+    expires_at?: string;
+    read_by: string[];
+}
+
+interface DirectMessage {
+    id: string;
+    from_user_id: string;
+    to_user_id: string;
+    subject?: string;
+    content: string;
+    is_read: boolean;
+    read_at?: string;
+    created_at: string;
+}
+
 export default function OrganizerDashboard() {
     const [users, setUsers] = useState<User[]>([]);
     const [teams, setTeams] = useState<TeamStats[]>([]);
@@ -70,7 +94,7 @@ export default function OrganizerDashboard() {
     const [loading, setLoading] = useState(true);
     const [impersonating, setImpersonating] = useState<ImpersonationSession | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy' | 'marketplace' | 'prompts' | 'traits' | 'ai-traits'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy' | 'marketplace' | 'prompts' | 'traits' | 'ai-traits' | 'messages'>('users');
     const [inviteCode, setInviteCode] = useState<string | null>(null);
     const [selectedCodeRole, setSelectedCodeRole] = useState<'admin' | 'marketer' | 'client'>('admin');
     const [generatedCodeType, setGeneratedCodeType] = useState<string | null>(null);
@@ -120,6 +144,15 @@ export default function OrganizerDashboard() {
         created_at: string;
     }>>([]);
 
+    // Messaging state
+    const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+    const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
+    const [showCreateAnnouncement, setShowCreateAnnouncement] = useState(false);
+    const [showSendMessage, setShowSendMessage] = useState(false);
+    const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '', targetAudience: 'all', priority: 'normal' });
+    const [newMessage, setNewMessage] = useState({ toUserId: '', subject: '', content: '' });
+    const [selectedRecipient, setSelectedRecipient] = useState<User | null>(null);
+
     useEffect(() => {
         fetchData();
         checkImpersonation();
@@ -137,6 +170,9 @@ export default function OrganizerDashboard() {
         }
         if (activeTab === 'ai-traits') {
             fetchAiTraits();
+        }
+        if (activeTab === 'messages') {
+            fetchMessages();
         }
     }, [activeTab]);
 
@@ -223,6 +259,116 @@ export default function OrganizerDashboard() {
             fetchPrompts();
         } catch (error) {
             console.error('Error deleting prompt:', error);
+        }
+    };
+
+    const updatePrompt = async () => {
+        if (!editingPrompt?.name || !editingPrompt?.promptText) {
+            alert('Name and prompt text are required');
+            return;
+        }
+        try {
+            const res = await fetch('/api/organizer/prompts', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editingPrompt)
+            });
+            if (res.ok) {
+                setEditingPrompt(null);
+                fetchPrompts();
+            } else {
+                const data = await res.json();
+                alert(data.error || 'Failed to update prompt');
+            }
+        } catch (error) {
+            console.error('Error updating prompt:', error);
+        }
+    };
+
+    // Messaging Functions
+    const fetchMessages = async () => {
+        try {
+            const userId = localStorage.getItem('athena_user_id');
+            const [announcementsRes, messagesRes] = await Promise.all([
+                fetch('/api/organizer/announcements'),
+                fetch(`/api/organizer/messages?userId=${userId}&type=sent`)
+            ]);
+
+            if (announcementsRes.ok) {
+                const data = await announcementsRes.json();
+                setAnnouncements(data.announcements || []);
+            }
+            if (messagesRes.ok) {
+                const data = await messagesRes.json();
+                setDirectMessages(data.messages || []);
+            }
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+        }
+    };
+
+    const createAnnouncement = async () => {
+        if (!newAnnouncement.title || !newAnnouncement.content) {
+            alert('Title and content are required');
+            return;
+        }
+        try {
+            const userId = localStorage.getItem('athena_user_id');
+            const res = await fetch('/api/organizer/announcements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...newAnnouncement,
+                    createdBy: userId
+                })
+            });
+            if (res.ok) {
+                setNewAnnouncement({ title: '', content: '', targetAudience: 'all', priority: 'normal' });
+                setShowCreateAnnouncement(false);
+                fetchMessages();
+                alert('Announcement created successfully!');
+            }
+        } catch (error) {
+            console.error('Error creating announcement:', error);
+        }
+    };
+
+    const deleteAnnouncement = async (id: string) => {
+        if (!confirm('Delete this announcement?')) return;
+        try {
+            await fetch(`/api/organizer/announcements?id=${id}`, { method: 'DELETE' });
+            fetchMessages();
+        } catch (error) {
+            console.error('Error deleting announcement:', error);
+        }
+    };
+
+    const sendDirectMessage = async () => {
+        if (!newMessage.toUserId || !newMessage.content) {
+            alert('Recipient and message are required');
+            return;
+        }
+        try {
+            const userId = localStorage.getItem('athena_user_id');
+            const res = await fetch('/api/organizer/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fromUserId: userId,
+                    toUserId: newMessage.toUserId,
+                    subject: newMessage.subject,
+                    content: newMessage.content
+                })
+            });
+            if (res.ok) {
+                setNewMessage({ toUserId: '', subject: '', content: '' });
+                setSelectedRecipient(null);
+                setShowSendMessage(false);
+                fetchMessages();
+                alert('Message sent successfully!');
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
         }
     };
 
@@ -350,7 +496,14 @@ export default function OrganizerDashboard() {
         window.location.href = '/organizer';
     };
 
+    const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+    const [codeError, setCodeError] = useState<string | null>(null);
+
     const generateInviteCode = async () => {
+        setIsGeneratingCode(true);
+        setCodeError(null);
+        setInviteCode(null);
+
         try {
             const res = await fetch('/api/invite-codes', {
                 method: 'POST',
@@ -358,12 +511,30 @@ export default function OrganizerDashboard() {
                 body: JSON.stringify({ roleType: selectedCodeRole })
             });
             const data = await res.json();
-            if (data.success) {
+            console.log('Invite code response:', data);
+
+            if (data.success && data.code) {
                 setInviteCode(data.code);
-                setGeneratedCodeType(data.codeType);
+                setGeneratedCodeType(data.codeType || selectedCodeRole);
+            } else if (data.code) {
+                // Handle case where success might not be set but code is returned
+                setInviteCode(data.code);
+                setGeneratedCodeType(data.codeType || selectedCodeRole);
+            } else {
+                setCodeError(data.error || 'Failed to generate code. Please try again.');
             }
         } catch (error) {
             console.error('Error generating code:', error);
+            setCodeError('Network error. Please try again.');
+        } finally {
+            setIsGeneratingCode(false);
+        }
+    };
+
+    const copyInviteCode = () => {
+        if (inviteCode) {
+            navigator.clipboard.writeText(inviteCode);
+            alert('Code copied to clipboard!');
         }
     };
 
@@ -482,14 +653,51 @@ export default function OrganizerDashboard() {
                         <option value="marketer" style={{ background: 'var(--bg-secondary, #1a1a2e)', color: 'inherit' }}>Marketer (can create clients)</option>
                         <option value="client" style={{ background: 'var(--bg-secondary, #1a1a2e)', color: 'inherit' }}>Client (end user)</option>
                     </select>
-                    <button onClick={generateInviteCode} className="generate-btn">
-                        Generate Code
+                    <button
+                        onClick={generateInviteCode}
+                        className="generate-btn"
+                        disabled={isGeneratingCode}
+                        style={{ opacity: isGeneratingCode ? 0.7 : 1 }}
+                    >
+                        {isGeneratingCode ? 'Generating...' : 'Generate Code'}
                     </button>
                 </div>
+
+                {/* Error display */}
+                {codeError && (
+                    <div style={{
+                        marginTop: '12px',
+                        padding: '10px 16px',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: '8px',
+                        color: '#ef4444',
+                        fontSize: '0.9rem'
+                    }}>
+                        ⚠️ {codeError}
+                    </div>
+                )}
+
+                {/* Generated code display */}
                 {inviteCode && (
-                    <div className="code-display" style={{ marginTop: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <code style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{inviteCode}</code>
+                    <div className="code-display" style={{
+                        marginTop: '12px',
+                        padding: '16px',
+                        background: 'rgba(139, 92, 246, 0.1)',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                        borderRadius: '12px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                            <code style={{
+                                fontSize: '1.5rem',
+                                fontWeight: 'bold',
+                                letterSpacing: '2px',
+                                padding: '8px 16px',
+                                background: 'rgba(0,0,0,0.2)',
+                                borderRadius: '8px'
+                            }}>
+                                {inviteCode}
+                            </code>
                             <span style={{
                                 background: generatedCodeType === 'admin' ? '#8b5cf6' :
                                     generatedCodeType === 'marketer' ? '#3b82f6' : '#10b981',
@@ -501,8 +709,25 @@ export default function OrganizerDashboard() {
                             }}>
                                 {generatedCodeType}
                             </span>
+                            <button
+                                onClick={copyInviteCode}
+                                style={{
+                                    padding: '8px 16px',
+                                    background: '#10b981',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.85rem'
+                                }}
+                            >
+                                📋 Copy Code
+                            </button>
                         </div>
-                        <span className="code-timer">Expires in 10 minutes</span>
+                        <span className="code-timer" style={{ display: 'block', marginTop: '8px', fontSize: '0.8rem', color: '#888' }}>
+                            ⏱️ Expires in 10 minutes
+                        </span>
                     </div>
                 )}
             </div>
@@ -550,6 +775,12 @@ export default function OrganizerDashboard() {
                     onClick={() => setActiveTab('ai-traits')}
                 >
                     🤖 AI Traits
+                </button>
+                <button
+                    className={`tab ${activeTab === 'messages' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('messages')}
+                >
+                    ✉️ Messages
                 </button>
             </div>
 
@@ -806,12 +1037,22 @@ export default function OrganizerDashboard() {
                                                 </p>
                                             </div>
                                             {!prompt.isDefault && (
-                                                <button
-                                                    onClick={() => deletePrompt(prompt.id)}
-                                                    style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px 8px' }}
-                                                >
-                                                    🗑️
-                                                </button>
+                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                    <button
+                                                        onClick={() => setEditingPrompt(prompt)}
+                                                        style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px 8px' }}
+                                                        title="Edit prompt"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deletePrompt(prompt.id)}
+                                                        style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px 8px' }}
+                                                        title="Delete prompt"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
                                         <details style={{ marginTop: '12px' }}>
@@ -847,6 +1088,60 @@ export default function OrganizerDashboard() {
                                 These user-defined traits are stored and suggested to other users with similar business profiles.
                             </p>
                         </div>
+
+                        {/* Edit Prompt Modal */}
+                        {editingPrompt && (
+                            <div className="modal-overlay" onClick={() => setEditingPrompt(null)}>
+                                <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+                                    <h3>Edit Prompt</h3>
+                                    <div style={{ display: 'grid', gap: '12px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Prompt Name *</label>
+                                            <input
+                                                type="text"
+                                                value={editingPrompt.name || ''}
+                                                onChange={(e) => setEditingPrompt({ ...editingPrompt, name: e.target.value })}
+                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Description</label>
+                                            <input
+                                                type="text"
+                                                value={editingPrompt.description || ''}
+                                                onChange={(e) => setEditingPrompt({ ...editingPrompt, description: e.target.value })}
+                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Media Type</label>
+                                            <select
+                                                value={editingPrompt.mediaType || 'video'}
+                                                onChange={(e) => setEditingPrompt({ ...editingPrompt, mediaType: e.target.value })}
+                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                            >
+                                                <option value="video">Video Ads</option>
+                                                <option value="photo">Photo Ads</option>
+                                                <option value="both">Both</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Prompt Text *</label>
+                                            <textarea
+                                                value={editingPrompt.promptText || ''}
+                                                onChange={(e) => setEditingPrompt({ ...editingPrompt, promptText: e.target.value })}
+                                                rows={8}
+                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)', fontFamily: 'monospace', fontSize: '0.85rem' }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="modal-actions" style={{ marginTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                        <button className="cancel-btn" onClick={() => setEditingPrompt(null)}>Cancel</button>
+                                        <button className="submit-btn" onClick={updatePrompt}>Save Changes</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -1262,6 +1557,288 @@ export default function OrganizerDashboard() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {activeTab === 'messages' && (
+                    <div className="messages-panel">
+                        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <div>
+                                <h2>✉️ Messaging & Announcements</h2>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '4px 0 0' }}>
+                                    Send announcements to users or direct messages to individuals
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button
+                                    className="create-btn"
+                                    onClick={() => setShowCreateAnnouncement(!showCreateAnnouncement)}
+                                    style={{ padding: '10px 20px', background: 'var(--primary)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
+                                >
+                                    {showCreateAnnouncement ? '✕ Cancel' : '📢 New Announcement'}
+                                </button>
+                                <button
+                                    className="create-btn"
+                                    onClick={() => setShowSendMessage(!showSendMessage)}
+                                    style={{ padding: '10px 20px', background: '#10b981', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
+                                >
+                                    {showSendMessage ? '✕ Cancel' : '💬 Send Message'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Create Announcement Form */}
+                        {showCreateAnnouncement && (
+                            <div style={{
+                                background: 'var(--bg-secondary)',
+                                padding: '20px',
+                                borderRadius: '12px',
+                                marginBottom: '20px',
+                                border: '1px solid var(--border)'
+                            }}>
+                                <h3 style={{ marginTop: 0 }}>📢 Create Announcement</h3>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Title *</label>
+                                        <input
+                                            type="text"
+                                            value={newAnnouncement.title}
+                                            onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
+                                            placeholder="Announcement title"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Message *</label>
+                                        <textarea
+                                            value={newAnnouncement.content}
+                                            onChange={(e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })}
+                                            placeholder="Your announcement message..."
+                                            rows={4}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Target Audience</label>
+                                            <select
+                                                value={newAnnouncement.targetAudience}
+                                                onChange={(e) => setNewAnnouncement({ ...newAnnouncement, targetAudience: e.target.value })}
+                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                            >
+                                                <option value="all">🌐 All Users</option>
+                                                <option value="admin">👑 Admins Only</option>
+                                                <option value="marketer">📊 Marketers Only</option>
+                                                <option value="client">👤 Clients Only</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Priority</label>
+                                            <select
+                                                value={newAnnouncement.priority}
+                                                onChange={(e) => setNewAnnouncement({ ...newAnnouncement, priority: e.target.value })}
+                                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                            >
+                                                <option value="low">🔵 Low</option>
+                                                <option value="normal">🟢 Normal</option>
+                                                <option value="high">🟡 High</option>
+                                                <option value="urgent">🔴 Urgent</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={createAnnouncement}
+                                        style={{ padding: '12px', background: 'var(--primary)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontWeight: 600 }}
+                                    >
+                                        📢 Broadcast Announcement
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Send Direct Message Form */}
+                        {showSendMessage && (
+                            <div style={{
+                                background: 'var(--bg-secondary)',
+                                padding: '20px',
+                                borderRadius: '12px',
+                                marginBottom: '20px',
+                                border: '1px solid #10b981'
+                            }}>
+                                <h3 style={{ marginTop: 0 }}>💬 Send Direct Message</h3>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Recipient *</label>
+                                        <select
+                                            value={newMessage.toUserId}
+                                            onChange={(e) => {
+                                                const user = users.find(u => u.id === e.target.value);
+                                                setNewMessage({ ...newMessage, toUserId: e.target.value });
+                                                setSelectedRecipient(user || null);
+                                            }}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                        >
+                                            <option value="">Select a user...</option>
+                                            {users.map(user => (
+                                                <option key={user.id} value={user.id}>
+                                                    {user.full_name || user.email} ({user.role})
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {selectedRecipient && (
+                                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                                                📧 {selectedRecipient.email} • Role: {selectedRecipient.role}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Subject</label>
+                                        <input
+                                            type="text"
+                                            value={newMessage.subject}
+                                            onChange={(e) => setNewMessage({ ...newMessage, subject: e.target.value })}
+                                            placeholder="Message subject (optional)"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>Message *</label>
+                                        <textarea
+                                            value={newMessage.content}
+                                            onChange={(e) => setNewMessage({ ...newMessage, content: e.target.value })}
+                                            placeholder="Type your message..."
+                                            rows={4}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={sendDirectMessage}
+                                        style={{ padding: '12px', background: '#10b981', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white', fontWeight: 600 }}
+                                    >
+                                        ✉️ Send Message
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Announcements List */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                📢 Announcements
+                                <span style={{ fontSize: '0.8rem', background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '12px' }}>
+                                    {announcements.length}
+                                </span>
+                            </h3>
+                            {announcements.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
+                                    <p>No announcements yet. Click "New Announcement" to create one.</p>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {announcements.map(announcement => (
+                                        <div key={announcement.id} style={{
+                                            padding: '16px',
+                                            background: 'var(--bg-secondary)',
+                                            borderRadius: '12px',
+                                            borderLeft: `4px solid ${announcement.priority === 'urgent' ? '#ef4444' :
+                                                announcement.priority === 'high' ? '#f59e0b' :
+                                                    announcement.priority === 'normal' ? '#10b981' : '#6b7280'
+                                                }`
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                        <strong>{announcement.title}</strong>
+                                                        <span style={{
+                                                            fontSize: '0.7rem',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '12px',
+                                                            background: announcement.target_audience === 'all' ? 'rgba(99,102,241,0.2)' :
+                                                                announcement.target_audience === 'admin' ? 'rgba(139,92,246,0.2)' :
+                                                                    announcement.target_audience === 'marketer' ? 'rgba(59,130,246,0.2)' : 'rgba(16,185,129,0.2)',
+                                                            color: announcement.target_audience === 'all' ? '#6366f1' :
+                                                                announcement.target_audience === 'admin' ? '#8b5cf6' :
+                                                                    announcement.target_audience === 'marketer' ? '#3b82f6' : '#10b981'
+                                                        }}>
+                                                            {announcement.target_audience === 'all' ? '🌐 All' :
+                                                                announcement.target_audience === 'admin' ? '👑 Admins' :
+                                                                    announcement.target_audience === 'marketer' ? '📊 Marketers' : '👤 Clients'}
+                                                        </span>
+                                                    </div>
+                                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: '8px 0' }}>
+                                                        {announcement.content}
+                                                    </p>
+                                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                                                        {new Date(announcement.created_at).toLocaleString()} •
+                                                        Read by {announcement.read_by?.length || 0} users
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => deleteAnnouncement(announcement.id)}
+                                                    style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px 8px' }}
+                                                    title="Delete announcement"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Sent Messages List */}
+                        <div>
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                💬 Sent Messages
+                                <span style={{ fontSize: '0.8rem', background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '12px' }}>
+                                    {directMessages.length}
+                                </span>
+                            </h3>
+                            {directMessages.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
+                                    <p>No messages sent yet. Click "Send Message" to send one.</p>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {directMessages.map(msg => {
+                                        const recipient = users.find(u => u.id === msg.to_user_id);
+                                        return (
+                                            <div key={msg.id} style={{
+                                                padding: '16px',
+                                                background: 'var(--bg-secondary)',
+                                                borderRadius: '12px',
+                                                border: '1px solid var(--border)'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                    <div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                            <strong>To: {recipient?.full_name || recipient?.email || msg.to_user_id}</strong>
+                                                            {msg.is_read ? (
+                                                                <span style={{ fontSize: '0.7rem', color: '#10b981' }}>✓ Read</span>
+                                                            ) : (
+                                                                <span style={{ fontSize: '0.7rem', color: '#f59e0b' }}>⏳ Unread</span>
+                                                            )}
+                                                        </div>
+                                                        {msg.subject && (
+                                                            <p style={{ fontSize: '0.85rem', fontWeight: 500, margin: '4px 0' }}>
+                                                                Subject: {msg.subject}
+                                                            </p>
+                                                        )}
+                                                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: '8px 0' }}>
+                                                            {msg.content}
+                                                        </p>
+                                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                                                            Sent: {new Date(msg.created_at).toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
