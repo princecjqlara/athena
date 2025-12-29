@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import styles from './page.module.css';
 import {
     HookType,
@@ -9,219 +9,158 @@ import {
     ColorScheme,
     MusicType,
     Platform,
-    DayOfWeek,
     TimeOfDay,
     PredictionResult,
-    PredictionFactor,
     ExtractedAdData,
 } from '@/types';
 import {
     predictWithML,
-    RiskTier,
     RiskAssessment,
-    PotentialFailure,
-    getRiskTierDisplay,
 } from '@/lib/ml';
 
-// Ad interface for existing ads from localStorage
-interface Ad {
-    id: string;
-    name?: string;
-    extractedContent?: {
-        title?: string;
-        platform?: string;
-        hookType?: string;
-        contentCategory?: string;
-        mediaType?: string;
-    };
-    categories?: string[];
-    traits?: string[];
-    thumbnail?: string;
-    thumbnailUrl?: string;
-    platform?: string;
-    hook_type?: string;
-    mediaType?: 'video' | 'photo' | string;
-    importedFromFacebook?: boolean;
+// Parsed traits from AI
+interface ParsedTraits {
+    hookType?: HookType;
+    editingStyle?: EditingStyle;
+    contentCategory?: ContentCategory;
+    platform?: Platform;
+    hasSubtitles?: boolean;
+    hasTextOverlays?: boolean;
+    isUGCStyle?: boolean;
+    hasVoiceover?: boolean;
+    musicType?: MusicType;
+    colorScheme?: ColorScheme;
+    numberOfActors?: number;
 }
-
-// Source mode type
-type SourceMode = 'configure' | 'pick' | 'upload';
-
-const QUICK_OPTIONS = {
-    hook_types: [
-        { value: 'curiosity', label: '🤔 Curiosity', score: 90 },
-        { value: 'shock', label: '😱 Shock', score: 85 },
-        { value: 'before_after', label: '⚡ Before/After', score: 85 },
-        { value: 'question', label: '❓ Question', score: 80 },
-        { value: 'story', label: '📖 Story', score: 75 },
-    ],
-    editing_styles: [
-        { value: 'raw_authentic', label: '📱 Raw/Authentic', score: 90 },
-        { value: 'fast_cuts', label: '⚡ Fast Cuts', score: 85 },
-        { value: 'dynamic', label: '💫 Dynamic', score: 80 },
-        { value: 'cinematic', label: '🎬 Cinematic', score: 70 },
-    ],
-    content_categories: [
-        { value: 'ugc', label: '📱 UGC', score: 90 },
-        { value: 'testimonial', label: '💬 Testimonial', score: 85 },
-        { value: 'lifestyle', label: '🌟 Lifestyle', score: 80 },
-        { value: 'product_demo', label: '🎬 Product Demo', score: 75 },
-    ],
-    platforms: [
-        { value: 'tiktok', label: '🎵 TikTok', score: 90 },
-        { value: 'instagram', label: '📸 Instagram', score: 85 },
-        { value: 'youtube', label: '▶️ YouTube', score: 75 },
-        { value: 'facebook', label: '📘 Facebook', score: 70 },
-    ],
-};
 
 export default function PredictPage() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isParsing, setIsParsing] = useState(false);
     const [prediction, setPrediction] = useState<PredictionResult | null>(null);
     const [dataPoints, setDataPoints] = useState(0);
     const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
 
-    // Source mode state
-    const [sourceMode, setSourceMode] = useState<SourceMode>('configure');
+    // Document input state
+    const [adDescription, setAdDescription] = useState('');
+    const [parsedTraits, setParsedTraits] = useState<ParsedTraits | null>(null);
+    const [parseError, setParseError] = useState<string | null>(null);
 
-    // Existing ads for pick mode
-    const [existingAds, setExistingAds] = useState<Ad[]>([]);
-    const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
-    const [adSearchQuery, setAdSearchQuery] = useState('');
+    // Parse ad description using AI
+    const parseAdDescription = async () => {
+        if (!adDescription.trim()) {
+            setParseError('Please describe your ad first');
+            return;
+        }
 
-    // Upload mode state
-    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-    const [uploadPreview, setUploadPreview] = useState<string | null>(null);
-    const [isDragging, setIsDragging] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+        setIsParsing(true);
+        setParseError(null);
 
-    // Ad copy section (optional)
-    const [primaryText, setPrimaryText] = useState('');
-    const [headline, setHeadline] = useState('');
-
-    const [inputs, setInputs] = useState({
-        hook_type: '' as HookType | '',
-        editing_style: '' as EditingStyle | '',
-        content_category: '' as ContentCategory | '',
-        color_scheme: 'vibrant' as ColorScheme,
-        music_type: 'trending' as MusicType,
-        text_overlays: true,
-        subtitles: true,
-        ugc_style: true,
-        influencer_used: false,
-        voiceover: true,
-        number_of_actors: 1,
-        platform: '' as Platform | '',
-        launch_day: 'thursday' as DayOfWeek,
-        launch_time: 'evening' as TimeOfDay,
-    });
-
-    // Load existing ads from localStorage
-    useEffect(() => {
         try {
-            const stored = localStorage.getItem('ads');
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                setExistingAds(parsed);
+            const response = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'parse_ad_traits',
+                    data: {
+                        description: adDescription.trim(),
+                    },
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                const traits = result.data;
+                setParsedTraits({
+                    hookType: traits.hookType || 'curiosity',
+                    editingStyle: traits.editingStyle || 'raw_authentic',
+                    contentCategory: traits.contentCategory || 'ugc',
+                    platform: traits.platform || 'tiktok',
+                    hasSubtitles: traits.hasSubtitles ?? true,
+                    hasTextOverlays: traits.hasTextOverlays ?? true,
+                    isUGCStyle: traits.isUGCStyle ?? true,
+                    hasVoiceover: traits.hasVoiceover ?? true,
+                    musicType: traits.musicType || 'trending',
+                    colorScheme: traits.colorScheme || 'vibrant',
+                    numberOfActors: traits.numberOfActors || 1,
+                });
+            } else {
+                // Fallback to smart defaults based on keywords
+                setParsedTraits(inferTraitsFromText(adDescription));
             }
-        } catch (e) {
-            console.error('Error loading ads:', e);
+        } catch (error) {
+            console.error('Parse error:', error);
+            // Fallback to text-based inference
+            setParsedTraits(inferTraitsFromText(adDescription));
         }
-    }, []);
 
-    // Helper to get ad name
-    const getAdName = (ad: Ad): string => {
-        return ad.extractedContent?.title || ad.name || 'Untitled Ad';
+        setIsParsing(false);
     };
 
-    // Handle selecting an existing ad
-    const handleSelectAd = (ad: Ad) => {
-        setSelectedAd(ad);
+    // Infer traits from text using keywords (fallback)
+    const inferTraitsFromText = (text: string): ParsedTraits => {
+        const lower = text.toLowerCase();
 
-        // Auto-populate inputs from ad data
-        const hookType = ad.extractedContent?.hookType || ad.hook_type || '';
-        const platform = ad.extractedContent?.platform || ad.platform || '';
-        const contentCategory = ad.extractedContent?.contentCategory || ad.categories?.[0] || '';
-
-        // Map to valid enum values
-        const hookTypeMap: Record<string, HookType> = {
-            'curiosity': 'curiosity',
-            'shock': 'shock',
-            'before_after': 'before_after',
-            'question': 'question',
-            'story': 'story',
-            'transformation': 'before_after',
-            'testimonial': 'story',
-        };
-
-        const platformMap: Record<string, Platform> = {
-            'tiktok': 'tiktok',
-            'instagram': 'instagram',
-            'facebook': 'facebook',
-            'youtube': 'youtube',
-        };
-
-        const categoryMap: Record<string, ContentCategory> = {
-            'ugc': 'ugc',
-            'testimonial': 'testimonial',
-            'lifestyle': 'lifestyle',
-            'product_demo': 'product_demo',
-            'product demo': 'product_demo',
-            'educational': 'lifestyle',
-        };
-
-        setInputs(prev => ({
-            ...prev,
-            hook_type: hookTypeMap[hookType.toLowerCase()] || prev.hook_type,
-            platform: platformMap[platform.toLowerCase()] || prev.platform,
-            content_category: categoryMap[contentCategory.toLowerCase()] || prev.content_category,
-            // Infer features from traits if available
-            ugc_style: ad.traits?.some(t => t.toLowerCase().includes('ugc')) || ad.categories?.includes('UGC') || prev.ugc_style,
-            subtitles: ad.traits?.some(t => t.toLowerCase().includes('subtitle') || t.toLowerCase().includes('caption')) ?? prev.subtitles,
-            voiceover: ad.traits?.some(t => t.toLowerCase().includes('voiceover')) ?? prev.voiceover,
-            text_overlays: ad.traits?.some(t => t.toLowerCase().includes('text') || t.toLowerCase().includes('overlay')) ?? prev.text_overlays,
-        }));
-    };
-
-    // Handle file upload
-    const handleFileUpload = (file: File) => {
-        setUploadedFile(file);
-
-        // Create preview
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            setUploadPreview(e.target?.result as string);
-        };
-        reader.readAsDataURL(file);
-    };
-
-    // Handle drag and drop
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
-    };
-
-    const handleDragLeave = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-    };
-
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            const file = files[0];
-            if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
-                handleFileUpload(file);
-            }
+        // Hook type inference
+        let hookType: HookType = 'curiosity';
+        if (lower.includes('shock') || lower.includes('surprising') || lower.includes('unbelievable')) {
+            hookType = 'shock';
+        } else if (lower.includes('before') && lower.includes('after')) {
+            hookType = 'before_after';
+        } else if (lower.includes('question') || lower.includes('?') || lower.includes('how to')) {
+            hookType = 'question';
+        } else if (lower.includes('story') || lower.includes('journey') || lower.includes('experience')) {
+            hookType = 'story';
         }
+
+        // Platform inference
+        let platform: Platform = 'tiktok';
+        if (lower.includes('instagram') || lower.includes('ig') || lower.includes('reels')) {
+            platform = 'instagram';
+        } else if (lower.includes('youtube') || lower.includes('shorts')) {
+            platform = 'youtube';
+        } else if (lower.includes('facebook') || lower.includes('fb')) {
+            platform = 'facebook';
+        }
+
+        // Content category inference
+        let contentCategory: ContentCategory = 'ugc';
+        if (lower.includes('testimonial') || lower.includes('review') || lower.includes('customer')) {
+            contentCategory = 'testimonial';
+        } else if (lower.includes('lifestyle') || lower.includes('aesthetic') || lower.includes('vibe')) {
+            contentCategory = 'lifestyle';
+        } else if (lower.includes('demo') || lower.includes('tutorial') || lower.includes('how-to')) {
+            contentCategory = 'product_demo';
+        }
+
+        // Editing style inference
+        let editingStyle: EditingStyle = 'raw_authentic';
+        if (lower.includes('fast') || lower.includes('quick cuts') || lower.includes('dynamic')) {
+            editingStyle = 'fast_cuts';
+        } else if (lower.includes('cinematic') || lower.includes('professional') || lower.includes('polished')) {
+            editingStyle = 'cinematic';
+        } else if (lower.includes('dynamic') || lower.includes('energetic')) {
+            editingStyle = 'dynamic';
+        }
+
+        return {
+            hookType,
+            editingStyle,
+            contentCategory,
+            platform,
+            hasSubtitles: lower.includes('subtitle') || lower.includes('caption') || !lower.includes('no subtitle'),
+            hasTextOverlays: lower.includes('text') || lower.includes('overlay') || !lower.includes('no text'),
+            isUGCStyle: lower.includes('ugc') || lower.includes('user generated') || lower.includes('authentic') || !lower.includes('professional'),
+            hasVoiceover: lower.includes('voiceover') || lower.includes('narration') || lower.includes('voice'),
+            musicType: lower.includes('trending') ? 'trending' : lower.includes('emotional') ? 'emotional' : 'upbeat',
+            colorScheme: 'vibrant',
+            numberOfActors: 1,
+        };
     };
 
     const handlePredict = async () => {
-        if (!inputs.hook_type || !inputs.editing_style || !inputs.content_category || !inputs.platform) {
-            alert('Please select all required options');
+        if (!parsedTraits) {
+            setParseError('Please analyze your ad description first');
             return;
         }
 
@@ -230,17 +169,17 @@ export default function PredictPage() {
         try {
             // Build ExtractedAdData for ML system
             const adData: Partial<ExtractedAdData> = {
-                hookType: inputs.hook_type as HookType,
-                editingStyle: inputs.editing_style as EditingStyle,
-                contentCategory: inputs.content_category as ContentCategory,
-                colorScheme: inputs.color_scheme,
-                musicType: inputs.music_type,
-                platform: inputs.platform as Platform,
-                hasSubtitles: inputs.subtitles,
-                hasTextOverlays: inputs.text_overlays,
-                isUGCStyle: inputs.ugc_style,
-                hasVoiceover: inputs.voiceover,
-                numberOfActors: inputs.number_of_actors,
+                hookType: parsedTraits.hookType as HookType,
+                editingStyle: parsedTraits.editingStyle as EditingStyle,
+                contentCategory: parsedTraits.contentCategory as ContentCategory,
+                colorScheme: parsedTraits.colorScheme || 'vibrant',
+                musicType: parsedTraits.musicType || 'trending',
+                platform: parsedTraits.platform as Platform,
+                hasSubtitles: parsedTraits.hasSubtitles ?? true,
+                hasTextOverlays: parsedTraits.hasTextOverlays ?? true,
+                isUGCStyle: parsedTraits.isUGCStyle ?? true,
+                hasVoiceover: parsedTraits.hasVoiceover ?? true,
+                numberOfActors: parsedTraits.numberOfActors || 1,
                 mediaType: 'video',
                 aspectRatio: '9:16',
                 placement: 'feed',
@@ -253,41 +192,25 @@ export default function PredictPage() {
             setRiskAssessment(mlResult.riskAssessment);
             setDataPoints(mlResult.baselineStats.sampleSize);
 
-            // Build enhanced prediction request with ad copy
-            const predictionData: Record<string, unknown> = {
-                hookType: inputs.hook_type,
-                contentCategory: inputs.content_category,
-                editingStyle: inputs.editing_style,
-                platform: inputs.platform,
-                features: {
-                    hasSubtitles: inputs.subtitles,
-                    hasTextOverlays: inputs.text_overlays,
-                    isUGC: inputs.ugc_style,
-                    hasVoiceover: inputs.voiceover,
-                },
-            };
-
-            // Include ad copy if provided
-            if (primaryText.trim() || headline.trim()) {
-                predictionData.adCopy = {
-                    primaryText: primaryText.trim(),
-                    headline: headline.trim(),
-                };
-            }
-
-            // Include source info
-            if (sourceMode === 'pick' && selectedAd) {
-                predictionData.sourceAdId = selectedAd.id;
-                predictionData.sourceAdName = getAdName(selectedAd);
-            }
-
             // Call the AI API for GPT-powered prediction
             const response = await fetch('/api/ai', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'predict',
-                    data: predictionData,
+                    data: {
+                        hookType: parsedTraits.hookType,
+                        contentCategory: parsedTraits.contentCategory,
+                        editingStyle: parsedTraits.editingStyle,
+                        platform: parsedTraits.platform,
+                        features: {
+                            hasSubtitles: parsedTraits.hasSubtitles,
+                            hasTextOverlays: parsedTraits.hasTextOverlays,
+                            isUGC: parsedTraits.isUGCStyle,
+                            hasVoiceover: parsedTraits.hasVoiceover,
+                        },
+                        adDescription: adDescription.trim(),
+                    },
                 }),
             });
 
@@ -298,7 +221,7 @@ export default function PredictPage() {
                 const aiPrediction = result.data;
                 const mockPrediction: PredictionResult = {
                     success_probability: aiPrediction.successProbability || mlResult.globalScore,
-                    confidence: mlResult.confidence, // Use ML confidence
+                    confidence: mlResult.confidence,
                     top_factors: (aiPrediction.keyFactors || []).map((f: { name: string; impact: string; weight: number }) => ({
                         factor: f.name,
                         impact: f.impact as 'positive' | 'negative' | 'neutral',
@@ -314,23 +237,14 @@ export default function PredictPage() {
                     success_probability: mlResult.globalScore,
                     confidence: mlResult.confidence,
                     top_factors: [
-                        { factor: 'UGC Style', impact: inputs.ugc_style ? 'positive' : 'negative', weight: inputs.ugc_style ? 0.95 : 0.4 },
+                        { factor: 'UGC Style', impact: parsedTraits.isUGCStyle ? 'positive' : 'negative', weight: parsedTraits.isUGCStyle ? 0.95 : 0.4 },
                         { factor: 'Hook Type', impact: mlResult.globalScore > 70 ? 'positive' : 'neutral', weight: 0.85 },
-                        { factor: 'Subtitles', impact: inputs.subtitles ? 'positive' : 'negative', weight: inputs.subtitles ? 0.9 : 0.4 },
-                        { factor: 'Platform Choice', impact: inputs.platform === 'tiktok' ? 'positive' : 'neutral', weight: 0.75 },
+                        { factor: 'Subtitles', impact: parsedTraits.hasSubtitles ? 'positive' : 'negative', weight: parsedTraits.hasSubtitles ? 0.9 : 0.4 },
+                        { factor: 'Platform Choice', impact: parsedTraits.platform === 'tiktok' ? 'positive' : 'neutral', weight: 0.75 },
                     ],
                     recommendations: [],
                     similar_videos: [],
                 };
-
-                // Add copy-related factors if provided
-                if (primaryText.trim()) {
-                    fallbackPrediction.top_factors.push({
-                        factor: 'Ad Copy Provided',
-                        impact: 'positive',
-                        weight: 0.7,
-                    });
-                }
 
                 // Add recommendations based on risk assessment
                 if (mlResult.riskAssessment.potentialFailures.length > 0) {
@@ -339,15 +253,13 @@ export default function PredictPage() {
                     });
                 }
 
-                if (!inputs.ugc_style) fallbackPrediction.recommendations.push('Consider using UGC-style content for +15% engagement');
-                if (!inputs.subtitles) fallbackPrediction.recommendations.push('Add subtitles/captions for +12% watch time');
-                if (!primaryText.trim()) fallbackPrediction.recommendations.push('Add primary text to improve ad relevance and targeting');
+                if (!parsedTraits.isUGCStyle) fallbackPrediction.recommendations.push('Consider using UGC-style content for +15% engagement');
+                if (!parsedTraits.hasSubtitles) fallbackPrediction.recommendations.push('Add subtitles/captions for +12% watch time');
 
                 setPrediction(fallbackPrediction);
             }
         } catch (error) {
             console.error('Prediction error:', error);
-            // Set a basic fallback prediction on error
             setPrediction({
                 success_probability: 65,
                 confidence: 40,
@@ -361,47 +273,67 @@ export default function PredictPage() {
         setIsAnalyzing(false);
     };
 
-    const selectOption = (category: string, value: string) => {
-        setInputs(prev => ({ ...prev, [category]: value }));
-    };
-
     const resetPrediction = () => {
         setPrediction(null);
         setRiskAssessment(null);
-        setSelectedAd(null);
-        setUploadedFile(null);
-        setUploadPreview(null);
-        setPrimaryText('');
-        setHeadline('');
-        setInputs({
-            hook_type: '',
-            editing_style: '',
-            content_category: '',
-            color_scheme: 'vibrant',
-            music_type: 'trending',
-            text_overlays: true,
-            subtitles: true,
-            ugc_style: true,
-            influencer_used: false,
-            voiceover: true,
-            number_of_actors: 1,
-            platform: '',
-            launch_day: 'thursday',
-            launch_time: 'evening',
-        });
+        setParsedTraits(null);
+        setAdDescription('');
+        setParseError(null);
     };
 
-    // Filter ads based on search
-    const filteredAds = existingAds.filter(ad =>
-        getAdName(ad).toLowerCase().includes(adSearchQuery.toLowerCase())
-    );
+    // Format trait label for display
+    const formatTraitLabel = (key: string, value: unknown): string => {
+        if (typeof value === 'boolean') {
+            return value ? '✓ Yes' : '✗ No';
+        }
+        if (typeof value === 'string') {
+            return value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+        return String(value);
+    };
+
+    // Get trait icon
+    const getTraitIcon = (key: string): string => {
+        const icons: Record<string, string> = {
+            hookType: '🎣',
+            editingStyle: '✂️',
+            contentCategory: '📁',
+            platform: '📱',
+            hasSubtitles: '📝',
+            hasTextOverlays: '💬',
+            isUGCStyle: '🎥',
+            hasVoiceover: '🎙️',
+            musicType: '🎵',
+            colorScheme: '🎨',
+            numberOfActors: '👤',
+        };
+        return icons[key] || '•';
+    };
+
+    // Get trait display name
+    const getTraitName = (key: string): string => {
+        const names: Record<string, string> = {
+            hookType: 'Hook Type',
+            editingStyle: 'Editing Style',
+            contentCategory: 'Content Category',
+            platform: 'Target Platform',
+            hasSubtitles: 'Subtitles',
+            hasTextOverlays: 'Text Overlays',
+            isUGCStyle: 'UGC Style',
+            hasVoiceover: 'Voiceover',
+            musicType: 'Music Type',
+            colorScheme: 'Color Scheme',
+            numberOfActors: 'Number of Actors',
+        };
+        return names[key] || key;
+    };
 
     return (
         <div className={styles.page}>
             <header className={styles.header}>
                 <div>
                     <h1 className={styles.title}>🤖 GPT-Powered Predictions</h1>
-                    <p className={styles.subtitle}>Get AI-powered success predictions before creating your next ad</p>
+                    <p className={styles.subtitle}>Describe your ad and let AI predict its success</p>
                 </div>
                 <div className={styles.modelInfo}>
                     <div className={styles.modelStatus}>
@@ -414,379 +346,57 @@ export default function PredictPage() {
 
             {!prediction ? (
                 <div className={styles.inputSection}>
-                    {/* Source Selection Tabs */}
-                    <div className={styles.sourceTabs}>
-                        <button
-                            className={`${styles.sourceTab} ${sourceMode === 'configure' ? styles.active : ''}`}
-                            onClick={() => setSourceMode('configure')}
-                        >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M12 3h7a2 2 0 012 2v14a2 2 0 01-2 2h-7m0-18H5a2 2 0 00-2 2v14a2 2 0 002 2h7m0-18v18" />
-                            </svg>
-                            Configure Manually
-                        </button>
-                        <button
-                            className={`${styles.sourceTab} ${sourceMode === 'pick' ? styles.active : ''}`}
-                            onClick={() => setSourceMode('pick')}
-                        >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                                <circle cx="8.5" cy="8.5" r="1.5" />
-                                <polyline points="21 15 16 10 5 21" />
-                            </svg>
-                            Pick Existing Ad
-                        </button>
-                        <button
-                            className={`${styles.sourceTab} ${sourceMode === 'upload' ? styles.active : ''}`}
-                            onClick={() => setSourceMode('upload')}
-                        >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                <polyline points="17 8 12 3 7 8" />
-                                <line x1="12" y1="3" x2="12" y2="15" />
-                            </svg>
-                            Upload New Ad
-                        </button>
-                    </div>
-
-                    {/* Pick Existing Ad Mode */}
-                    {sourceMode === 'pick' && (
-                        <div className={`glass-card ${styles.pickSection}`}>
-                            <h3>Select an Ad from Your Library</h3>
-                            <p className={styles.muted}>Choose an existing ad to predict its performance with current traits</p>
-
-                            <div className={styles.adSearchBox}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <circle cx="11" cy="11" r="8" />
-                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                                </svg>
-                                <input
-                                    type="text"
-                                    placeholder="Search your ads..."
-                                    value={adSearchQuery}
-                                    onChange={(e) => setAdSearchQuery(e.target.value)}
-                                />
-                            </div>
-
-                            {filteredAds.length === 0 ? (
-                                <div className={styles.emptyAds}>
-                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                                        <polygon points="23 7 16 12 23 17 23 7" />
-                                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                                    </svg>
-                                    <p>No ads found. <a href="/upload">Upload an ad</a> or <a href="/import">import from Facebook</a>.</p>
-                                </div>
-                            ) : (
-                                <div className={styles.adGrid}>
-                                    {filteredAds.slice(0, 12).map(ad => (
-                                        <div
-                                            key={ad.id}
-                                            className={`${styles.adCard} ${selectedAd?.id === ad.id ? styles.selected : ''}`}
-                                            onClick={() => handleSelectAd(ad)}
-                                        >
-                                            <div className={styles.adThumbnail}>
-                                                {ad.thumbnailUrl ? (
-                                                    <img src={ad.thumbnailUrl} alt={getAdName(ad)} />
-                                                ) : (
-                                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                        <polygon points="5 3 19 12 5 21 5 3" />
-                                                    </svg>
-                                                )}
-                                            </div>
-                                            <div className={styles.adInfo}>
-                                                <span className={styles.adName}>{getAdName(ad)}</span>
-                                                <span className={styles.adMeta}>
-                                                    {ad.importedFromFacebook ? '📊 Facebook' : '📤 Uploaded'}
-                                                </span>
-                                            </div>
-                                            {selectedAd?.id === ad.id && (
-                                                <div className={styles.selectedCheck}>✓</div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {selectedAd && (
-                                <div className={styles.selectedAdPreview}>
-                                    <h4>Selected: {getAdName(selectedAd)}</h4>
-                                    <p className={styles.muted}>Traits have been auto-populated. You can adjust them below.</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Upload New Ad Mode */}
-                    {sourceMode === 'upload' && (
-                        <div className={`glass-card ${styles.uploadSection}`}>
-                            <h3>Upload Ad Creative</h3>
-                            <p className={styles.muted}>Upload an image or video to analyze its traits</p>
-
-                            <div
-                                className={`${styles.dropzone} ${isDragging ? styles.dragging : ''} ${uploadPreview ? styles.hasFile : ''}`}
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={handleDrop}
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*,video/*"
-                                    onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-                                    style={{ display: 'none' }}
-                                />
-
-                                {uploadPreview ? (
-                                    <div className={styles.uploadPreview}>
-                                        {uploadedFile?.type.startsWith('video/') ? (
-                                            <video src={uploadPreview} controls style={{ maxHeight: '200px', borderRadius: '8px' }} />
-                                        ) : (
-                                            <img src={uploadPreview} alt="Preview" style={{ maxHeight: '200px', borderRadius: '8px' }} />
-                                        )}
-                                        <button
-                                            className="btn btn-ghost btn-sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setUploadedFile(null);
-                                                setUploadPreview(null);
-                                            }}
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                            <polyline points="17 8 12 3 7 8" />
-                                            <line x1="12" y1="3" x2="12" y2="15" />
-                                        </svg>
-                                        <p>Drag & drop your image or video</p>
-                                        <span className={styles.muted}>or click to browse</span>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Ad Copy Section (Optional) */}
-                    <div className={`glass-card ${styles.adCopySection}`}>
-                        <h3>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    {/* Document Input Section */}
+                    <div className={`glass-card ${styles.inputCard}`}>
+                        <h2>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                                 <polyline points="14 2 14 8 20 8" />
                                 <line x1="16" y1="13" x2="8" y2="13" />
                                 <line x1="16" y1="17" x2="8" y2="17" />
                                 <polyline points="10 9 9 9 8 9" />
                             </svg>
-                            Ad Copy <span className={styles.optional}>(Optional)</span>
-                        </h3>
-                        <p className={styles.muted}>Add your ad text for more accurate predictions based on messaging analysis</p>
+                            Describe Your Ad
+                        </h2>
+                        <p className={styles.muted}>
+                            Tell us about your ad in natural language. Include details about the hook, style, platform, content type, and any features. Our AI will extract the relevant traits automatically.
+                        </p>
 
-                        <div className={styles.adCopyInputs}>
-                            <div className="form-group">
-                                <label className="form-label">Headline</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="e.g., Stop Scrolling! This Will Change Your Life..."
-                                    value={headline}
-                                    onChange={(e) => setHeadline(e.target.value)}
-                                    maxLength={150}
-                                />
-                                <span className={styles.charCount}>{headline.length}/150</span>
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label">Primary Text</label>
-                                <textarea
-                                    className="form-textarea"
-                                    placeholder="Enter your ad's primary text/body copy here. The more context you provide, the better the prediction accuracy."
-                                    value={primaryText}
-                                    onChange={(e) => setPrimaryText(e.target.value)}
-                                    rows={4}
-                                    maxLength={500}
-                                />
-                                <span className={styles.charCount}>{primaryText.length}/500</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Configuration Section */}
-                    <div className={`glass-card ${styles.inputCard}`}>
-                        <h2>Configure Ad Traits</h2>
-                        <p>Select the characteristics of your ad to get a prediction</p>
-
-                        {/* Hook Type */}
-                        <div className={styles.optionSection}>
-                            <h3>Hook Type <span className={styles.required}>*</span></h3>
-                            <div className={styles.optionGrid}>
-                                {QUICK_OPTIONS.hook_types.map(option => (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        className={`${styles.optionButton} ${inputs.hook_type === option.value ? styles.selected : ''}`}
-                                        onClick={() => selectOption('hook_type', option.value)}
-                                    >
-                                        <span className={styles.optionLabel}>{option.label}</span>
-                                        <span className={styles.optionScore}>{option.score}%</span>
-                                    </button>
-                                ))}
+                        <div className={styles.documentInputWrapper}>
+                            <textarea
+                                className={styles.documentInput}
+                                placeholder="Example: I'm creating a TikTok ad with a shocking hook that grabs attention in the first second. It's UGC-style content featuring a customer testimonial with fast cuts and trending music. The video has subtitles throughout and text overlays highlighting key benefits. There's a voiceover narrating the customer's experience..."
+                                value={adDescription}
+                                onChange={(e) => {
+                                    setAdDescription(e.target.value);
+                                    setParsedTraits(null);
+                                    setParseError(null);
+                                }}
+                                rows={8}
+                            />
+                            <div className={styles.charCount}>
+                                {adDescription.length} characters
                             </div>
                         </div>
 
-                        {/* Editing Style */}
-                        <div className={styles.optionSection}>
-                            <h3>Editing Style <span className={styles.required}>*</span></h3>
-                            <div className={styles.optionGrid}>
-                                {QUICK_OPTIONS.editing_styles.map(option => (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        className={`${styles.optionButton} ${inputs.editing_style === option.value ? styles.selected : ''}`}
-                                        onClick={() => selectOption('editing_style', option.value)}
-                                    >
-                                        <span className={styles.optionLabel}>{option.label}</span>
-                                        <span className={styles.optionScore}>{option.score}%</span>
-                                    </button>
-                                ))}
+                        {parseError && (
+                            <div className={styles.parseError}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                                {parseError}
                             </div>
-                        </div>
-
-                        {/* Content Category */}
-                        <div className={styles.optionSection}>
-                            <h3>Content Category <span className={styles.required}>*</span></h3>
-                            <div className={styles.optionGrid}>
-                                {QUICK_OPTIONS.content_categories.map(option => (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        className={`${styles.optionButton} ${inputs.content_category === option.value ? styles.selected : ''}`}
-                                        onClick={() => selectOption('content_category', option.value)}
-                                    >
-                                        <span className={styles.optionLabel}>{option.label}</span>
-                                        <span className={styles.optionScore}>{option.score}%</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Platform */}
-                        <div className={styles.optionSection}>
-                            <h3>Target Platform <span className={styles.required}>*</span></h3>
-                            <div className={styles.optionGrid}>
-                                {QUICK_OPTIONS.platforms.map(option => (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        className={`${styles.optionButton} ${inputs.platform === option.value ? styles.selected : ''}`}
-                                        onClick={() => selectOption('platform', option.value)}
-                                    >
-                                        <span className={styles.optionLabel}>{option.label}</span>
-                                        <span className={styles.optionScore}>{option.score}%</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Video Features */}
-                        <div className={styles.optionSection}>
-                            <h3>Video Features</h3>
-                            <div className={styles.toggleGrid}>
-                                <label className={styles.toggleOption}>
-                                    <span>🎬 UGC Style</span>
-                                    <label className="toggle">
-                                        <input
-                                            type="checkbox"
-                                            checked={inputs.ugc_style}
-                                            onChange={(e) => setInputs(prev => ({ ...prev, ugc_style: e.target.checked }))}
-                                        />
-                                        <span className="toggle-slider"></span>
-                                    </label>
-                                </label>
-
-                                <label className={styles.toggleOption}>
-                                    <span>📝 Subtitles</span>
-                                    <label className="toggle">
-                                        <input
-                                            type="checkbox"
-                                            checked={inputs.subtitles}
-                                            onChange={(e) => setInputs(prev => ({ ...prev, subtitles: e.target.checked }))}
-                                        />
-                                        <span className="toggle-slider"></span>
-                                    </label>
-                                </label>
-
-                                <label className={styles.toggleOption}>
-                                    <span>💬 Text Overlays</span>
-                                    <label className="toggle">
-                                        <input
-                                            type="checkbox"
-                                            checked={inputs.text_overlays}
-                                            onChange={(e) => setInputs(prev => ({ ...prev, text_overlays: e.target.checked }))}
-                                        />
-                                        <span className="toggle-slider"></span>
-                                    </label>
-                                </label>
-
-                                <label className={styles.toggleOption}>
-                                    <span>🎙️ Voiceover</span>
-                                    <label className="toggle">
-                                        <input
-                                            type="checkbox"
-                                            checked={inputs.voiceover}
-                                            onChange={(e) => setInputs(prev => ({ ...prev, voiceover: e.target.checked }))}
-                                        />
-                                        <span className="toggle-slider"></span>
-                                    </label>
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* Launch Settings */}
-                        <div className={styles.optionSection}>
-                            <h3>Launch Settings</h3>
-                            <div className={styles.launchGrid}>
-                                <div className="form-group">
-                                    <label className="form-label">Music Type</label>
-                                    <select
-                                        className="form-select"
-                                        value={inputs.music_type}
-                                        onChange={(e) => setInputs(prev => ({ ...prev, music_type: e.target.value as MusicType }))}
-                                    >
-                                        <option value="trending">📈 Trending</option>
-                                        <option value="upbeat">🎉 Upbeat</option>
-                                        <option value="emotional">❤️ Emotional</option>
-                                        <option value="voiceover_only">🎙️ Voiceover Only</option>
-                                        <option value="original">🎵 Original</option>
-                                    </select>
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label">Launch Time</label>
-                                    <select
-                                        className="form-select"
-                                        value={inputs.launch_time}
-                                        onChange={(e) => setInputs(prev => ({ ...prev, launch_time: e.target.value as TimeOfDay }))}
-                                    >
-                                        <option value="early_morning">🌅 Early Morning (5-8 AM)</option>
-                                        <option value="morning">☀️ Morning (8 AM-12 PM)</option>
-                                        <option value="afternoon">🌤️ Afternoon (12-5 PM)</option>
-                                        <option value="evening">🌆 Evening (5-9 PM)</option>
-                                        <option value="night">🌙 Night (9 PM-5 AM)</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
+                        )}
 
                         <button
-                            className="btn btn-primary btn-lg"
-                            onClick={handlePredict}
-                            disabled={isAnalyzing}
-                            style={{ width: '100%', marginTop: 'var(--spacing-lg)' }}
+                            className="btn btn-secondary"
+                            onClick={parseAdDescription}
+                            disabled={isParsing || !adDescription.trim()}
+                            style={{ marginTop: 'var(--spacing-md)' }}
                         >
-                            {isAnalyzing ? (
+                            {isParsing ? (
                                 <>
                                     <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M21 12a9 9 0 11-6.219-8.56" />
@@ -799,11 +409,59 @@ export default function PredictPage() {
                                         <path d="M12 4.5a2.5 2.5 0 00-4.96-.46 2.5 2.5 0 00-1.98 3 2.5 2.5 0 00-1.32 4.24 3 3 0 00.34 5.58 2.5 2.5 0 002.96 3.08A2.5 2.5 0 0012 19.5" />
                                         <path d="M12 4.5a2.5 2.5 0 014.96-.46 2.5 2.5 0 011.98 3 2.5 2.5 0 011.32 4.24 3 3 0 01-.34 5.58 2.5 2.5 0 01-2.96 3.08A2.5 2.5 0 0112 19.5" />
                                     </svg>
-                                    Get AI Prediction
+                                    Extract Ad Traits
                                 </>
                             )}
                         </button>
                     </div>
+
+                    {/* Parsed Traits Display */}
+                    {parsedTraits && (
+                        <div className={`glass-card ${styles.parsedTraitsCard}`}>
+                            <h3>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                                    <polyline points="22 4 12 14.01 9 11.01" />
+                                </svg>
+                                Extracted Ad Traits
+                            </h3>
+                            <p className={styles.muted}>AI has identified the following traits from your description. Review and proceed to get your prediction.</p>
+
+                            <div className={styles.traitsGrid}>
+                                {Object.entries(parsedTraits).map(([key, value]) => (
+                                    <div key={key} className={styles.traitItem}>
+                                        <span className={styles.traitIcon}>{getTraitIcon(key)}</span>
+                                        <span className={styles.traitName}>{getTraitName(key)}</span>
+                                        <span className={styles.traitValue}>{formatTraitLabel(key, value)}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <button
+                                className="btn btn-primary btn-lg"
+                                onClick={handlePredict}
+                                disabled={isAnalyzing}
+                                style={{ width: '100%', marginTop: 'var(--spacing-lg)' }}
+                            >
+                                {isAnalyzing ? (
+                                    <>
+                                        <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M21 12a9 9 0 11-6.219-8.56" />
+                                        </svg>
+                                        Getting Prediction...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M12 4.5a2.5 2.5 0 00-4.96-.46 2.5 2.5 0 00-1.98 3 2.5 2.5 0 00-1.32 4.24 3 3 0 00.34 5.58 2.5 2.5 0 002.96 3.08A2.5 2.5 0 0012 19.5" />
+                                            <path d="M12 4.5a2.5 2.5 0 014.96-.46 2.5 2.5 0 011.98 3 2.5 2.5 0 011.32 4.24 3 3 0 01-.34 5.58 2.5 2.5 0 01-2.96 3.08A2.5 2.5 0 0112 19.5" />
+                                        </svg>
+                                        Get AI Prediction
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className={styles.resultSection}>
@@ -955,6 +613,7 @@ export default function PredictPage() {
                             </div>
                         </div>
                     )}
+
                     {/* Actions */}
                     <div className={styles.resultActions}>
                         <button className="btn btn-secondary" onClick={resetPrediction}>
@@ -962,7 +621,7 @@ export default function PredictPage() {
                                 <polyline points="1 4 1 10 7 10" />
                                 <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
                             </svg>
-                            Try Different Settings
+                            Try Different Ad
                         </button>
                         <a href="/upload" className="btn btn-primary">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

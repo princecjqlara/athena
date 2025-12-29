@@ -27,6 +27,13 @@ export async function POST(request: NextRequest) {
         prompt = buildPredictionPrompt(data);
         break;
 
+      case 'parse_ad_traits':
+        systemMessage = `You are an expert AI advertising analyst. Extract ad traits from natural language descriptions.
+        Identify the hook type, editing style, content category, platform, and various features from user descriptions.
+        Always respond with valid JSON. Be thorough in your analysis and make reasonable inferences.`;
+        prompt = buildTraitExtractionPrompt(data.description);
+        break;
+
       case 'analyze-patterns':
         systemMessage = 'You are an expert advertising analyst. Analyze video ad data and identify winning patterns. Respond only with valid JSON.';
         prompt = buildPatternPrompt(data);
@@ -284,6 +291,37 @@ Return a JSON object with exactly this structure:
   "recommendations": ["<recommendation 1>", "<recommendation 2>", ...],
   "reasoning": "<brief explanation of the prediction>"
 }`;
+}
+
+function buildTraitExtractionPrompt(description: string): string {
+  return `Extract ad traits from this natural language description of an ad:
+
+"${description}"
+
+Analyze the description and identify all relevant ad traits. Make reasonable inferences based on context clues.
+
+Return a JSON object with exactly this structure (use the most appropriate value for each field):
+{
+  "hookType": "curiosity" | "shock" | "before_after" | "question" | "story",
+  "editingStyle": "raw_authentic" | "fast_cuts" | "dynamic" | "cinematic",
+  "contentCategory": "ugc" | "testimonial" | "lifestyle" | "product_demo",
+  "platform": "tiktok" | "instagram" | "youtube" | "facebook",
+  "hasSubtitles": true | false,
+  "hasTextOverlays": true | false,
+  "isUGCStyle": true | false,
+  "hasVoiceover": true | false,
+  "musicType": "trending" | "upbeat" | "emotional" | "voiceover_only" | "original",
+  "colorScheme": "vibrant" | "muted" | "dark" | "bright" | "natural",
+  "numberOfActors": <number>,
+  "confidence": <0-100 how confident you are in the extraction>,
+  "reasoning": "<brief explanation of your analysis>"
+}
+
+Important guidelines:
+- "hookType": What grabs attention first (curiosity = makes viewer want to know more, shock = surprising/unexpected, before_after = transformation, question = asks a question, story = narrative-driven)
+- "editingStyle": How the video is cut (raw_authentic = minimal editing, fast_cuts = quick transitions, dynamic = energetic with effects, cinematic = polished/professional)
+- "contentCategory": Type of content (ugc = user-generated content, testimonial = customer review/story, lifestyle = aspirational, product_demo = showing how product works)
+- Default to common high-performing traits if unclear (tiktok, ugc, curiosity, raw_authentic, subtitles: true)`;
 }
 
 function buildPatternPrompt(videos: Array<{

@@ -928,3 +928,151 @@
 .form-textarea::placeholder {
     color: var(--text-muted);
 }
+
+/* ============================================
+   NEW: Document Input Section
+   ============================================ */
+.inputCard h2 {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.inputCard h2 svg {
+    color: var(--accent-primary);
+}
+
+.documentInputWrapper {
+    position: relative;
+    margin: var(--spacing-lg) 0;
+}
+
+.documentInput {
+    width: 100%;
+    min-height: 200px;
+    padding: var(--spacing-lg);
+    padding-bottom: var(--spacing-2xl);
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-xl);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+    line-height: 1.6;
+    resize: vertical;
+    transition: all var(--transition-fast);
+}
+
+.documentInput:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+    background: var(--bg-secondary);
+}
+
+.documentInput::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+    line-height: 1.6;
+}
+
+.documentInputWrapper .charCount {
+    position: absolute;
+    right: var(--spacing-md);
+    bottom: var(--spacing-md);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+}
+
+.parseError {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-lg);
+    color: var(--error);
+    font-size: 0.875rem;
+    margin-top: var(--spacing-md);
+}
+
+.parseError svg {
+    flex-shrink: 0;
+}
+
+/* ============================================
+   NEW: Parsed Traits Card
+   ============================================ */
+.parsedTraitsCard {
+    padding: var(--spacing-xl);
+    margin-top: var(--spacing-lg);
+    border: 2px solid var(--success);
+    background: rgba(34, 197, 94, 0.05);
+}
+
+.parsedTraitsCard h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-xs);
+    color: var(--success);
+}
+
+.parsedTraitsCard h3 svg {
+    color: var(--success);
+}
+
+.parsedTraitsCard>p {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin-bottom: var(--spacing-lg);
+}
+
+.traitsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.traitItem {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    transition: all var(--transition-fast);
+}
+
+.traitItem:hover {
+    border-color: var(--accent-primary);
+    background: var(--bg-card-hover);
+}
+
+.traitIcon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.traitName {
+    flex: 1;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.traitValue {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+}
