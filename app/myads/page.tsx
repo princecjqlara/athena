@@ -54,6 +54,17 @@ interface Ad {
     impressions?: number;
     spend?: number;
     hasResults?: boolean;
+    // AI Prediction fields
+    predictedScore?: number;
+    predictionDetails?: {
+        globalScore: number;
+        bestSegment: { segmentId: string; segmentName: string; score: number } | null;
+        segmentScores: { segmentId: string; segmentName: string; score: number }[];
+        confidence: number;
+        keyFactors: Array<{ factor: string; impact: 'positive' | 'negative' | 'neutral'; weight: number }>;
+        recommendations: string[];
+    } | null;
+    predictionGeneratedAt?: string;
 }
 
 // Status options for dropdown
@@ -664,9 +675,26 @@ Ad description: ${adDescription}`,
                                                                 <div style={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getAdName(ad)}</div>
                                                                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{ad.importedFromFacebook ? '📊 Imported' : '📤 Uploaded'}</div>
                                                             </div>
-                                                            {ad.successScore && (
-                                                                <span className="tag tag-primary" style={{ fontSize: '0.7rem', fontWeight: 600 }}>{ad.successScore}%</span>
-                                                            )}
+                                                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                                {ad.predictedScore && (
+                                                                    <span
+                                                                        className="tag"
+                                                                        style={{
+                                                                            fontSize: '0.65rem',
+                                                                            fontWeight: 600,
+                                                                            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.3))',
+                                                                            color: '#a78bfa',
+                                                                            border: '1px solid rgba(168, 85, 247, 0.4)'
+                                                                        }}
+                                                                        title={`AI Prediction: ${ad.predictedScore}%\nConfidence: ${ad.predictionDetails?.confidence || 0}%\n${ad.predictionDetails?.recommendations?.slice(0, 2).join('\n') || ''}`}
+                                                                    >
+                                                                        🤖 {ad.predictedScore}%
+                                                                    </span>
+                                                                )}
+                                                                {ad.successScore && (
+                                                                    <span className="tag tag-primary" style={{ fontSize: '0.7rem', fontWeight: 600 }}>{ad.successScore}%</span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         {/* Detailed Metrics Grid */}
                                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-xs)', fontSize: '0.7rem' }}>
@@ -774,10 +802,20 @@ Ad description: ${adDescription}`,
                                             <span className={styles.videoStatLabel}>Spend</span>
                                             <span className={styles.videoStatValue}>₱{getAdSpend(ad).toFixed(0)}</span>
                                         </div>
+                                        {ad.predictedScore && (
+                                            <div
+                                                className={styles.videoStat}
+                                                title={`AI Prediction\nConfidence: ${ad.predictionDetails?.confidence || 0}%\n${ad.predictionDetails?.recommendations?.slice(0, 2).join('\n') || ''}`}
+                                                style={{ cursor: 'help' }}
+                                            >
+                                                <span className={styles.videoStatLabel}>🤖 AI</span>
+                                                <span className={styles.videoStatValue} style={{ color: '#a78bfa' }}>{ad.predictedScore}%</span>
+                                            </div>
+                                        )}
                                         {ad.successScore && (
                                             <div
                                                 className={styles.videoStat}
-                                                title={ad.scoreReasoning?.join(' • ') || 'AI Score'}
+                                                title={ad.scoreReasoning?.join(' • ') || 'Performance Score'}
                                                 style={{ cursor: 'help' }}
                                             >
                                                 <span className={styles.videoStatLabel}>Score</span>

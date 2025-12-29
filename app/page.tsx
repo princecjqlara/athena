@@ -356,14 +356,14 @@ export default function Dashboard() {
             </div>
             <span>Input Ad Results</span>
           </a>
-          <a href="/predict" className={`glass-card ${styles.actionCard}`}>
+          <a href="/myads" className={`glass-card ${styles.actionCard}`}>
             <div className={styles.actionIcon}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
+                <path d="M12 4.5a2.5 2.5 0 00-4.96-.46 2.5 2.5 0 00-1.98 3 2.5 2.5 0 00-1.32 4.24 3 3 0 00.34 5.58 2.5 2.5 0 002.96 3.08A2.5 2.5 0 0012 19.5" />
+                <path d="M12 4.5a2.5 2.5 0 014.96-.46 2.5 2.5 0 011.98 3 2.5 2.5 0 011.32 4.24 3 3 0 01-.34 5.58 2.5 2.5 0 01-2.96 3.08A2.5 2.5 0 0112 19.5" />
               </svg>
             </div>
-            <span>Get Predictions</span>
+            <span>AI Insights</span>
           </a>
           <a href="/videos" className={`glass-card ${styles.actionCard}`}>
             <div className={styles.actionIcon}>

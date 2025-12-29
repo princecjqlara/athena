@@ -151,7 +151,7 @@ Keep responses concise but valuable.`;
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+        model: 'openai/gpt-oss-120b',
         messages: [
           { role: 'system', content: systemMessage },
           { role: 'user', content: prompt }
@@ -657,7 +657,7 @@ async function handleChatResponse(
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+        model: 'openai/gpt-oss-120b',
         messages: [
           { role: 'system', content: systemMessage },
           { role: 'user', content: prompt }

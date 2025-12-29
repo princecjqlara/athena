@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import styles from './page.module.css';
 import { DEFAULT_CATEGORIES } from '@/types/extended-ad';
+import { generateAdPrediction, adjustPredictionWithMetrics, AdPrediction } from '@/lib/prediction-utils';
 
 interface FacebookMetrics {
     // Core Delivery & Reach
@@ -211,6 +212,15 @@ interface StoredAd {
     scoreReasoning?: string[];  // AI reasoning for the score
     hasResults?: boolean;
     lastSyncedAt?: string;
+    // AI Prediction fields
+    predictedScore?: number;
+    predictionDetails?: AdPrediction['predictionDetails'];
+    riskAssessment?: AdPrediction['riskAssessment'];
+    predictionGeneratedAt?: string;
+    extractedContent?: Record<string, unknown>;
+    categories?: string[];
+    traits?: string[];
+    mediaType?: string;
 }
 
 export default function ImportPage() {
@@ -745,7 +755,34 @@ ${m.messagesStarted ? `• Messages Started: ${m.messagesStarted}` : ''}
 
             // Save updated ads
             localStorage.setItem('ads', JSON.stringify(updatedAds));
-            setSyncMessage(`Synced ${updatedCount} ads with latest results from Facebook!`);
+
+            // Auto-update AI predictions for synced ads with new metrics
+            console.log('[Sync] 🤖 Updating AI predictions with synced metrics...');
+            let predictionsUpdated = 0;
+            try {
+                for (const ad of updatedAds) {
+                    if (ad.facebookAdId && ad.adInsights && ad.lastSyncedAt === new Date().toISOString().split('T')[0]) {
+                        // Re-generate prediction with updated metrics
+                        const basePrediction = await generateAdPrediction(ad as unknown as Record<string, unknown>);
+                        const adjustedPrediction = adjustPredictionWithMetrics(basePrediction, ad.adInsights as Record<string, unknown>);
+
+                        ad.predictedScore = adjustedPrediction.predictedScore;
+                        ad.predictionDetails = adjustedPrediction.predictionDetails;
+                        ad.riskAssessment = adjustedPrediction.riskAssessment;
+                        ad.predictionGeneratedAt = adjustedPrediction.generatedAt;
+                        predictionsUpdated++;
+                    }
+                }
+
+                if (predictionsUpdated > 0) {
+                    localStorage.setItem('ads', JSON.stringify(updatedAds));
+                    console.log(`[Sync] ✅ Updated ${predictionsUpdated} AI predictions with latest metrics`);
+                }
+            } catch (predError) {
+                console.error('[Sync] Error updating predictions:', predError);
+            }
+
+            setSyncMessage(`Synced ${updatedCount} ads with latest results from Facebook!${predictionsUpdated > 0 ? ` Updated ${predictionsUpdated} predictions.` : ''}`);
 
             // Clear message after 3 seconds
             setTimeout(() => setSyncMessage(null), 3000);
@@ -1004,6 +1041,11 @@ ${m.messagesStarted ? `• Messages Started: ${m.messagesStarted}` : ''}
                 demographics: fbAd.demographics || [],
                 placements: fbAd.placements || [],
                 regions: fbAd.regions || [],
+                // Daily performance history (day-by-day metrics)
+                dailyMetrics: fbAd.dailyMetrics || [],
+                // Device/Platform breakdown
+                byDevice: fbAd.byDevice || [],
+                byPlatform: fbAd.byPlatform || [],
                 // Status flags
                 hasResults: !!fbAd.metrics && (fbAd.metrics.impressions > 0 || fbAd.metrics.clicks > 0),
                 successScore,
@@ -1330,6 +1372,36 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
             if (totalExpectedLeads > 0 && leadsCreated === 0) {
                 console.log(`[Import] ⚠️ No leads could be fetched for ${adName}`);
             }
+        }
+
+        // Auto-generate AI predictions for all imported ads
+        console.log('[Import] 🤖 Generating AI predictions for imported ads...');
+        try {
+            const storedAds = JSON.parse(localStorage.getItem('ads') || '[]');
+            let predictionsGenerated = 0;
+
+            for (const ad of storedAds) {
+                // Only generate predictions for newly imported ads (those without predictions)
+                if (ad.facebookAdId && !ad.predictionDetails && newAds.some((n: any) => n.facebookAdId === ad.facebookAdId)) {
+                    try {
+                        const prediction = await generateAdPrediction(ad);
+                        ad.predictedScore = prediction.predictedScore;
+                        ad.predictionDetails = prediction.predictionDetails;
+                        ad.riskAssessment = prediction.riskAssessment;
+                        ad.predictionGeneratedAt = prediction.generatedAt;
+                        predictionsGenerated++;
+                    } catch (predErr) {
+                        console.error('[Import] Prediction error for ad:', ad.name, predErr);
+                    }
+                }
+            }
+
+            if (predictionsGenerated > 0) {
+                localStorage.setItem('ads', JSON.stringify(storedAds));
+                console.log(`[Import] ✅ Generated ${predictionsGenerated} AI predictions`);
+            }
+        } catch (predError) {
+            console.error('[Import] Error generating predictions:', predError);
         }
 
         // Reset state

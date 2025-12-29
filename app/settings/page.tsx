@@ -8,6 +8,7 @@ import FacebookLogin from '@/components/FacebookLogin';
 import { saveToCloud, loadFromCloud, exportBackup, importBackup, getLastSyncTime, getUserId } from '@/lib/sync';
 import { checkTokenStatus, getTokenExpiryDisplay, TokenStatus } from '@/lib/token';
 import AIPreferencesPanel from '@/components/settings/AIPreferencesPanel';
+import { useTheme } from '@/components/ThemeProvider';
 
 // Facebook App ID - set in environment variable
 const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
@@ -52,6 +53,9 @@ export default function SettingsPage() {
 
     // Token Status
     const [tokenStatus, setTokenStatus] = useState<TokenStatus | null>(null);
+
+    // Theme - using the ThemeProvider context
+    const { resolvedTheme, toggleTheme } = useTheme();
 
     // Load saved API settings from localStorage
     useEffect(() => {
@@ -836,6 +840,70 @@ export default function SettingsPage() {
                             accept=".json"
                             style={{ display: 'none' }}
                         />
+                    </div>
+                </div>
+
+                {/* Appearance Settings */}
+                <div className={`glass-card ${styles.settingsCard}`}>
+                    <div className={styles.cardHeader}>
+                        <div className={styles.cardIcon} style={{ background: 'linear-gradient(135deg, #f59e0b, #14b8a6)' }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                                <circle cx="12" cy="12" r="5" />
+                                <line x1="12" y1="1" x2="12" y2="3" />
+                                <line x1="12" y1="21" x2="12" y2="23" />
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                                <line x1="1" y1="12" x2="3" y2="12" />
+                                <line x1="21" y1="12" x2="23" y2="12" />
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3>🎨 Appearance</h3>
+                            <p>Customize the look and feel</p>
+                        </div>
+                    </div>
+
+                    <div style={{ padding: 'var(--spacing-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                            <p style={{ fontWeight: 600, marginBottom: '4px' }}>
+                                {resolvedTheme === 'dark' ? '🌙 Dark Mode' : '☀️ Light Mode'}
+                            </p>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                {resolvedTheme === 'dark' ? 'Using dark theme for reduced eye strain' : 'Using light theme for better visibility'}
+                            </p>
+                        </div>
+                        <button
+                            onClick={toggleTheme}
+                            style={{
+                                width: '60px',
+                                height: '32px',
+                                borderRadius: '16px',
+                                border: 'none',
+                                background: resolvedTheme === 'dark' ? 'var(--accent-primary)' : 'rgba(0,0,0,0.2)',
+                                cursor: 'pointer',
+                                position: 'relative',
+                                transition: 'background 0.3s'
+                            }}
+                        >
+                            <div style={{
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '50%',
+                                background: 'white',
+                                position: 'absolute',
+                                top: '3px',
+                                left: resolvedTheme === 'dark' ? '31px' : '3px',
+                                transition: 'left 0.3s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '14px'
+                            }}>
+                                {resolvedTheme === 'dark' ? '🌙' : '☀️'}
+                            </div>
+                        </button>
                     </div>
                 </div>
 
