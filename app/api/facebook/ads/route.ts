@@ -83,35 +83,49 @@ export async function GET(request: NextRequest) {
                 try {
                     // Comprehensive insights fields - ALL available metrics
                     const insightsFields = [
-                        // Core
+                        // Core Delivery & Reach
                         'impressions', 'reach', 'frequency', 'spend',
                         'clicks', 'unique_clicks', 'ctr', 'unique_ctr',
                         'cpc', 'cpm', 'cpp',
-                        // Actions
+                        // Actions & Costs
                         'actions', 'action_values', 'cost_per_action_type',
                         'cost_per_unique_action_type',
-                        // Links
+                        // Links & Landing Pages
                         'inline_link_clicks', 'unique_inline_link_clicks',
-                        'inline_link_click_ctr', 'outbound_clicks',
+                        'inline_link_click_ctr', 'outbound_clicks', 'unique_outbound_clicks',
                         'cost_per_inline_link_click', 'cost_per_outbound_click',
+                        'cost_per_unique_click', 'cost_per_unique_inline_link_click',
                         // Engagement
                         'inline_post_engagement', 'social_spend',
-                        // Video
+                        // Video - Complete metrics
                         'video_play_actions', 'video_avg_time_watched_actions',
                         'video_p25_watched_actions', 'video_p50_watched_actions',
                         'video_p75_watched_actions', 'video_p95_watched_actions',
                         'video_p100_watched_actions', 'video_30_sec_watched_actions',
                         'video_thruplay_watched_actions',
                         'video_continuous_2_sec_watched_actions',
+                        'video_15_sec_watched_actions',
                         'cost_per_thruplay',
-                        // Quality
+                        // Quality Rankings
                         'quality_ranking', 'engagement_rate_ranking', 'conversion_rate_ranking',
                         // Ad Recall
                         'estimated_ad_recallers', 'estimated_ad_recall_rate',
                         'cost_per_estimated_ad_recallers',
-                        // Conversions
+                        // Conversions & ROAS
                         'conversions', 'conversion_values', 'cost_per_conversion',
-                        'purchase_roas', 'mobile_app_purchase_roas'
+                        'purchase_roas', 'mobile_app_purchase_roas', 'website_purchase_roas',
+                        // Catalog & Shopping
+                        'catalog_segment_actions', 'catalog_segment_value',
+                        // Interactive
+                        'interactive_component_tap',
+                        // Auction & Delivery
+                        'auction_competitiveness', 'auction_bid', 'auction_max_competitor_bid',
+                        // Full Funnel Website Events
+                        'website_ctr',
+                        // Unique metrics
+                        'unique_actions', 'unique_conversions',
+                        // Attribution
+                        'attribution_setting'
                     ].join(',');
 
                     // Main insights call
@@ -195,12 +209,56 @@ export async function GET(request: NextRequest) {
                     const costPerAddToCart = getCostPerAction('add_to_cart');
                     const costPerContentView = getCostPerAction('view_content');
 
-                    // Additional actions
-                    const contentViews = getAction('view_content');
-                    const completeRegistration = getAction('complete_registration');
+                    // Additional actions - Expanded for all conversion types
+                    const contentViews = getAction('view_content') || getAction('offsite_conversion.fb_pixel_view_content');
+                    const completeRegistration = getAction('complete_registration') || getAction('offsite_conversion.fb_pixel_complete_registration');
                     const phoneCalls = getAction('phone_call');
                     const postSaves = getAction('onsite_conversion.post_save');
                     const pageLikes = getAction('like');
+
+                    // App-specific metrics
+                    const appInstalls = getAction('mobile_app_install') || getAction('app_install');
+                    const appLaunches = getAction('app_use');
+                    const appEngagement = getAction('app_engagement');
+                    const mobileAppPurchases = getAction('mobile_app_purchase');
+                    const appCustomEvents = getAction('app_custom_event');
+
+                    // Messaging metrics - extended
+                    const messagingReplies = getAction('onsite_conversion.messaging_reply');
+                    const messagingBlocked = getAction('onsite_conversion.messaging_blocked');
+                    const messagingFirstReply = getAction('onsite_conversion.messaging_first_reply');
+
+                    // Lead form specific
+                    const leadFormOpens = getAction('leadgen_grouped');
+                    const onFacebookLeads = getAction('onsite_conversion.lead_grouped');
+
+                    // Additional website events
+                    const subscribe = getAction('subscribe') || getAction('offsite_conversion.fb_pixel_subscribe');
+                    const search = getAction('search') || getAction('offsite_conversion.fb_pixel_search');
+                    const addPaymentInfo = getAction('add_payment_info') || getAction('offsite_conversion.fb_pixel_add_payment_info');
+                    const contact = getAction('contact') || getAction('offsite_conversion.fb_pixel_contact');
+                    const donate = getAction('donate');
+                    const customizeProduct = getAction('customize_product');
+                    const startTrial = getAction('start_trial');
+                    const submitApplication = getAction('submit_application');
+                    const schedule = getAction('schedule');
+                    const findLocation = getAction('find_location');
+
+                    // Cost per additional actions
+                    const costPerAppInstall = getCostPerAction('mobile_app_install') || getCostPerAction('app_install');
+                    const costPerCompleteRegistration = getCostPerAction('complete_registration');
+                    const costPerThruPlay = getCostPerAction('video_view') > 0 ? parseFloat(insights.cost_per_thruplay?.[0]?.value) || 0 : 0;
+                    const costPerEngagement = getCostPerAction('post_engagement') || getCostPerAction('page_engagement');
+
+                    // ROAS values
+                    const purchaseRoasValue = parseFloat(insights.purchase_roas?.[0]?.value) || null;
+                    const websitePurchaseRoas = parseFloat(insights.website_purchase_roas?.[0]?.value) || null;
+                    const mobileAppPurchaseRoas = parseFloat(insights.mobile_app_purchase_roas?.[0]?.value) || null;
+
+                    // Auction and delivery metrics
+                    const auctionCompetitiveness = insights.auction_competitiveness || null;
+                    const auctionBid = insights.auction_bid || null;
+                    const auctionMaxCompetitorBid = insights.auction_max_competitor_bid || null;
 
                     // Determine primary result and cost per result
                     let primaryResult = 0;
