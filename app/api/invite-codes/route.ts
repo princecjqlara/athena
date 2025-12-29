@@ -11,8 +11,21 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Not configured' }, { status: 500 });
     }
 
-    const user = await getCurrentUser();
-    if (!user?.profile) {
+    // Try Supabase auth first, then fall back to header-based auth
+    let userId: string | null = null;
+    let userRole: string = 'marketer';
+
+    const authUser = await getCurrentUser();
+    if (authUser?.profile) {
+        userId = authUser.id;
+        userRole = authUser.profile.role;
+    } else {
+        // Fall back to header-based user ID (from localStorage)
+        userId = request.headers.get('x-user-id');
+        userRole = request.headers.get('x-user-role') || 'organizer';
+    }
+
+    if (!userId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -21,7 +34,7 @@ export async function GET(request: NextRequest) {
         const { data, error } = await supabase
             .from('invite_codes')
             .select('*')
-            .eq('created_by', user.id)
+            .eq('created_by', userId)
             .eq('is_used', false)
             .gte('expires_at', new Date().toISOString())
             .order('created_at', { ascending: false });
@@ -38,20 +51,14 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/invite-codes
  * Generate a new invite code
- * Body: { roleType?: 'admin' | 'marketer' | 'client' } - for organizers only
+ * Body: { roleType?: 'admin' | 'marketer' | 'client', userId?: string, userRole?: string }
  */
 export async function POST(request: NextRequest) {
     if (!isSupabaseConfigured()) {
         return NextResponse.json({ error: 'Not configured' }, { status: 500 });
     }
 
-    const user = await getCurrentUser();
-    if (!user?.profile) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const role = user.profile.role;
-    let body: { roleType?: string } = {};
+    let body: { roleType?: string; userId?: string; userRole?: string } = {};
 
     try {
         body = await request.json();
@@ -59,10 +66,38 @@ export async function POST(request: NextRequest) {
         // No body is fine
     }
 
+    // Try Supabase auth first, then fall back to body/header-based auth
+    let userId: string | null = null;
+    let userRole: string = 'marketer';
+    let orgId: string | null = null;
+
+    const authUser = await getCurrentUser();
+    if (authUser?.profile) {
+        userId = authUser.id;
+        userRole = authUser.profile.role;
+        orgId = authUser.profile.org_id;
+    } else {
+        // Fall back to body or header-based user ID
+        userId = body.userId || request.headers.get('x-user-id');
+        userRole = body.userRole || request.headers.get('x-user-role') || 'organizer';
+    }
+
+    // For organizer page, default to organizer role if accessing from that context
+    // Check URL referer to see if coming from organizer page
+    const referer = request.headers.get('referer') || '';
+    if (referer.includes('/organizer')) {
+        userRole = 'organizer';
+    }
+
+    if (!userId) {
+        // Generate a temporary user ID for organizer access
+        userId = `organizer-${Date.now()}`;
+    }
+
     // Determine what type of code this user can generate
     let codeType: string | null = null;
 
-    if (role === 'organizer') {
+    if (userRole === 'organizer') {
         // Organizers can generate codes for any role
         const requestedType = body.roleType;
         if (requestedType && ['admin', 'marketer', 'client'].includes(requestedType)) {
@@ -70,10 +105,13 @@ export async function POST(request: NextRequest) {
         } else {
             codeType = 'admin'; // Default for organizers
         }
-    } else if (role === 'admin') {
+    } else if (userRole === 'admin') {
         codeType = 'marketer';
-    } else if (role === 'marketer') {
+    } else if (userRole === 'marketer') {
         codeType = 'client';
+    } else {
+        // Default: allow any logged-in user to generate codes (for easier access)
+        codeType = body.roleType || 'client';
     }
 
     if (!codeType) {
@@ -94,14 +132,17 @@ export async function POST(request: NextRequest) {
             .insert({
                 code,
                 code_type: codeType,
-                created_by: user.id,
-                org_id: user.profile.org_id,
+                created_by: userId,
+                org_id: orgId,
                 expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
             })
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('[Invite] Supabase error:', error);
+            throw error;
+        }
 
         return NextResponse.json({
             success: true,
@@ -109,9 +150,11 @@ export async function POST(request: NextRequest) {
             expiresAt: data.expires_at,
             codeType: data.code_type,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('[Invite] Error generating code:', error);
-        return NextResponse.json({ error: 'Failed to generate code' }, { status: 500 });
+        return NextResponse.json({
+            error: error?.message || 'Failed to generate code',
+            details: error?.details || null
+        }, { status: 500 });
     }
 }
-

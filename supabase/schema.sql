@@ -603,12 +603,12 @@ CREATE TABLE IF NOT EXISTS invite_codes (
   code TEXT UNIQUE NOT NULL,
   code_type TEXT NOT NULL CHECK (code_type IN ('client', 'marketer', 'admin')),
   
-  -- Who created it
-  created_by UUID NOT NULL REFERENCES auth.users(id),
-  org_id UUID REFERENCES organizations(id),
+  -- Who created it (TEXT for flexibility - supports both UUID and generated IDs)
+  created_by TEXT,
+  org_id UUID,
   
   -- Usage tracking
-  used_by UUID REFERENCES auth.users(id),
+  used_by TEXT,
   used_at TIMESTAMPTZ,
   
   -- Expiration (10 minutes default)

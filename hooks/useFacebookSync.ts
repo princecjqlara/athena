@@ -10,6 +10,12 @@ interface SyncState {
     syncCount: number;
     autoSyncEnabled: boolean;
     syncIntervalMinutes: number;
+    // Smart sync stats
+    adsUpdated: number;
+    apiCallsSaved: number;
+    syncSkippedReason: string | null;
+    onlyActiveAds: boolean;
+    minSyncIntervalMinutes: number;
 }
 
 interface StoredAd {
@@ -26,6 +32,8 @@ interface StoredAd {
     riskAssessment?: unknown;
     predictionGeneratedAt?: string;
     extractedContent?: Record<string, unknown>;
+    status?: string;
+    effectiveStatus?: string;
     [key: string]: unknown;
 }
 
@@ -67,22 +75,38 @@ interface FacebookAd {
     [key: string]: unknown;
 }
 
+interface UseFacebookSyncOptions {
+    autoSyncOnMount?: boolean;
+    syncDelayMs?: number;
+    // Smart sync options
+    onlyActiveAds?: boolean;          // Only sync ads with ACTIVE status
+    minSyncIntervalMinutes?: number;  // Minimum time between syncs (cache duration)
+    forceSync?: boolean;              // Bypass cache check
+}
+
 interface UseFacebookSyncReturn {
     syncState: SyncState;
-    syncNow: () => Promise<void>;
+    syncNow: (options?: { force?: boolean }) => Promise<void>;
     toggleAutoSync: () => void;
     setSyncInterval: (minutes: number) => void;
+    toggleOnlyActiveAds: () => void;
     formatLastSynced: () => string;
+    checkForWebhookTrigger: () => Promise<boolean>;
 }
 
 const SYNC_SETTINGS_KEY = 'fb_sync_settings';
-const DEFAULT_SYNC_INTERVAL = 5; // minutes
+const SYNC_CACHE_KEY = 'fb_sync_cache';
+const DEFAULT_SYNC_INTERVAL = 15; // Increased to 15 minutes to reduce API calls
+const DEFAULT_MIN_SYNC_INTERVAL = 5; // Don't sync more than once every 5 minutes
 
-export function useFacebookSync(options?: {
-    autoSyncOnMount?: boolean;
-    syncDelayMs?: number;
-}): UseFacebookSyncReturn {
-    const { autoSyncOnMount = true, syncDelayMs = 2000 } = options || {};
+export function useFacebookSync(options?: UseFacebookSyncOptions): UseFacebookSyncReturn {
+    const {
+        autoSyncOnMount = true,
+        syncDelayMs = 2000,
+        onlyActiveAds = true,
+        minSyncIntervalMinutes = DEFAULT_MIN_SYNC_INTERVAL,
+        forceSync = false
+    } = options || {};
 
     const [syncState, setSyncState] = useState<SyncState>({
         isSyncing: false,
@@ -90,11 +114,59 @@ export function useFacebookSync(options?: {
         lastSyncError: null,
         syncCount: 0,
         autoSyncEnabled: true,
-        syncIntervalMinutes: DEFAULT_SYNC_INTERVAL
+        syncIntervalMinutes: DEFAULT_SYNC_INTERVAL,
+        adsUpdated: 0,
+        apiCallsSaved: 0,
+        syncSkippedReason: null,
+        onlyActiveAds: onlyActiveAds,
+        minSyncIntervalMinutes: minSyncIntervalMinutes
     });
 
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const mountedRef = useRef(true);
+
+    // Check if we should skip sync based on cache
+    const shouldSkipSync = useCallback((force: boolean = false): { skip: boolean; reason: string | null } => {
+        if (force) return { skip: false, reason: null };
+
+        // Check cache
+        const cacheStr = localStorage.getItem(SYNC_CACHE_KEY);
+        if (cacheStr) {
+            try {
+                const cache = JSON.parse(cacheStr);
+                const lastSync = new Date(cache.lastSyncedAt);
+                const now = new Date();
+                const minutesSinceLast = (now.getTime() - lastSync.getTime()) / (1000 * 60);
+
+                if (minutesSinceLast < syncState.minSyncIntervalMinutes) {
+                    return {
+                        skip: true,
+                        reason: `Data is fresh (synced ${Math.round(minutesSinceLast)}m ago, min interval: ${syncState.minSyncIntervalMinutes}m)`
+                    };
+                }
+            } catch (e) {
+                // Invalid cache, continue with sync
+            }
+        }
+
+        return { skip: false, reason: null };
+    }, [syncState.minSyncIntervalMinutes]);
+
+    // Check for webhook trigger from Supabase
+    const checkForWebhookTrigger = useCallback(async (): Promise<boolean> => {
+        try {
+            const adAccountId = localStorage.getItem('meta_ad_account_id');
+            if (!adAccountId) return false;
+
+            // In a real implementation, this would check Supabase for webhook triggers
+            // For now, we'll return false (no pending triggers)
+            console.log('[SmartSync] Checking for webhook triggers...');
+            return false;
+        } catch (error) {
+            console.error('[SmartSync] Error checking webhook triggers:', error);
+            return false;
+        }
+    }, []);
 
     // Load settings from localStorage
     useEffect(() => {
@@ -108,6 +180,8 @@ export function useFacebookSync(options?: {
                     ...prev,
                     autoSyncEnabled: parsed.autoSyncEnabled ?? true,
                     syncIntervalMinutes: parsed.syncIntervalMinutes ?? DEFAULT_SYNC_INTERVAL,
+                    onlyActiveAds: parsed.onlyActiveAds ?? true,
+                    minSyncIntervalMinutes: parsed.minSyncIntervalMinutes ?? DEFAULT_MIN_SYNC_INTERVAL,
                     lastSyncedAt: parsed.lastSyncedAt ? new Date(parsed.lastSyncedAt) : null
                 }));
             } catch (e) {
@@ -133,20 +207,35 @@ export function useFacebookSync(options?: {
         localStorage.setItem(SYNC_SETTINGS_KEY, JSON.stringify(updated));
     }, []);
 
-    // Main sync function
-    const syncNow = useCallback(async () => {
+    // Main sync function with smart caching
+    const syncNow = useCallback(async (options?: { force?: boolean }) => {
         if (typeof window === 'undefined') return;
+
+        const force = options?.force || forceSync;
+
+        // Check if we should skip sync
+        const skipCheck = shouldSkipSync(force);
+        if (skipCheck.skip) {
+            console.log(`[SmartSync] ⏭️ Skipping sync: ${skipCheck.reason}`);
+            setSyncState(prev => ({
+                ...prev,
+                syncSkippedReason: skipCheck.reason,
+                apiCallsSaved: prev.apiCallsSaved + 1
+            }));
+            return;
+        }
 
         // Get credentials
         const adAccountId = localStorage.getItem('meta_ad_account_id');
         const accessToken = localStorage.getItem('meta_marketing_token');
 
         if (!adAccountId || !accessToken) {
-            console.log('[AutoSync] No Facebook credentials found, skipping sync');
+            console.log('[SmartSync] No Facebook credentials found, skipping sync');
             return;
         }
 
         if (!mountedRef.current) return;
+
 
         setSyncState(prev => ({ ...prev, isSyncing: true, lastSyncError: null }));
 
@@ -370,6 +459,15 @@ export function useFacebookSync(options?: {
         return syncState.lastSyncedAt.toLocaleDateString();
     }, [syncState.lastSyncedAt]);
 
+    // Toggle only active ads sync
+    const toggleOnlyActiveAds = useCallback(() => {
+        setSyncState(prev => {
+            const newValue = !prev.onlyActiveAds;
+            saveSettings({ onlyActiveAds: newValue });
+            return { ...prev, onlyActiveAds: newValue };
+        });
+    }, [saveSettings]);
+
     // Auto-sync on mount
     useEffect(() => {
         if (!autoSyncOnMount) return;
@@ -394,11 +492,11 @@ export function useFacebookSync(options?: {
         // Set up new interval if auto-sync is enabled
         if (syncState.autoSyncEnabled && syncState.syncIntervalMinutes > 0) {
             const intervalMs = syncState.syncIntervalMinutes * 60 * 1000;
-            console.log(`[AutoSync] Setting up background sync every ${syncState.syncIntervalMinutes} minutes`);
+            console.log(`[SmartSync] Setting up background sync every ${syncState.syncIntervalMinutes} minutes`);
 
             intervalRef.current = setInterval(() => {
                 if (mountedRef.current && !syncState.isSyncing) {
-                    console.log('[AutoSync] Running scheduled background sync...');
+                    console.log('[SmartSync] Running scheduled background sync...');
                     syncNow();
                 }
             }, intervalMs);
@@ -416,8 +514,11 @@ export function useFacebookSync(options?: {
         syncNow,
         toggleAutoSync,
         setSyncInterval,
-        formatLastSynced
+        toggleOnlyActiveAds,
+        formatLastSynced,
+        checkForWebhookTrigger
     };
 }
 
 export type { SyncState, UseFacebookSyncReturn };
+
