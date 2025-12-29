@@ -1,0 +1,290 @@
+/* AlertCenter Styles */
+
+.alertCenter {
+    background: var(--bg-secondary, #1a1a2e);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.alertCenter.hasCritical {
+    border-color: rgba(220, 38, 38, 0.5);
+    box-shadow: 0 0 20px rgba(220, 38, 38, 0.1);
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.titleSection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary, #ffffff);
+}
+
+.badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.criticalBadge {
+    padding: 4px 10px;
+    background: rgba(220, 38, 38, 0.2);
+    color: #dc2626;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.highBadge {
+    padding: 4px 10px;
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.totalBadge {
+    padding: 4px 10px;
+    background: rgba(107, 114, 128, 0.2);
+    color: #6b7280;
+    border-radius: 12px;
+    font-size: 0.75rem;
+}
+
+.actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.filterSelect {
+    padding: 8px 12px;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    border-radius: 8px;
+    color: var(--text-primary, #ffffff);
+    font-size: 0.85rem;
+}
+
+.detectBtn {
+    padding: 8px 16px;
+    background: var(--primary, #c8f560);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    color: #1a1a2e;
+    cursor: pointer;
+}
+
+.detectBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Content */
+.content {
+    min-height: 150px;
+}
+
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    color: var(--text-muted, #718096);
+}
+
+.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px;
+    text-align: center;
+}
+
+.emptyIcon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+}
+
+.empty h3 {
+    margin: 0 0 8px;
+    color: var(--text-primary, #ffffff);
+}
+
+.empty p {
+    margin: 0;
+    color: var(--text-muted, #718096);
+    font-size: 0.9rem;
+}
+
+/* Alert List */
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.alertCard {
+    padding: 16px;
+    border-radius: 12px;
+    border-left: 4px solid;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.03));
+}
+
+.alertCard.critical {
+    border-left-color: #dc2626;
+    background: rgba(220, 38, 38, 0.05);
+}
+
+.alertCard.high {
+    border-left-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.alertCard.medium {
+    border-left-color: #3b82f6;
+}
+
+.alertCard.low {
+    border-left-color: #6b7280;
+}
+
+.alertHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.alertIcon {
+    font-size: 1.1rem;
+}
+
+.alertType {
+    font-weight: 600;
+    color: var(--text-primary, #ffffff);
+}
+
+.severityBadge {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    margin-left: auto;
+}
+
+.alertBody {
+    margin-bottom: 12px;
+}
+
+.metric {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.metricLabel {
+    color: var(--text-secondary, #a0aec0);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+.metricChange {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.alertCard.critical .metricChange,
+.alertCard.high .metricChange {
+    color: #ef4444;
+}
+
+.values {
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: var(--text-muted, #718096);
+}
+
+.entityInfo {
+    font-size: 0.75rem;
+    color: var(--text-muted, #718096);
+    margin-top: 4px;
+}
+
+.alertActions {
+    display: flex;
+    gap: 8px;
+}
+
+.acknowledgeBtn,
+.resolveBtn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border: none;
+}
+
+.acknowledgeBtn {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+}
+
+.resolveBtn {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.acknowledgeBtn:hover,
+.resolveBtn:hover {
+    opacity: 0.8;
+}
+
+/* Light Mode */
+[data-theme="light"] .alertCenter {
+    background: var(--bg-secondary);
+}
+
+[data-theme="light"] .title,
+[data-theme="light"] .alertType,
+[data-theme="light"] .empty h3 {
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .filterSelect {
+    background: white;
+    color: var(--text-primary);
+}
