@@ -26,10 +26,61 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     -- Total messages in this session
     message_count INTEGER DEFAULT 0,
     -- Last message preview
-    last_message_preview TEXT,
-    -- Search vector for full-text search on title
-    search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english', COALESCE(title, '') || ' ' || COALESCE(summary, ''))) STORED
+    last_message_preview TEXT
 );
+
+-- Add columns if they don't exist (for migration from older schema)
+DO $$ 
+BEGIN
+    -- Add is_pinned column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_sessions' AND column_name = 'is_pinned') THEN
+        ALTER TABLE chat_sessions ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE;
+    END IF;
+    
+    -- Add pinned_at column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_sessions' AND column_name = 'pinned_at') THEN
+        ALTER TABLE chat_sessions ADD COLUMN pinned_at TIMESTAMPTZ;
+    END IF;
+    
+    -- Add is_archived column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_sessions' AND column_name = 'is_archived') THEN
+        ALTER TABLE chat_sessions ADD COLUMN is_archived BOOLEAN DEFAULT FALSE;
+    END IF;
+    
+    -- Add archived_at column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_sessions' AND column_name = 'archived_at') THEN
+        ALTER TABLE chat_sessions ADD COLUMN archived_at TIMESTAMPTZ;
+    END IF;
+    
+    -- Add metadata column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_sessions' AND column_name = 'metadata') THEN
+        ALTER TABLE chat_sessions ADD COLUMN metadata JSONB DEFAULT '{}';
+    END IF;
+    
+    -- Add summary column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_sessions' AND column_name = 'summary') THEN
+        ALTER TABLE chat_sessions ADD COLUMN summary TEXT;
+    END IF;
+    
+    -- Add message_count column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_sessions' AND column_name = 'message_count') THEN
+        ALTER TABLE chat_sessions ADD COLUMN message_count INTEGER DEFAULT 0;
+    END IF;
+    
+    -- Add last_message_preview column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_sessions' AND column_name = 'last_message_preview') THEN
+        ALTER TABLE chat_sessions ADD COLUMN last_message_preview TEXT;
+    END IF;
+END $$;
+
+-- Add search_vector column separately (generated column syntax is different)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_sessions' AND column_name = 'search_vector') THEN
+        ALTER TABLE chat_sessions ADD COLUMN search_vector tsvector 
+            GENERATED ALWAYS AS (to_tsvector('english', COALESCE(title, '') || ' ' || COALESCE(summary, ''))) STORED;
+    END IF;
+END $$;
 
 -- Chat Messages Table
 -- Individual messages within a session
@@ -50,10 +101,56 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     -- Parent message if regenerated
     parent_message_id UUID REFERENCES chat_messages(id),
     -- Additional metadata
-    metadata JSONB DEFAULT '{}',
-    -- Search vector for full-text search on content
-    search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED
+    metadata JSONB DEFAULT '{}'
 );
+
+-- Add columns for chat_messages if they don't exist
+DO $$ 
+BEGIN
+    -- Add message_timestamp column (renamed from timestamp)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'message_timestamp') THEN
+        ALTER TABLE chat_messages ADD COLUMN message_timestamp TIMESTAMPTZ DEFAULT NOW();
+    END IF;
+    
+    -- Add action_result column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'action_result') THEN
+        ALTER TABLE chat_messages ADD COLUMN action_result JSONB;
+    END IF;
+    
+    -- Add action_type column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'action_type') THEN
+        ALTER TABLE chat_messages ADD COLUMN action_type TEXT;
+    END IF;
+    
+    -- Add token_count column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'token_count') THEN
+        ALTER TABLE chat_messages ADD COLUMN token_count INTEGER;
+    END IF;
+    
+    -- Add is_regenerated column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'is_regenerated') THEN
+        ALTER TABLE chat_messages ADD COLUMN is_regenerated BOOLEAN DEFAULT FALSE;
+    END IF;
+    
+    -- Add parent_message_id column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'parent_message_id') THEN
+        ALTER TABLE chat_messages ADD COLUMN parent_message_id UUID REFERENCES chat_messages(id);
+    END IF;
+    
+    -- Add metadata column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'metadata') THEN
+        ALTER TABLE chat_messages ADD COLUMN metadata JSONB DEFAULT '{}';
+    END IF;
+END $$;
+
+-- Add search_vector column for messages
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'search_vector') THEN
+        ALTER TABLE chat_messages ADD COLUMN search_vector tsvector 
+            GENERATED ALWAYS AS (to_tsvector('english', content)) STORED;
+    END IF;
+END $$;
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id ON chat_sessions(user_id);
@@ -67,6 +164,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session
 CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages(message_timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user_id ON chat_messages(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_search ON chat_messages USING GIN(search_vector);
+
 
 -- Function to update session metadata when messages are added
 CREATE OR REPLACE FUNCTION update_session_on_message()
