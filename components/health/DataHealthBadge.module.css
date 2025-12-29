@@ -1,0 +1,138 @@
+/* DataHealthBadge Styles */
+
+.badge {
+    display: inline-flex;
+    flex-direction: column;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+
+/* Sizes */
+.small .content {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+}
+
+.medium .content {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}
+
+.large .content {
+    padding: 8px 16px;
+    font-size: 1rem;
+}
+
+/* Status Colors */
+.healthy .content {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
+.warning .content {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.critical .content {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.icon {
+    font-size: 1em;
+}
+
+.score {
+    font-weight: 700;
+}
+
+.label {
+    opacity: 0.8;
+}
+
+/* Details */
+.details {
+    margin-top: 8px;
+    padding: 12px;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.details h4 {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    color: var(--text-primary, #ffffff);
+}
+
+.details ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.details li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.details li:last-child {
+    border-bottom: none;
+}
+
+.issueType {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.issueDesc {
+    color: var(--text-muted, #718096);
+    font-size: 0.85rem;
+}
+
+.details li.low .issueType {
+    color: #3b82f6;
+}
+
+.details li.medium .issueType {
+    color: #f59e0b;
+}
+
+.details li.high .issueType {
+    color: #ef4444;
+}
+
+.details li.critical .issueType {
+    color: #dc2626;
+}
+
+/* Dot (mini version) */
+.dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+}
+
+/* Light Mode */
+[data-theme="light"] .details {
+    background: var(--bg-tertiary, #f3f4f6);
+}
+
+[data-theme="light"] .details h4 {
+    color: var(--text-primary, #1f2937);
+}

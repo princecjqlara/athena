@@ -1,0 +1,304 @@
+/* RecommendationCard Styles */
+
+.card {
+    background: var(--bg-secondary, #1a1a2e);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+}
+
+.card:hover {
+    border-color: var(--primary, #c8f560);
+    box-shadow: 0 4px 20px rgba(200, 245, 96, 0.1);
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.icon {
+    font-size: 1.5rem;
+}
+
+.title {
+    flex: 1;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary, #ffffff);
+}
+
+.confidenceBadge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+}
+
+/* Description */
+.description {
+    color: var(--text-secondary, #a0aec0);
+    font-size: 0.9rem;
+    margin: 0 0 12px;
+    line-height: 1.5;
+}
+
+/* Evidence */
+.evidence {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+    border-radius: 8px;
+}
+
+.evidenceItem {
+    font-size: 0.8rem;
+    color: var(--text-muted, #718096);
+}
+
+/* Impact */
+.impact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(200, 245, 96, 0.1);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.impactLabel {
+    color: var(--text-muted, #718096);
+    font-size: 0.85rem;
+}
+
+.impactDirection {
+    font-size: 1.2rem;
+}
+
+.impactMagnitude {
+    font-weight: 600;
+    color: var(--primary, #c8f560);
+}
+
+/* Change */
+.change {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+}
+
+.changeLabel {
+    color: var(--text-muted, #718096);
+}
+
+.changeValue {
+    font-family: monospace;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.changePct {
+    color: var(--primary, #c8f560);
+    font-weight: 500;
+}
+
+/* Reasoning */
+.reasoningToggle {
+    background: transparent;
+    border: none;
+    color: var(--text-muted, #718096);
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 8px 0;
+    text-align: left;
+}
+
+.reasoningToggle:hover {
+    color: var(--text-primary, #ffffff);
+}
+
+.reasoning {
+    padding: 12px;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary, #a0aec0);
+    line-height: 1.6;
+    margin-top: 8px;
+}
+
+/* Actions */
+.actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.applyBtn,
+.acceptBtn,
+.rejectBtn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.applyBtn {
+    background: var(--primary, #c8f560);
+    color: #1a1a2e;
+    flex: 1;
+}
+
+.applyBtn:hover {
+    background: #a8e030;
+}
+
+.acceptBtn {
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--success, #22c55e);
+    border: 1px solid var(--success, #22c55e);
+}
+
+.acceptBtn:hover {
+    background: rgba(34, 197, 94, 0.3);
+}
+
+.rejectBtn {
+    background: transparent;
+    color: var(--text-muted, #718096);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.rejectBtn:hover {
+    color: var(--error, #ef4444);
+    border-color: var(--error, #ef4444);
+}
+
+/* Status Badge */
+.statusBadge {
+    margin-top: 16px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: center;
+}
+
+.statusBadge.accepted {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success, #22c55e);
+}
+
+.statusBadge.rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error, #ef4444);
+}
+
+.statusBadge.applied {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+}
+
+.statusBadge.expired {
+    background: rgba(156, 163, 175, 0.15);
+    color: #9ca3af;
+}
+
+/* Feedback Modal */
+.feedbackModal {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+    border-radius: 8px;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.feedbackModal h4 {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    color: var(--text-primary, #ffffff);
+}
+
+.feedbackModal textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    background: var(--bg-secondary, #1a1a2e);
+    color: var(--text-primary, #ffffff);
+    font-size: 0.9rem;
+    resize: vertical;
+}
+
+.feedbackModal textarea:focus {
+    outline: none;
+    border-color: var(--primary, #c8f560);
+}
+
+.feedbackActions {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.feedbackActions button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border: none;
+}
+
+.feedbackActions button:first-child {
+    background: var(--primary, #c8f560);
+    color: #1a1a2e;
+}
+
+.feedbackActions button:first-child:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.feedbackActions button:last-child {
+    background: transparent;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    color: var(--text-muted, #718096);
+}
+
+/* Light Mode */
+[data-theme="light"] .card {
+    background: var(--bg-secondary);
+    border-color: var(--border-primary);
+}
+
+[data-theme="light"] .title {
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .description,
+[data-theme="light"] .evidenceItem {
+    color: var(--text-secondary);
+}
+
+[data-theme="light"] .feedbackModal textarea {
+    background: white;
+    color: var(--text-primary);
+}
