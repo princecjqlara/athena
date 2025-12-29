@@ -23,6 +23,8 @@
 14. [Environment Setup](#environment-setup)
 15. [Development Guide](#development-guide)
 16. [Deployment](#deployment)
+17. [**Athena AI Upgrade System**](#athena-ai-upgrade-system) ⭐ NEW
+18. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -1916,6 +1918,213 @@ Project Settings → Environment Variables
 
 ---
 
+## Athena AI Upgrade System
+
+### Overview
+
+The Athena AI Upgrade is a comprehensive enhancement to the platform's AI capabilities, adding closed-loop recommendations, confidence scoring, data quality monitoring, anomaly detection, and multi-step agent workflows with safety guardrails.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     ATHENA AI UPGRADE SYSTEM                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐            │
+│  │   Agent     │    │  Guardrails │    │  Anomaly    │            │
+│  │   Runner    │───►│   System    │───►│  Detection  │            │
+│  │             │    │  (7 checks) │    │  (6 metrics)│            │
+│  └─────────────┘    └─────────────┘    └─────────────┘            │
+│         │                                      │                   │
+│         ▼                                      ▼                   │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐            │
+│  │  Agent      │    │   Data      │    │  Evaluation │            │
+│  │  Tools (5)  │    │   Health    │    │  (p-value)  │            │
+│  └─────────────┘    └─────────────┘    └─────────────┘            │
+│         │                                      │                   │
+│         ▼                                      ▼                   │
+│  ┌─────────────────────────────────────────────────────┐          │
+│  │              RECOMMENDATIONS ENGINE                  │          │
+│  │  Confidence Scoring • Evidence Citation • Auto-Apply │          │
+│  └─────────────────────────────────────────────────────┘          │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Database Schema (athena_upgrade_schema.sql)
+
+8 new tables added to Supabase:
+
+| Table | Purpose |
+|-------|---------|
+| `athena_recommendations` | Stores AI recommendations with confidence, evidence, status |
+| `recommendation_events` | Audit trail for recommendation lifecycle |
+| `evaluation_runs` | Before/after impact analysis results |
+| `data_health_scores` | Data quality metrics per entity |
+| `anomalies` | Detected performance anomalies |
+| `agent_runs` | Multi-step agent execution logs |
+| `prompt_versions` | Prompt A/B testing with performance tracking |
+| `user_ai_preferences` | User KPI settings, constraints, alerts |
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/ai/recommendations` | GET/POST/PATCH | CRUD for recommendations |
+| `/api/ai/recommendations/[id]` | GET/POST | Single rec + feedback |
+| `/api/ai/health` | GET/POST | Data quality scoring |
+| `/api/ai/agent/run` | POST | Execute agent workflow |
+| `/api/ai/agent/runs` | GET/POST | Agent run history |
+| `/api/ai/anomalies` | GET/POST/PATCH | Anomaly detection & management |
+| `/api/ai/evaluations` | GET/POST | Impact evaluation |
+| `/api/ai/prompts` | GET/POST/PATCH | Prompt versioning |
+| `/api/ai/preferences` | GET/POST | User AI preferences |
+
+### Core Modules
+
+#### 1. Guardrails System (`lib/ai/guardrails.ts`)
+
+7 safety checks to prevent harmful recommendations:
+
+| Guardrail | Severity | Description |
+|-----------|----------|-------------|
+| `learning_phase` | Block | Requires 50+ conversions before changes |
+| `sample_size` | Block | Minimum 500-1000 impressions required |
+| `top_converter_protection` | Block | Cannot pause top performers (ROAS > 2) |
+| `tracking_health` | Block | Cannot scale when tracking is broken |
+| `budget_limit` | Warning | Budget changes should not exceed 50% |
+| `action_blocklist` | Block | Respects user "never recommend" list |
+| `minimum_spend` | Block | Entity must have spend data |
+
+#### 2. Agent Tools (`lib/ai/agent-tools.ts`)
+
+5 structured tools for multi-step reasoning:
+
+| Tool | Purpose |
+|------|---------|
+| `fetch_metrics` | Get performance metrics for entities |
+| `validate_data_health` | Check data quality before recommendations |
+| `check_guardrails` | Verify action safety |
+| `get_historical_benchmarks` | Get historical baselines for comparison |
+| `generate_recommendation` | Create structured recommendation |
+
+#### 3. Agent Runner (`lib/ai/agent-runner.ts`)
+
+6-step workflow:
+
+1. **Fetch Metrics** - Get current performance data
+2. **Validate Health** - Check data quality (must be ≥70)
+3. **Get Benchmarks** - Compare to historical baselines
+4. **Analyze** - Determine recommendation type (scale/pause/optimize)
+5. **Check Guardrails** - Verify safety of proposed action
+6. **Generate Recommendation** - Create with confidence score + evidence
+
+#### 4. Anomaly Detection (`lib/ai/anomaly-detection.ts`)
+
+Detects 6 types of anomalies with seasonality awareness:
+
+| Anomaly Type | Metric | Threshold Logic |
+|--------------|--------|-----------------|
+| `spend_spike` | Spend | >30% above baseline |
+| `cpa_spike` | CPA | >20% above baseline |
+| `roas_drop` | ROAS | <20% below baseline |
+| `ctr_drop` | CTR | <25% below baseline |
+| `tracking_break` | Conversions | >50% drop (flags as tracking issue) |
+| `creative_fatigue` | CTR | Declining CTR + stable impressions |
+
+Severity levels: `low`, `medium`, `high`, `critical`
+
+#### 5. Evaluation Engine (`lib/ai/evaluation.ts`)
+
+Before/after impact analysis with statistical significance:
+
+- 7-day before and 7-day after windows
+- P-value calculation using normal approximation
+- Significance threshold: p < 0.05
+- Outcomes: `positive`, `negative`, `neutral`, `insufficient_data`
+- Brier score calibration for confidence accuracy
+
+#### 6. Confidence Calibration (`lib/ai/confidence-calibration.ts`)
+
+Adjusts confidence scores based on historical accuracy:
+
+- Bucket-based calibration (0-0.2, 0.2-0.4, etc.)
+- Brier score calculation for calibration quality
+- Automatic adjustment factors based on actual vs predicted accuracy
+
+#### 7. Auto-Apply (`lib/ai/auto-apply.ts`)
+
+Automatically applies high-confidence recommendations:
+
+| Check | Description |
+|-------|-------------|
+| `enabled` | User must opt-in |
+| `minConfidence` | Calibrated confidence ≥ 90% |
+| `guardrailsPass` | All guardrails must pass |
+| `dailyLimit` | Max 5 auto-applies per day |
+| `excludedActions` | Never auto-apply pause/delete |
+| `excludedEntities` | User-defined protected entities |
+
+### UI Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `TopActionsPanel` | Dashboard | Shows top 5 ranked recommendations |
+| `AlertCenter` | Dashboard | Severity-based anomaly alerts |
+| `RecommendationCard` | Dashboard | Individual rec with accept/reject/apply |
+| `DataHealthBadge` | Various | Color-coded health indicator |
+| `AIPreferencesPanel` | Settings | KPI/constraint configuration |
+
+### Confidence Scoring
+
+Recommendations include confidence scores based on:
+
+```typescript
+confidence = (
+  0.3 × dataPoints/100 +      // More data = higher confidence
+  0.2 × varianceScore +       // Low variance = higher confidence
+  0.2 × completeness +        // Complete data = higher confidence
+  0.2 × healthScore/100 +     // Healthy tracking = higher confidence
+  0.1 × historicalSuccess     // Past accuracy = higher confidence
+)
+```
+
+### Integration
+
+Components are integrated into:
+
+1. **Dashboard (`app/page.tsx`)**:
+   - `AlertCenter` - Shows open anomalies
+   - `TopActionsPanel` - Shows pending recommendations
+
+2. **Settings (`app/settings/page.tsx`)**:
+   - `AIPreferencesPanel` - User AI configuration
+
+### Usage
+
+```typescript
+// Run agent to generate recommendations
+const result = await runAgent({
+  query: 'Analyze my ads',
+  orgId: userId,
+  userId: userId,
+  entityIds: ['ad_1', 'ad_2']
+});
+
+// Check guardrails before action
+const safety = await checkAllGuardrails({
+  entity: { id: 'ad_1', type: 'ad', metrics: {...} },
+  actionType: 'pause',
+  orgContext: { orgId: userId }
+});
+
+// Run anomaly detection
+const anomalies = await runAnomalyDetection(userId);
+```
+
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -1954,5 +2163,5 @@ localStorage.getItem('ads_data')
 
 ---
 
-*Documentation last updated: December 24, 2024*  
-*AdVision AI (Athena) v0.1.0*
+*Documentation last updated: December 29, 2024*  
+*AdVision AI (Athena) v0.2.0 - Athena AI Upgrade*
