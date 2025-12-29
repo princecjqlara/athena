@@ -132,6 +132,30 @@ export async function POST(request: NextRequest) {
             code += chars.charAt(Math.floor(Math.random() * chars.length));
         }
 
+        // If organizer is creating an admin code and no org_id, create a new organization
+        let finalOrgId = orgId;
+        if (userRole === 'organizer' && codeType === 'admin' && !orgId) {
+            // Create a new organization for this admin
+            const orgSlug = `org-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+            const { data: newOrg, error: orgError } = await supabase
+                .from('organizations')
+                .insert({
+                    name: `Organization ${code}`,
+                    slug: orgSlug,
+                    settings: {},
+                })
+                .select()
+                .single();
+
+            if (orgError) {
+                console.error('[Invite] Error creating organization:', orgError);
+                // Continue without org - admin can set up org later
+            } else {
+                finalOrgId = newOrg.id;
+                console.log('[Invite] Created new organization:', newOrg.id);
+            }
+        }
+
         // Create the invite code
         const { data, error } = await supabase
             .from('invite_codes')
@@ -139,7 +163,7 @@ export async function POST(request: NextRequest) {
                 code,
                 code_type: codeType,
                 created_by: userId,
-                org_id: orgId,
+                org_id: finalOrgId,
                 expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
             })
             .select()

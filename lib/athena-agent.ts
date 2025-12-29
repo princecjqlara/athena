@@ -548,16 +548,26 @@ export function parseAIResponse(response: string): {
     params: Record<string, unknown>;
     message: string;
 } {
+    // Handle null, undefined, or empty responses
+    if (!response || typeof response !== 'string' || response.trim() === '') {
+        return {
+            action: null,
+            params: {},
+            message: "I'm having trouble generating a response right now. Please try again!"
+        };
+    }
+
     const actionMatch = response.match(/\[ACTION:\s*(\w+)\]/i);
     const paramsMatch = response.match(/\[PARAMS:\s*(\{[\s\S]*?\})\]/i);
     const messageMatch = response.match(/\[MESSAGE:\s*([\s\S]*?)(?:\[|$)/i);
 
     if (!actionMatch) {
         // No action, just a response
+        const cleanedMessage = response.replace(/\[.*?\]/g, '').trim();
         return {
             action: null,
             params: {},
-            message: response.replace(/\[.*?\]/g, '').trim()
+            message: cleanedMessage || "I received your message but couldn't formulate a proper response. Please try asking again!"
         };
     }
 
@@ -572,9 +582,14 @@ export function parseAIResponse(response: string): {
         }
     }
 
-    const message = messageMatch
+    let message = messageMatch
         ? messageMatch[1].trim()
         : response.replace(/\[.*?\]/g, '').trim();
+
+    // Ensure message is never empty
+    if (!message) {
+        message = `Executing ${actionName}...`;
+    }
 
     return {
         action: actionName in AGENT_ACTIONS ? actionName : null,

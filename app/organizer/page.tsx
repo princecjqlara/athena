@@ -581,6 +581,33 @@ export default function OrganizerDashboard() {
         }
     };
 
+    const deleteUser = async (userId: string, userName: string, userRole: string) => {
+        if (userRole === 'organizer') {
+            alert('Cannot delete organizer users');
+            return;
+        }
+        if (!confirm(`Are you sure you want to delete ${userName || 'this user'}? This action cannot be undone.`)) {
+            return;
+        }
+        try {
+            const res = await fetch('/api/organizer/users', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert('User deleted successfully');
+                fetchData();
+            } else {
+                alert(data.error || 'Failed to delete user');
+            }
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            alert('Failed to delete user');
+        }
+    };
+
     const filteredUsers = users.filter(u =>
         (u.full_name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
         u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -855,6 +882,24 @@ export default function OrganizerDashboard() {
                                                 >
                                                     🔐 Login As
                                                 </button>
+                                                {user.role !== 'organizer' && (
+                                                    <button
+                                                        className="delete-btn"
+                                                        onClick={() => deleteUser(user.id, user.full_name, user.role)}
+                                                        style={{
+                                                            marginLeft: '8px',
+                                                            padding: '6px 12px',
+                                                            background: 'rgba(239, 68, 68, 0.2)',
+                                                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                            borderRadius: '6px',
+                                                            color: '#ef4444',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.85rem'
+                                                        }}
+                                                    >
+                                                        🗑️ Delete
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}

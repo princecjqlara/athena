@@ -699,6 +699,8 @@ async function handleChatResponse(
   apiKey: string
 ): Promise<NextResponse> {
   try {
+    console.log('[Athena Chat] Sending request to NVIDIA API...');
+
     const response = await fetch(NVIDIA_API_URL, {
       method: 'POST',
       headers: {
@@ -712,28 +714,43 @@ async function handleChatResponse(
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 512,
+        max_tokens: 1024,
       }),
     });
 
+    console.log('[Athena Chat] Response status:', response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('NVIDIA API error:', errorText);
+      console.error('[Athena Chat] NVIDIA API error:', response.status, errorText);
       return NextResponse.json({
         success: true,
-        data: { response: "I'm having trouble connecting right now. Please try again!" }
+        data: { response: `I'm having trouble connecting to the AI service (${response.status}). Please try again!` }
       });
     }
 
     const result = await response.json();
-    const content = result.choices[0]?.message?.content;
+    console.log('[Athena Chat] Response received, choices:', result.choices?.length || 0);
+
+    const content = result.choices?.[0]?.message?.content;
+
+    // Debug: log if content is empty
+    if (!content || content.trim() === '') {
+      console.warn('[Athena Chat] Empty content received from API');
+      console.log('[Athena Chat] Full result:', JSON.stringify(result, null, 2));
+    }
+
+    // Ensure we always return a non-empty response
+    const finalResponse = content && content.trim() !== ''
+      ? content
+      : "I received your message but couldn't formulate a response. Please try again or rephrase your question.";
 
     return NextResponse.json({
       success: true,
-      data: { response: content || "I couldn't generate a response. Please try again." }
+      data: { response: finalResponse }
     });
   } catch (error) {
-    console.error('Chat error:', error);
+    console.error('[Athena Chat] Exception:', error);
     return NextResponse.json({
       success: true,
       data: { response: "Sorry, I encountered an error. Please try again." }
