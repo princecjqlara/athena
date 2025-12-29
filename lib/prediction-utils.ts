@@ -40,7 +40,7 @@ function buildExtractedAdData(ad: Record<string, unknown>): ExtractedAdData {
             title: (extracted.title as string) || (ad.name as string) || 'Untitled Ad',
             description: (extracted.description as string) || '',
             mediaType: (extracted.mediaType as 'video' | 'photo') || (ad.mediaType as 'video' | 'photo') || 'video',
-            aspectRatio: (extracted.aspectRatio as string) || '9:16',
+            aspectRatio: (extracted.aspectRatio as ExtractedAdData['aspectRatio']) || '9:16',
             platform: (extracted.platform as ExtractedAdData['platform']) || 'facebook',
             placement: (extracted.placement as ExtractedAdData['placement']) || 'feed',
             hookType: (extracted.hookType as ExtractedAdData['hookType']) || 'other',
