@@ -3,7 +3,13 @@
  * Uses Supabase Auth for session management
  */
 
+import { createClient } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from './supabase';
+
+// Admin client with service role key for server-side operations (bypasses RLS)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // ============================================
 // TYPES
@@ -77,7 +83,7 @@ export async function signUp(email: string, password: string, fullName?: string)
         return { error: 'Supabase not configured' };
     }
 
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await supabaseAdmin.auth.signUp({
         email,
         password,
         options: {
