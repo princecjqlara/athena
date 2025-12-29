@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
+import TopActionsPanel from '@/components/recommendations/TopActionsPanel';
+import AlertCenter from '@/components/anomalies/AlertCenter';
 
 interface DashboardStats {
   totalVideos: number;
@@ -45,6 +47,17 @@ export default function Dashboard() {
   const [recentVideos, setRecentVideos] = useState<RecentVideo[]>([]);
   const [topPatterns, setTopPatterns] = useState<TopPattern[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string>('');
+
+  // Get or create user ID
+  useEffect(() => {
+    let id = localStorage.getItem('athena_user_id');
+    if (!id) {
+      id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('athena_user_id', id);
+    }
+    setUserId(id);
+  }, []);
 
   useEffect(() => {
     // Load real data from localStorage
@@ -121,6 +134,14 @@ export default function Dashboard() {
           </a>
         </div>
       </header>
+
+      {/* AI Recommendations & Alerts */}
+      {userId && (
+        <section style={{ marginBottom: '24px' }}>
+          <AlertCenter orgId={userId} userId={userId} maxItems={5} />
+          <TopActionsPanel orgId={userId} userId={userId} maxItems={5} />
+        </section>
+      )}
 
       {/* Stats Grid */}
       <section className={styles.statsGrid}>

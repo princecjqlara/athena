@@ -7,6 +7,7 @@ import UndoPanel from '@/components/UndoPanel';
 import FacebookLogin from '@/components/FacebookLogin';
 import { saveToCloud, loadFromCloud, exportBackup, importBackup, getLastSyncTime, getUserId } from '@/lib/sync';
 import { checkTokenStatus, getTokenExpiryDisplay, TokenStatus } from '@/lib/token';
+import AIPreferencesPanel from '@/components/settings/AIPreferencesPanel';
 
 // Facebook App ID - set in environment variable
 const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
@@ -332,6 +333,14 @@ export default function SettingsPage() {
                 {/* Undo / History Panel */}
                 <div style={{ gridColumn: '1 / -1' }}>
                     <UndoPanel />
+                </div>
+
+                {/* AI Preferences Panel */}
+                <div style={{ gridColumn: '1 / -1' }}>
+                    <AIPreferencesPanel
+                        userId={getUserId() || 'default_user'}
+                        orgId={getUserId() || 'default_org'}
+                    />
                 </div>
 
                 {/* Meta Marketing API Settings */}
