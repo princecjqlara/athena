@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     user_id TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
     content TEXT NOT NULL,
-    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    message_timestamp TIMESTAMPTZ DEFAULT NOW(),
     -- For action results
     action_result JSONB,
     action_type TEXT,
@@ -64,7 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_sessions_archived ON chat_sessions(is_archiv
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_search ON chat_sessions USING GIN(search_vector);
 
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages(message_timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user_id ON chat_messages(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_search ON chat_messages USING GIN(search_vector);
 
@@ -121,10 +121,10 @@ RETURNS TABLE (
     message_id UUID,
     session_id UUID,
     session_title TEXT,
-    role TEXT,
-    content TEXT,
-    timestamp TIMESTAMPTZ,
-    rank REAL
+    message_role TEXT,
+    message_content TEXT,
+    message_timestamp TIMESTAMPTZ,
+    search_rank REAL
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -132,16 +132,16 @@ BEGIN
         cm.id as message_id,
         cm.session_id,
         cs.title as session_title,
-        cm.role,
-        cm.content,
-        cm.timestamp,
-        ts_rank(cm.search_vector, plainto_tsquery('english', p_query)) as rank
+        cm.role as message_role,
+        cm.content as message_content,
+        cm.message_timestamp,
+        ts_rank(cm.search_vector, plainto_tsquery('english', p_query)) as search_rank
     FROM chat_messages cm
     JOIN chat_sessions cs ON cm.session_id = cs.id
     WHERE cm.user_id = p_user_id
       AND cs.is_active = TRUE
       AND cm.search_vector @@ plainto_tsquery('english', p_query)
-    ORDER BY rank DESC, cm.timestamp DESC
+    ORDER BY search_rank DESC, cm.message_timestamp DESC
     LIMIT p_limit;
 END;
 $$ LANGUAGE plpgsql;
@@ -154,32 +154,32 @@ CREATE OR REPLACE FUNCTION search_chat_sessions(
     p_limit INTEGER DEFAULT 20
 )
 RETURNS TABLE (
-    session_id UUID,
-    title TEXT,
-    summary TEXT,
-    message_count INTEGER,
-    updated_at TIMESTAMPTZ,
-    is_pinned BOOLEAN,
-    is_archived BOOLEAN,
-    rank REAL
+    result_session_id UUID,
+    result_title TEXT,
+    result_summary TEXT,
+    result_message_count INTEGER,
+    result_updated_at TIMESTAMPTZ,
+    result_is_pinned BOOLEAN,
+    result_is_archived BOOLEAN,
+    search_rank REAL
 ) AS $$
 BEGIN
     RETURN QUERY
     SELECT 
-        cs.id as session_id,
-        cs.title,
-        cs.summary,
-        cs.message_count,
-        cs.updated_at,
-        cs.is_pinned,
-        cs.is_archived,
-        ts_rank(cs.search_vector, plainto_tsquery('english', p_query)) as rank
+        cs.id as result_session_id,
+        cs.title as result_title,
+        cs.summary as result_summary,
+        cs.message_count as result_message_count,
+        cs.updated_at as result_updated_at,
+        cs.is_pinned as result_is_pinned,
+        cs.is_archived as result_is_archived,
+        ts_rank(cs.search_vector, plainto_tsquery('english', p_query)) as search_rank
     FROM chat_sessions cs
     WHERE cs.user_id = p_user_id
       AND cs.is_active = TRUE
       AND (p_include_archived OR cs.is_archived = FALSE)
       AND cs.search_vector @@ plainto_tsquery('english', p_query)
-    ORDER BY rank DESC, cs.updated_at DESC
+    ORDER BY search_rank DESC, cs.updated_at DESC
     LIMIT p_limit;
 END;
 $$ LANGUAGE plpgsql;
@@ -227,7 +227,7 @@ CREATE OR REPLACE VIEW chat_sessions_with_stats AS
 SELECT 
     cs.*,
     COUNT(cm.id) as actual_message_count,
-    MAX(cm.timestamp) as last_message_at
+    MAX(cm.message_timestamp) as last_message_at
 FROM chat_sessions cs
 LEFT JOIN chat_messages cm ON cs.id = cm.session_id
 GROUP BY cs.id

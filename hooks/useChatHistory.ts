@@ -177,7 +177,7 @@ export function useChatHistory(): UseChatHistoryReturn {
                 .from('chat_messages')
                 .select('*')
                 .eq('session_id', sessionId)
-                .order('timestamp', { ascending: true });
+                .order('message_timestamp', { ascending: true });
 
             if (error) {
                 console.error('Error loading messages:', error);
@@ -189,7 +189,7 @@ export function useChatHistory(): UseChatHistoryReturn {
                     id: msg.id,
                     role: msg.role as 'user' | 'assistant' | 'system',
                     content: msg.content,
-                    timestamp: new Date(msg.timestamp),
+                    timestamp: new Date(msg.message_timestamp),
                     actionResult: msg.action_result
                 }));
                 setMessages(loadedMessages);
@@ -415,12 +415,12 @@ export function useChatHistory(): UseChatHistoryReturn {
                         session_id,
                         role,
                         content,
-                        timestamp,
+                        message_timestamp,
                         chat_sessions!inner(title)
                     `)
                     .eq('user_id', userId)
                     .ilike('content', `%${query}%`)
-                    .order('timestamp', { ascending: false })
+                    .order('message_timestamp', { ascending: false })
                     .limit(50);
 
                 if (error) {
@@ -431,7 +431,7 @@ export function useChatHistory(): UseChatHistoryReturn {
                         .select('*')
                         .eq('user_id', userId)
                         .ilike('content', `%${query}%`)
-                        .order('timestamp', { ascending: false })
+                        .order('message_timestamp', { ascending: false })
                         .limit(50);
 
                     if (!simpleError && simpleData) {
@@ -441,7 +441,7 @@ export function useChatHistory(): UseChatHistoryReturn {
                             session_title: 'Conversation',
                             role: msg.role,
                             content: msg.content,
-                            timestamp: msg.timestamp,
+                            timestamp: msg.message_timestamp,
                             rank: 1
                         }));
                         setSearchResults(results);
@@ -453,7 +453,7 @@ export function useChatHistory(): UseChatHistoryReturn {
                         session_title: msg.chat_sessions?.title || 'Conversation',
                         role: msg.role,
                         content: msg.content,
-                        timestamp: msg.timestamp,
+                        timestamp: msg.message_timestamp,
                         rank: 1
                     }));
                     setSearchResults(results);
@@ -497,7 +497,7 @@ export function useChatHistory(): UseChatHistoryReturn {
                     user_id: userId,
                     role: message.role,
                     content: message.content,
-                    timestamp: message.timestamp.toISOString(),
+                    message_timestamp: message.timestamp.toISOString(),
                     action_result: message.actionResult || null,
                     action_type: message.actionResult ? 'action' : null
                 });
