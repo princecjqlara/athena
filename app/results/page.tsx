@@ -918,12 +918,22 @@ export default function ResultsPage() {
                                                 </h3>
                                                 <div style={{
                                                     display: 'grid',
-                                                    gridTemplateColumns: 'repeat(2, 1fr)',
+                                                    gridTemplateColumns: 'repeat(4, 1fr)',
                                                     gap: 'var(--spacing-sm)',
                                                     marginBottom: 'var(--spacing-lg)'
                                                 }}>
                                                     {adsetHasMetric(adsInAdset, 'videoViews') && <MetricBox label="Video Views" value={formatNumber(selectedAd.adInsights.videoViews)} />}
-                                                    {adsetHasMetric(adsInAdset, 'videoThruPlays') && <MetricBox label="ThruPlays" value={formatNumber(selectedAd.adInsights.videoThruPlays)} />}
+                                                    {adsetHasMetric(adsInAdset, 'videoPlays') && <MetricBox label="Video Plays" value={formatNumber(selectedAd.adInsights.videoPlays)} />}
+                                                    {adsetHasMetric(adsInAdset, 'videoThruPlays') && <MetricBox label="ThruPlays" value={formatNumber(selectedAd.adInsights.videoThruPlays)} highlight />}
+                                                    {adsetHasMetric(adsInAdset, 'video3SecViews') && <MetricBox label="3-Sec Views" value={formatNumber(selectedAd.adInsights.video3SecViews)} />}
+                                                    {adsetHasMetric(adsInAdset, 'video25Watched') && <MetricBox label="25% Watched" value={formatNumber(selectedAd.adInsights.video25Watched)} />}
+                                                    {adsetHasMetric(adsInAdset, 'video50Watched') && <MetricBox label="50% Watched" value={formatNumber(selectedAd.adInsights.video50Watched)} />}
+                                                    {adsetHasMetric(adsInAdset, 'video75Watched') && <MetricBox label="75% Watched" value={formatNumber(selectedAd.adInsights.video75Watched)} />}
+                                                    {adsetHasMetric(adsInAdset, 'video100Watched') && <MetricBox label="100% Watched" value={formatNumber(selectedAd.adInsights.video100Watched)} highlight />}
+                                                    {adsetHasMetric(adsInAdset, 'videoAvgWatchTime') && <MetricBox label="Avg Watch Time" value={(selectedAd.adInsights.videoAvgWatchTime?.toFixed(1) || '-') + 's'} />}
+                                                    {adsetHasMetric(adsInAdset, 'videoPlayRate') && <MetricBox label="Play Rate" value={formatPercent(selectedAd.adInsights.videoPlayRate)} />}
+                                                    {adsetHasMetric(adsInAdset, 'costPerThruPlay') && <MetricBox label="Cost/ThruPlay" value={formatCurrency(selectedAd.adInsights.costPerThruPlay)} />}
+                                                    {adsetHasMetric(adsInAdset, 'costPer3SecView') && <MetricBox label="Cost/3-Sec View" value={formatCurrency(selectedAd.adInsights.costPer3SecView)} />}
                                                 </div>
                                             </>
                                         )}
@@ -943,6 +953,96 @@ export default function ResultsPage() {
                                                     <MetricBox label="Quality" value={selectedAd.adInsights.qualityRanking || '-'} isRanking />
                                                     <MetricBox label="Engagement Rate" value={selectedAd.adInsights.engagementRateRanking || '-'} isRanking />
                                                     <MetricBox label="Conversion Rate" value={selectedAd.adInsights.conversionRateRanking || '-'} isRanking />
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* 💬 Messaging Metrics - show if any ad in adset has message metrics */}
+                                        {showMessagingSection && (
+                                            <>
+                                                <h3 style={{ marginBottom: 'var(--spacing-sm)', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                                                    💬 Messaging Metrics
+                                                </h3>
+                                                <div style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(3, 1fr)',
+                                                    gap: 'var(--spacing-sm)',
+                                                    marginBottom: 'var(--spacing-lg)'
+                                                }}>
+                                                    {adsetHasMetric(adsInAdset, 'messagesStarted') && <MetricBox label="Messages Started" value={formatNumber(selectedAd.adInsights.messagesStarted)} />}
+                                                    {adsetHasMetric(adsInAdset, 'newMessagingContacts') && <MetricBox label="New Contacts" value={formatNumber(selectedAd.adInsights.newMessagingContacts)} />}
+                                                    {adsetHasMetric(adsInAdset, 'messagingReplies') && <MetricBox label="Replies" value={formatNumber(selectedAd.adInsights.messagingReplies)} />}
+                                                    {adsetHasMetric(adsInAdset, 'messagingConnections') && <MetricBox label="Connections" value={formatNumber(selectedAd.adInsights.messagingConnections)} />}
+                                                    {adsetHasMetric(adsInAdset, 'messagingPurchases') && <MetricBox label="Msg Purchases" value={formatNumber(selectedAd.adInsights.messagingPurchases)} highlight />}
+                                                    {adsetHasMetric(adsInAdset, 'messagingLeads') && <MetricBox label="Msg Leads" value={formatNumber(selectedAd.adInsights.messagingLeads)} highlight />}
+                                                    {adsetHasMetric(adsInAdset, 'costPerMessage') && <MetricBox label="Cost/Message" value={formatCurrency(selectedAd.adInsights.costPerMessage)} />}
+                                                    {adsetHasMetric(adsInAdset, 'costPerMessageStarted') && <MetricBox label="Cost/Msg Started" value={formatCurrency(selectedAd.adInsights.costPerMessageStarted)} />}
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* 💰 ROAS & Revenue - show if any ad has ROAS metrics */}
+                                        {showRoasSection && (
+                                            <>
+                                                <h3 style={{ marginBottom: 'var(--spacing-sm)', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                                                    💰 ROAS & Revenue
+                                                </h3>
+                                                <div style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(3, 1fr)',
+                                                    gap: 'var(--spacing-sm)',
+                                                    marginBottom: 'var(--spacing-lg)'
+                                                }}>
+                                                    {adsetHasMetric(adsInAdset, 'purchaseRoas') && <MetricBox label="Purchase ROAS" value={(selectedAd.adInsights.purchaseRoas?.toFixed(2) || '-') + 'x'} highlight={!!(selectedAd.adInsights.purchaseRoas && selectedAd.adInsights.purchaseRoas > 2)} />}
+                                                    {adsetHasMetric(adsInAdset, 'websitePurchaseRoas') && <MetricBox label="Website ROAS" value={(selectedAd.adInsights.websitePurchaseRoas?.toFixed(2) || '-') + 'x'} highlight={!!(selectedAd.adInsights.websitePurchaseRoas && selectedAd.adInsights.websitePurchaseRoas > 2)} />}
+                                                    {adsetHasMetric(adsInAdset, 'mobileAppPurchaseRoas') && <MetricBox label="Mobile App ROAS" value={(selectedAd.adInsights.mobileAppPurchaseRoas?.toFixed(2) || '-') + 'x'} />}
+                                                    {adsetHasMetric(adsInAdset, 'conversionValue') && <MetricBox label="Conversion Value" value={formatCurrency(selectedAd.adInsights.conversionValue)} highlight />}
+                                                    {adsetHasMetric(adsInAdset, 'costPerConversion') && <MetricBox label="Cost/Conversion" value={formatCurrency(selectedAd.adInsights.costPerConversion)} />}
+                                                    {adsetHasMetric(adsInAdset, 'conversionRate') && <MetricBox label="Conv. Rate" value={formatPercent(selectedAd.adInsights.conversionRate)} />}
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* 📋 Lead Form Analytics - show if any ad has lead form metrics */}
+                                        {showLeadFormSection && (
+                                            <>
+                                                <h3 style={{ marginBottom: 'var(--spacing-sm)', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                                                    📋 Lead Form Analytics
+                                                </h3>
+                                                <div style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(3, 1fr)',
+                                                    gap: 'var(--spacing-sm)',
+                                                    marginBottom: 'var(--spacing-lg)'
+                                                }}>
+                                                    {adsetHasMetric(adsInAdset, 'onFacebookLeads') && <MetricBox label="On-Facebook Leads" value={formatNumber(selectedAd.adInsights.onFacebookLeads)} highlight />}
+                                                    {adsetHasMetric(adsInAdset, 'leadFormOpens') && <MetricBox label="Form Opens" value={formatNumber(selectedAd.adInsights.leadFormOpens)} />}
+                                                    {adsetHasMetric(adsInAdset, 'leadFormSubmissions') && <MetricBox label="Form Submissions" value={formatNumber(selectedAd.adInsights.leadFormSubmissions)} />}
+                                                    {adsetHasMetric(adsInAdset, 'instantFormImpressions') && <MetricBox label="Form Impressions" value={formatNumber(selectedAd.adInsights.instantFormImpressions)} />}
+                                                    {adsetHasMetric(adsInAdset, 'completionRate') && <MetricBox label="Completion Rate" value={formatPercent(selectedAd.adInsights.completionRate)} highlight={!!(selectedAd.adInsights.completionRate && selectedAd.adInsights.completionRate > 50)} />}
+                                                    {adsetHasMetric(adsInAdset, 'costPerLead') && <MetricBox label="Cost/Lead" value={formatCurrency(selectedAd.adInsights.costPerLead)} />}
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* 📱 App Metrics - show if any ad has app metrics */}
+                                        {showAppSection && (
+                                            <>
+                                                <h3 style={{ marginBottom: 'var(--spacing-sm)', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                                                    📱 App Performance
+                                                </h3>
+                                                <div style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(3, 1fr)',
+                                                    gap: 'var(--spacing-sm)',
+                                                    marginBottom: 'var(--spacing-lg)'
+                                                }}>
+                                                    {adsetHasMetric(adsInAdset, 'appInstalls') && <MetricBox label="App Installs" value={formatNumber(selectedAd.adInsights.appInstalls)} highlight />}
+                                                    {adsetHasMetric(adsInAdset, 'costPerAppInstall') && <MetricBox label="Cost/Install" value={formatCurrency(selectedAd.adInsights.costPerAppInstall)} />}
+                                                    {adsetHasMetric(adsInAdset, 'appLaunches') && <MetricBox label="App Launches" value={formatNumber(selectedAd.adInsights.appLaunches)} />}
+                                                    {adsetHasMetric(adsInAdset, 'appEngagement') && <MetricBox label="App Engagement" value={formatNumber(selectedAd.adInsights.appEngagement)} />}
+                                                    {adsetHasMetric(adsInAdset, 'mobileAppPurchases') && <MetricBox label="In-App Purchases" value={formatNumber(selectedAd.adInsights.mobileAppPurchases)} />}
+                                                    {adsetHasMetric(adsInAdset, 'mobileAppPurchaseValue') && <MetricBox label="Purchase Value" value={formatCurrency(selectedAd.adInsights.mobileAppPurchaseValue)} />}
                                                 </div>
                                             </>
                                         )}
