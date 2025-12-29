@@ -118,6 +118,28 @@ export default function UploadPage() {
                 };
                 setExtractedData(extracted);
                 await calculatePrediction(extracted);
+
+                // Automatically save AI-suggested learned traits
+                if (extracted.learnedTraitsToCreate && extracted.learnedTraitsToCreate.length > 0) {
+                    console.log('[Upload] Saving AI-suggested learned traits:', extracted.learnedTraitsToCreate.length);
+                    for (const traitToCreate of extracted.learnedTraitsToCreate) {
+                        try {
+                            await fetch('/api/ai/learned-traits', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    traitName: traitToCreate.traitName,
+                                    traitCategory: traitToCreate.traitCategory,
+                                    definition: traitToCreate.definition,
+                                    addedBy: 'ai_extraction'
+                                })
+                            });
+                        } catch (traitError) {
+                            console.warn('[Upload] Failed to save learned trait:', traitToCreate.traitName, traitError);
+                        }
+                    }
+                }
+
                 setStep('preview');
             } else {
                 // Use fallback extraction
@@ -793,12 +815,80 @@ CTA: "Link in bio to get 20% off"`}
 
                             {extractedData.customTraits && extractedData.customTraits.length > 0 && (
                                 <div className={`${styles.extractedSection} ${styles.fullWidth}`}>
-                                    <h4>🏷️ Custom Traits</h4>
-                                    <div className={styles.featureTags}>
+                                    <h4>🏷️ Dynamically Extracted Traits ({extractedData.customTraits.length})</h4>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-sm)' }}>
+                                        These traits were intelligently extracted from your content
+                                    </p>
+                                    <div className={styles.featureTags} style={{ flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
                                         {extractedData.customTraits.map((trait, i) => (
-                                            <span key={i} className="badge">{trait}</span>
+                                            <span key={i} className="badge" style={{
+                                                background: trait.includes(':') ? 'rgba(99, 102, 241, 0.2)' : 'rgba(168, 85, 247, 0.2)',
+                                                border: trait.includes(':') ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid rgba(168, 85, 247, 0.4)'
+                                            }}>{trait}</span>
                                         ))}
                                     </div>
+                                </div>
+                            )}
+
+                            {extractedData.learnedTraitsToCreate && extractedData.learnedTraitsToCreate.length > 0 && (
+                                <div className={`${styles.extractedSection} ${styles.fullWidth}`} style={{
+                                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05))',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    borderRadius: 'var(--radius-md)',
+                                    padding: 'var(--spacing-md)'
+                                }}>
+                                    <h4 style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                        <span>🧠</span> AI-Suggested New Traits ({extractedData.learnedTraitsToCreate.length})
+                                        <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>Auto-Saved</span>
+                                    </h4>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-sm)' }}>
+                                        These new traits have been learned and saved for future predictions
+                                    </p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+                                        {extractedData.learnedTraitsToCreate.map((trait, i) => (
+                                            <div key={i} style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                padding: 'var(--spacing-xs) var(--spacing-sm)',
+                                                background: 'rgba(16, 185, 129, 0.1)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                fontSize: '0.8125rem'
+                                            }}>
+                                                <div>
+                                                    <strong style={{ color: 'var(--success)' }}>{trait.traitName}</strong>
+                                                    <span style={{ color: 'var(--text-muted)', marginLeft: 'var(--spacing-xs)' }}>
+                                                        ({trait.traitCategory})
+                                                    </span>
+                                                </div>
+                                                <span className="badge" style={{
+                                                    fontSize: '0.625rem',
+                                                    background: trait.importance === 'high' ? 'rgba(239, 68, 68, 0.2)' :
+                                                        trait.importance === 'medium' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(107, 114, 128, 0.2)',
+                                                    border: trait.importance === 'high' ? '1px solid rgba(239, 68, 68, 0.4)' :
+                                                        trait.importance === 'medium' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(107, 114, 128, 0.4)'
+                                                }}>{trait.importance}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {extractedData.aiInsights && extractedData.aiInsights.length > 0 && (
+                                <div className={`${styles.extractedSection} ${styles.fullWidth}`} style={{
+                                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0.05))',
+                                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                                    borderRadius: 'var(--radius-md)',
+                                    padding: 'var(--spacing-md)'
+                                }}>
+                                    <h4>💡 AI Insights</h4>
+                                    <ul style={{ marginLeft: 'var(--spacing-md)', fontSize: '0.875rem' }}>
+                                        {extractedData.aiInsights.map((insight, i) => (
+                                            <li key={i} style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xs)' }}>
+                                                {insight}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             )}
 

@@ -372,6 +372,196 @@ Return a JSON array of 4-5 specific, actionable recommendations.`;
 }
 
 function buildContentParsingPrompt(rawText: string): string {
+  // Detect if input is JSON (structured video metadata)
+  const isStructuredMetadata = rawText.trim().startsWith('{') || rawText.trim().startsWith('[');
+
+  if (isStructuredMetadata) {
+    // Special prompt for structured video metadata - extract DYNAMIC traits
+    return `You are an expert ad analyst. You have received structured video metadata JSON. Your job is to:
+1. Parse ALL the data in the JSON
+2. DYNAMICALLY CREATE NEW TRAITS based on what you find
+3. Fill in predefined slots where data matches
+4. Create custom traits for everything else
+
+**CRITICAL**: Do NOT just extract into existing slots. ACTIVELY CREATE NEW TRAITS from the rich data!
+
+INPUT DATA:
+${rawText}
+
+INSTRUCTIONS FOR DYNAMIC TRAIT CREATION:
+
+1. **From shots data**: Extract style traits like "flat_design", "kinetic_typography", "vector_art", camera motions, transitions, etc.
+   - Example: If shot has style_tags ["flat_design", "kinetic_typography"], create traits: "style:flat_design", "style:kinetic_typography"
+
+2. **From object_tracks**: Extract subject traits, attributes, actions
+   - Example: character with ["animated", "purple_hair", "headphones"] → traits: "character:animated", "visual:purple_hair", "prop:headphones"
+   - Example: actions ["typing", "listening"] → traits: "action:typing", "action:listening"
+
+3. **From on_screen_text_events**: Extract text purpose, language, legibility
+   - Example: multiple headlines → trait "text:multi_headline"
+   - Example: language "hi-Latn" → trait "language:hinglish" or "language:romanized_hindi"
+
+4. **From music_segments**: Extract genre, mood, is_jingle, tempo
+   - Example: is_jingle=true → trait "music:jingle"
+   - Example: genre "pop_jingle" → trait "genre:pop_jingle"
+   - Example: tempo 120 BPM → trait "tempo:upbeat" or "bpm:120"
+
+5. **From brand_signals**: Extract brand elements
+   - Example: type "tagline" → trait "brand:has_tagline"
+   - Example: type "brand_name" → trait "brand:name_visible"
+
+6. **From claims_and_persuasion**: Extract claim types
+   - Example: claim_type "functional" → trait "claim:functional"
+   - Example: claim_type "emotional" → trait "claim:emotional"
+
+7. **From global_summary**: Extract structure, tone tags, CTA type
+   - Example: structure stages ["hook", "solution", "proof", "close"] → trait "structure:full_funnel"
+   - Example: creative_tone_tags ["upbeat", "musical"] → traits "tone:upbeat", "tone:musical"
+
+8. **From timeline_events**: Extract key moments and pacing
+   - Example: multiple text_change events → trait "pacing:dynamic_text"
+   - Example: logo_appears event → trait "timing:late_brand_reveal" (if near end)
+
+9. **From audio_segments**: Extract audio type, language
+   - Example: type "mixed" → trait "audio:mixed_media"
+   - Example: speech_role "voiceover" → trait "voiceover:yes"
+
+10. **From notes**: Extract special characteristics
+    - Example: "vertical format social media ad" → trait "format:vertical", "target:social_media"
+
+GENERATE THIS OUTPUT:
+
+{
+  "title": "Extract from global_summary.brands_detected or video_id",
+  "description": "Extract from global_summary or generate from content",
+  "mediaType": "video",
+  "aspectRatio": "Infer from notes or metadata (9:16 if vertical)",
+  "duration": "Calculate from metadata.duration_ms / 1000",
+  "durationCategory": "under_15s|15_30s|30_60s|over_60s",
+  "adFormat": "video",
+  "platform": "Infer from format/style",
+  "placement": "Infer from aspect ratio",
+  "industryVertical": "Extract from products_detected or description",
+  "hookType": "Infer from global_summary.structure first stage",
+  "hookText": "Extract from on_screen_text_events first entry text",
+  "hookVelocity": "Infer from structure timing",
+  "hookKeywords": ["Extract key words from hook text"],
+  "contentCategory": "Infer from overall content type",
+  "editingStyle": "Extract from shots.style_tags_optional",
+  "patternType": "Map from global_summary.structure",
+  "overallSentiment": "Infer from creative_tone_tags",
+  "emotionalTone": "Extract from creative_tone_tags",
+  "facePresence": "Check object_tracks for person category",
+  "numberOfFaces": "Count person category in object_tracks",
+  "facialEmotion": "Not available in metadata",
+  "hasTextOverlays": "Check if on_screen_text_events exists and has entries",
+  "textOverlayRatio": "Infer from number of text events",
+  "textReadability": "Use legibility_score_0_1 from text events",
+  "colorScheme": "Extract from shots.dominant_colors_optional",
+  "colorTemperature": "Infer from dominant colors",
+  "brandVisualTiming": "Extract from brand_signals timing relative to duration",
+  "safeZoneAdherence": "Infer or null",
+  "visualAudioMismatch": false,
+  "visualStyle": ["Extract all style_tags from shots"],
+  "hasSubtitles": "Check for subtitle-like text events",
+  "subtitleStyle": "Infer from text events",
+  "musicType": "Extract from music_segments.genre_optional",
+  "bpm": "Map tempo_bpm_optional to slow/medium/fast",
+  "hasVoiceover": "Check audio_segments for voiceover",
+  "voiceoverStyle": "Infer from audio characteristics",
+  "silenceDetection": false,
+  "audioPeakTiming": "Infer from events",
+  "audioDescription": "Generate from music and audio data",
+  "script": "Concatenate all on_screen_text_events.text and asr_words",
+  "painPointAddressing": "Check claims for problem references",
+  "painPoints": ["Extract from claims_and_persuasion"],
+  "cta": "Extract from global_summary.primary_cta.type",
+  "ctaText": "Extract from global_summary.primary_cta.text",
+  "ctaStrength": "Infer from CTA clarity and position",
+  "headlines": ["Extract text from headline purpose events"],
+  "readabilityScore": "simple|moderate|complex",
+  "retentionCurveSlope": "Infer from structure and pacing",
+  "preFlightScore": 75,
+  "preFlightNotes": ["Analysis notes from the data"],
+  "conceptDrift": false,
+  "saliencyMapScore": 75,
+  "sceneVelocity": "Infer from shot count and duration",
+  "textToBackgroundContrast": "Infer from legibility scores",
+  "shotComposition": "Infer from shot_type",
+  "semanticCongruence": true,
+  "moodMatching": "Compare music mood to visual style",
+  "logoConsistency": "Infer from brand_signals presence",
+  "logoTiming": "Extract from brand_signal timing",
+  "brandColorUsage": "Check if brand colors match dominant colors",
+  "voiceAuthorityScore": 70,
+  "voiceGender": "Infer if available",
+  "voiceAge": "Infer if available",
+  "speechPace": "Infer from asr_words timing density",
+  "curiosityGap": "Check claims for curiosity hooks",
+  "socialProofElements": ["Extract any testimonials or proof claims"],
+  "urgencyTriggers": ["Extract any urgency language"],
+  "trustSignals": ["Extract any trust elements"],
+  "numberOfActors": "Count person objects with actions",
+  "talentType": "Infer from object attributes",
+  "isUGCStyle": "Infer from style and content",
+  
+  "customTraits": [
+    "DYNAMICALLY EXTRACT ALL TRAITS FROM THE DATA:",
+    "- style:flat_design (from shots.style_tags)",
+    "- style:kinetic_typography",
+    "- animation:2d",
+    "- music:jingle (from is_jingle=true)",
+    "- tempo:upbeat (from mood)",
+    "- language:hinglish (from language field)",
+    "- structure:hook_solution_proof_close",
+    "- tone:upbeat, tone:musical, tone:informal (from creative_tone_tags)",
+    "- visual:yellow_dominant (from dominant_colors)",
+    "- visual:purple_accent",
+    "- character:animated",
+    "- character:with_laptop",
+    "- character:headphones",
+    "- prop:globe_icon",
+    "- prop:music_note",
+    "- text:multiline_lyrics",
+    "- brand:late_reveal (if brand appears in closing)",
+    "- claim:functional",
+    "- claim:emotional",
+    "- cta:visit_store",
+    "- etc..."
+  ],
+  
+  "aiDiscoveredMetrics": [
+    {
+      "name": "Extract unique metric names from the data",
+      "value": "The value found",
+      "importance": "high|medium|low",
+      "description": "Why this metric matters for ad performance"
+    }
+  ],
+  
+  "learnedTraitsToCreate": [
+    {
+      "traitName": "New trait name to add to the system",
+      "traitCategory": "Visual|Audio|Style|Content|Brand|Language|etc",
+      "definition": "Definition of what this trait means",
+      "importance": "high|medium|low"
+    }
+  ],
+  
+  "aiInsights": [
+    "Extract unique insights from the data",
+    "Note any patterns or characteristics not in standard fields"
+  ],
+  
+  "missingDataFields": ["Any fields that would help improve analysis"],
+  "suggestions": ["Recommendations based on the data"],
+  "extractionConfidence": 85
+}
+
+CRITICAL: The customTraits array should contain 15-30+ dynamically generated traits from ALL the rich data in the JSON. Don't just use the predefined slots - CREATE NEW TRAITS!`;
+  }
+
+  // Original prompt for natural language descriptions
   return `You are an expert ad analyst. Extract ALL attributes from this ad description and identify MISSING DATA that would improve analysis.
 
 "${rawText}"
@@ -415,14 +605,14 @@ ADVANCED VISUAL ANALYTICS:
 - saliencyMapScore (0-100 - how well key elements draw attention)
 - sceneVelocity (static/slow/moderate/fast/chaotic - pace of scene changes)
 - textToBackgroundContrast (poor/adequate/good/excellent)
-- shotComposition (rule_of_thirds/centered/symmetrical/dynamic/close_up/wide/mixed)
+- shotComposition (rule_of_thirds/centered/symmetrical/dynamic/close_up|wide|mixed)
 - semanticCongruence (do visuals match the message?)
 - moodMatching (does audio mood match visual mood?)
 
 BRAND CONSISTENCY:
 - logoConsistency (absent/subtle/prominent/intrusive)
 - logoTiming (intro/throughout/outro/none)
-- brandColorUsage (none/accent/dominant)
+- brandColorUsage (none|accent|dominant)
 
 VOICE & AUDIO AUTHORITY:
 - voiceAuthorityScore (0-100 - confidence/authority of voiceover)
@@ -441,10 +631,14 @@ TALENT:
 
 AI-DISCOVERED INSIGHTS:
 - Look for ANY other patterns, traits, or insights not covered above
+- ACTIVELY CREATE NEW TRAITS for anything unique in the description
 - Add your own discovered metrics with name, value, importance (low/medium/high), and description
 - Be creative and thorough - discover what makes this ad unique!
 
-IMPORTANT: Identify what's MISSING for better analysis!
+IMPORTANT: 
+1. Identify what's MISSING for better analysis!
+2. DYNAMICALLY CREATE customTraits for anything unique not covered by predefined fields
+3. If the user mentions specific elements (colors, styles, techniques, languages, etc.), create traits for them
 
 Return JSON:
 {
@@ -520,7 +714,8 @@ Return JSON:
   "numberOfActors": 1,
   "talentType": "ugc_creator|influencer|model|none|multiple",
   "isUGCStyle": true|false,
-  "customTraits": ["any other notable traits"],
+  "customTraits": ["DYNAMICALLY CREATE traits for anything unique - e.g., 'language:spanish', 'style:neon_colors', 'music:lo_fi', 'character:pet_featured', etc."],
+  "learnedTraitsToCreate": [{"traitName": "new_trait_name", "traitCategory": "Category", "definition": "What this trait means", "importance": "high|medium|low"}],
   "aiDiscoveredMetrics": [{"name": "unique_metric_name", "value": "value", "importance": "high", "description": "Why this matters"}],
   "aiInsights": ["Unique AI observations about this ad not covered by standard metrics"],
   "missingDataFields": ["List fields user should provide for better analysis"],

@@ -13,6 +13,8 @@ export * from './success-normalization';
 export * from './failure-taxonomy';
 export * from './risk-assessment';
 export * from './score-recalculation';
+export * from './campaign-optimizer';
+
 
 import { AdEntry, ExtractedAdData, ExtractedResultsData, MLSystemState } from '@/types';
 import { getLearningStats, updatePredictionWithReality, analyzePredictionResult } from './feedback-loop';

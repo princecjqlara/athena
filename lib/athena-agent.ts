@@ -49,7 +49,14 @@ export type ActionName =
     // Facebook Ad Management (Direct API)
     | 'pause_ad'
     | 'resume_ad'
-    | 'update_budget';
+    | 'update_budget'
+    // Facebook Ad Creation (Phase 2)
+    | 'create_fb_campaign'
+    | 'create_fb_adset'
+    // Facebook Ad Creative & Full Ad (Phase 3)
+    | 'upload_ad_image'
+    | 'create_ad_creative'
+    | 'create_full_ad';
 
 export interface AgentAction {
     name: ActionName;
@@ -327,6 +334,68 @@ export const AGENT_ACTIONS: Record<ActionName, Omit<AgentAction, 'execute'>> = {
             { name: 'lifetimeBudget', type: 'number', required: false, description: 'New lifetime budget in pesos' }
         ]
     },
+    // ============ FACEBOOK AD CREATION (PHASE 2) ============
+    create_fb_campaign: {
+        name: 'create_fb_campaign',
+        description: 'Create a new Facebook ad campaign',
+        requiresConfirmation: true,
+        parameters: [
+            { name: 'name', type: 'string', required: true, description: 'Campaign name' },
+            { name: 'objective', type: 'string', required: true, description: 'Objective: awareness, engagement, leads, sales, traffic, app' },
+            { name: 'status', type: 'string', required: false, description: 'ACTIVE or PAUSED (default: PAUSED)' }
+        ]
+    },
+    create_fb_adset: {
+        name: 'create_fb_adset',
+        description: 'Create a new Facebook ad set with targeting',
+        requiresConfirmation: true,
+        parameters: [
+            { name: 'name', type: 'string', required: true, description: 'Ad set name' },
+            { name: 'campaignId', type: 'string', required: true, description: 'Parent campaign ID' },
+            { name: 'dailyBudget', type: 'number', required: true, description: 'Daily budget in pesos (min ₱200)' },
+            { name: 'countries', type: 'array', required: false, description: 'Target countries (default: PH)' },
+            { name: 'ageMin', type: 'number', required: false, description: 'Minimum age (18-65)' },
+            { name: 'ageMax', type: 'number', required: false, description: 'Maximum age (18-65)' },
+            { name: 'genders', type: 'array', required: false, description: '1=male, 2=female, or both' },
+            { name: 'optimizationGoal', type: 'string', required: false, description: 'e.g., LINK_CLICKS, LEAD_GENERATION' }
+        ]
+    },
+    // ============ FACEBOOK AD CREATIVE & FULL AD (PHASE 3) ============
+    upload_ad_image: {
+        name: 'upload_ad_image',
+        description: 'Upload an image to Facebook for use in ads',
+        requiresConfirmation: false,
+        parameters: [
+            { name: 'imageUrl', type: 'string', required: true, description: 'URL of the image to upload' },
+            { name: 'imageName', type: 'string', required: false, description: 'Name for the image' }
+        ]
+    },
+    create_ad_creative: {
+        name: 'create_ad_creative',
+        description: 'Create an ad creative with image, text, and call-to-action',
+        requiresConfirmation: true,
+        parameters: [
+            { name: 'name', type: 'string', required: true, description: 'Creative name' },
+            { name: 'pageId', type: 'string', required: true, description: 'Facebook Page ID' },
+            { name: 'imageHash', type: 'string', required: false, description: 'Image hash from upload' },
+            { name: 'imageUrl', type: 'string', required: false, description: 'Direct image URL' },
+            { name: 'message', type: 'string', required: true, description: 'Primary text/body' },
+            { name: 'headline', type: 'string', required: false, description: 'Ad headline' },
+            { name: 'linkUrl', type: 'string', required: false, description: 'Destination URL' },
+            { name: 'callToAction', type: 'string', required: false, description: 'CTA: LEARN_MORE, SHOP_NOW, SIGN_UP, etc.' }
+        ]
+    },
+    create_full_ad: {
+        name: 'create_full_ad',
+        description: 'Create a complete Facebook ad by linking a creative to an ad set',
+        requiresConfirmation: true,
+        parameters: [
+            { name: 'name', type: 'string', required: true, description: 'Ad name' },
+            { name: 'adsetId', type: 'string', required: true, description: 'Ad set ID' },
+            { name: 'creativeId', type: 'string', required: true, description: 'Creative ID' },
+            { name: 'status', type: 'string', required: false, description: 'ACTIVE or PAUSED (default: PAUSED)' }
+        ]
+    },
     // Pipeline Management
     delete_pipeline: {
         name: 'delete_pipeline',
@@ -500,6 +569,15 @@ const INTENT_PATTERNS: { pattern: RegExp; action: ActionName; extractParams?: (m
     { pattern: /pause.*ad|stop.*ad|disable.*ad/i, action: 'pause_ad' },
     { pattern: /resume.*ad|start.*ad|enable.*ad|unpause.*ad|activate.*ad/i, action: 'resume_ad' },
     { pattern: /update.*budget|change.*budget|set.*budget|increase.*budget|decrease.*budget/i, action: 'update_budget' },
+
+    // Facebook Ad Creation patterns (Phase 2)
+    { pattern: /create.*campaign|new.*campaign|setup.*campaign|make.*campaign/i, action: 'create_fb_campaign' },
+    { pattern: /create.*ad\s*set|new.*ad\s*set|setup.*ad\s*set|make.*ad\s*set|create.*adset|new.*adset/i, action: 'create_fb_adset' },
+
+    // Facebook Ad Creative & Full Ad patterns (Phase 3)
+    { pattern: /upload.*image|add.*image|upload.*photo/i, action: 'upload_ad_image' },
+    { pattern: /create.*creative|new.*creative|make.*creative|design.*ad/i, action: 'create_ad_creative' },
+    { pattern: /create.*full.*ad|publish.*ad|launch.*ad|complete.*ad|finalize.*ad/i, action: 'create_full_ad' },
 
     // Pipeline Management patterns
     { pattern: /delete.*pipeline|remove.*pipeline/i, action: 'delete_pipeline' },
@@ -698,6 +776,20 @@ export async function executeAction(
             return executeResumeAd(params);
         case 'update_budget':
             return executeUpdateBudget(params);
+
+        // Facebook Ad Creation (Phase 2)
+        case 'create_fb_campaign':
+            return executeCreateFbCampaign(params);
+        case 'create_fb_adset':
+            return executeCreateFbAdset(params);
+
+        // Facebook Ad Creative & Full Ad (Phase 3)
+        case 'upload_ad_image':
+            return executeUploadAdImage(params);
+        case 'create_ad_creative':
+            return executeCreateAdCreative(params);
+        case 'create_full_ad':
+            return executeCreateFullAd(params);
 
         // Pipeline Management
         case 'delete_pipeline':
@@ -2028,7 +2120,7 @@ function executeClearAllData(params: Record<string, unknown>): ActionResult {
 
 async function executePauseAd(params: Record<string, unknown>): Promise<ActionResult> {
     const adId = params.adId as string;
-    
+
     if (!adId) {
         return {
             success: false,
@@ -2039,7 +2131,7 @@ async function executePauseAd(params: Record<string, unknown>): Promise<ActionRe
 
     try {
         const token = localStorage.getItem('fb_access_token');
-        
+
         if (!token) {
             return {
                 success: false,
@@ -2084,7 +2176,7 @@ async function executePauseAd(params: Record<string, unknown>): Promise<ActionRe
 
 async function executeResumeAd(params: Record<string, unknown>): Promise<ActionResult> {
     const adId = params.adId as string;
-    
+
     if (!adId) {
         return {
             success: false,
@@ -2095,7 +2187,7 @@ async function executeResumeAd(params: Record<string, unknown>): Promise<ActionR
 
     try {
         const token = localStorage.getItem('fb_access_token');
-        
+
         if (!token) {
             return {
                 success: false,
@@ -2142,7 +2234,7 @@ async function executeUpdateBudget(params: Record<string, unknown>): Promise<Act
     const adsetId = params.adsetId as string;
     const dailyBudget = params.dailyBudget as number | undefined;
     const lifetimeBudget = params.lifetimeBudget as number | undefined;
-    
+
     if (!adsetId) {
         return {
             success: false,
@@ -2161,7 +2253,7 @@ async function executeUpdateBudget(params: Record<string, unknown>): Promise<Act
 
     try {
         const token = localStorage.getItem('fb_access_token');
-        
+
         if (!token) {
             return {
                 success: false,
@@ -2184,8 +2276,8 @@ async function executeUpdateBudget(params: Record<string, unknown>): Promise<Act
         const data = await response.json();
 
         if (data.success) {
-            const budgetMsg = dailyBudget 
-                ? `daily budget to ₱${dailyBudget}` 
+            const budgetMsg = dailyBudget
+                ? `daily budget to ₱${dailyBudget}`
                 : `lifetime budget to ₱${lifetimeBudget}`;
             return {
                 success: true,
@@ -2203,6 +2295,179 @@ async function executeUpdateBudget(params: Record<string, unknown>): Promise<Act
         return {
             success: false,
             message: 'Error updating budget. Please check your connection.',
+            error: String(error)
+        };
+    }
+}
+
+// ============ FACEBOOK AD CREATION FUNCTIONS (PHASE 2) ============
+
+async function executeCreateFbCampaign(params: Record<string, unknown>): Promise<ActionResult> {
+    const name = params.name as string;
+    const objective = params.objective as string;
+    const status = (params.status as string) || 'PAUSED';
+
+    if (!name) {
+        return {
+            success: false,
+            message: 'Please specify a name for the campaign',
+            error: 'Missing name'
+        };
+    }
+
+    if (!objective) {
+        return {
+            success: false,
+            message: 'Please specify an objective. Options: awareness, engagement, leads, sales, traffic, app',
+            error: 'Missing objective'
+        };
+    }
+
+    try {
+        const token = localStorage.getItem('fb_access_token');
+        const adAccountId = localStorage.getItem('fb_selected_ad_account');
+
+        if (!token || !adAccountId) {
+            return {
+                success: false,
+                message: 'Please connect your Facebook account first in Settings',
+                error: 'Not authenticated'
+            };
+        }
+
+        const response = await fetch('/api/facebook/campaigns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                objective,
+                status,
+                accessToken: token,
+                adAccountId
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            return {
+                success: true,
+                message: `🎯 Campaign **"${name}"** created successfully!\n\n` +
+                    `**Campaign ID:** \`${data.campaignId}\`\n` +
+                    `**Objective:** ${data.objective}\n` +
+                    `**Status:** ${data.status}\n\n` +
+                    `Next step: Create an ad set with targeting using this campaign ID.`,
+                data: data
+            };
+        }
+
+        return {
+            success: false,
+            message: data.error || 'Failed to create campaign',
+            error: data.error
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: 'Error creating campaign. Please check your connection.',
+            error: String(error)
+        };
+    }
+}
+
+async function executeCreateFbAdset(params: Record<string, unknown>): Promise<ActionResult> {
+    const name = params.name as string;
+    const campaignId = params.campaignId as string;
+    const dailyBudget = params.dailyBudget as number;
+    const countries = params.countries as string[] | undefined;
+    const ageMin = params.ageMin as number | undefined;
+    const ageMax = params.ageMax as number | undefined;
+    const genders = params.genders as number[] | undefined;
+    const optimizationGoal = (params.optimizationGoal as string) || 'LINK_CLICKS';
+
+    if (!name) {
+        return {
+            success: false,
+            message: 'Please specify a name for the ad set',
+            error: 'Missing name'
+        };
+    }
+
+    if (!campaignId) {
+        return {
+            success: false,
+            message: 'Please specify the campaign ID. Create a campaign first if you haven\'t.',
+            error: 'Missing campaignId'
+        };
+    }
+
+    if (!dailyBudget || dailyBudget < 200) {
+        return {
+            success: false,
+            message: 'Please specify a daily budget (minimum ₱200)',
+            error: 'Missing or invalid dailyBudget'
+        };
+    }
+
+    try {
+        const token = localStorage.getItem('fb_access_token');
+        const adAccountId = localStorage.getItem('fb_selected_ad_account');
+
+        if (!token || !adAccountId) {
+            return {
+                success: false,
+                message: 'Please connect your Facebook account first in Settings',
+                error: 'Not authenticated'
+            };
+        }
+
+        const response = await fetch('/api/facebook/adsets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                campaignId,
+                dailyBudget,
+                countries: countries || ['PH'],
+                ageMin,
+                ageMax,
+                genders,
+                optimizationGoal,
+                status: 'PAUSED',
+                accessToken: token,
+                adAccountId
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const targetingInfo = [];
+            if (countries && countries.length > 0) targetingInfo.push(`Countries: ${countries.join(', ')}`);
+            else targetingInfo.push('Countries: PH');
+            if (ageMin || ageMax) targetingInfo.push(`Ages: ${ageMin || 18}-${ageMax || 65}`);
+            if (genders) targetingInfo.push(`Gender: ${genders.includes(1) ? 'Male' : ''}${genders.includes(1) && genders.includes(2) ? ', ' : ''}${genders.includes(2) ? 'Female' : ''}`);
+
+            return {
+                success: true,
+                message: `📊 Ad Set **"${name}"** created successfully!\n\n` +
+                    `**Ad Set ID:** \`${data.adsetId}\`\n` +
+                    `**Daily Budget:** ₱${dailyBudget}\n` +
+                    `**Targeting:**\n${targetingInfo.map(t => `  • ${t}`).join('\n')}\n\n` +
+                    `Next step: Create an ad creative to complete your ad setup.`,
+                data: data
+            };
+        }
+
+        return {
+            success: false,
+            message: data.error || 'Failed to create ad set',
+            error: data.error
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: 'Error creating ad set. Please check your connection.',
             error: String(error)
         };
     }

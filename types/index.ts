@@ -455,6 +455,15 @@ export interface ExtractedAdData {
 
   aiInsights?: string[]; // AI's unique observations not covered by standard metrics
 
+  // ===== AI-SUGGESTED NEW TRAITS =====
+  // Traits the AI recommends adding to the learned traits system
+  learnedTraitsToCreate?: {
+    traitName: string;
+    traitCategory: string;
+    definition: string;
+    importance: 'low' | 'medium' | 'high';
+  }[];
+
   // ===== MISSING DATA SUGGESTIONS =====
   missingDataFields?: string[]; // Fields user should provide for better analysis
   suggestions?: string[]; // AI suggestions for more complete data
