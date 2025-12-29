@@ -79,6 +79,34 @@ interface FacebookUserProfile {
     profile_pic?: string;
 }
 
+// Fixed pipeline stages for mapping (same as /api/ai/analyze)
+const FIXED_PIPELINE_STAGES = [
+    { id: 'inquiry', name: 'Inquiry', keywords: ['inquiry', 'initial', 'new', 'contacted'] },
+    { id: 'interested', name: 'Interested', keywords: ['interested', 'engaged', 'qualified', 'warm'] },
+    { id: 'scheduled', name: 'Scheduled', keywords: ['scheduled', 'negotiating', 'proposal', 'quote'] },
+    { id: 'completed', name: 'Completed', keywords: ['completed', 'won', 'closed', 'converted', 'ready'] },
+    { id: 'lost', name: 'Lost', keywords: ['lost', 'declined', 'cold'] },
+];
+
+// Determine suggested stage based on lead score and intent
+function determineSuggestedStage(leadScore: number, intent: string): string {
+    const intentLower = intent?.toLowerCase() || '';
+
+    // Check for explicit signals in intent
+    if (intentLower.includes('buy') || intentLower.includes('purchase') || intentLower.includes('order') || leadScore >= 80) {
+        return 'completed';
+    }
+    if (intentLower.includes('price') || intentLower.includes('discount') || intentLower.includes('negotiat') || leadScore >= 60) {
+        return 'scheduled';
+    }
+    if (intentLower.includes('interest') || intentLower.includes('info') || intentLower.includes('more') || leadScore >= 40) {
+        return 'interested';
+    }
+
+    // Default to inquiry for new leads
+    return 'inquiry';
+}
+
 // Trigger AI analysis for a lead (runs in background, non-blocking)
 async function triggerLeadAnalysis(contactId: string, contactName: string) {
     try {
@@ -111,21 +139,34 @@ async function triggerLeadAnalysis(contactId: string, contactName: string) {
         if (response.ok) {
             const result = await response.json();
             if (result.success) {
-                // Update contact with AI analysis results (using ai_analysis nested object)
+                const { sentiment, intent, leadScore, summary } = result.data;
+
+                // Determine suggested stage based on AI analysis
+                const suggestedStageId = determineSuggestedStage(leadScore, intent);
+
+                // Update contact with AI analysis results AND stage
                 await supabaseContactsStore.update(contactId, {
                     ai_analysis: {
-                        sentiment: result.data.sentiment,
-                        intent: result.data.intent,
-                        lead_score: result.data.leadScore,
-                        summary: result.data.summary,
+                        sentiment,
+                        intent,
+                        lead_score: leadScore,
+                        summary,
                     },
+                    stage_id: suggestedStageId, // Auto-update pipeline stage!
                 });
 
                 console.log('[Webhook] AI Re-analyzed lead:', {
                     contactId,
                     contactName,
-                    newScore: result.data.leadScore,
-                    intent: result.data.intent?.substring(0, 50)
+                    newScore: leadScore,
+                    intent: intent?.substring(0, 50),
+                    suggestedStage: suggestedStageId
+                });
+
+                console.log('[Webhook] Stage updated:', {
+                    contactId,
+                    previousStage: 'unknown', // We don't track previous here
+                    newStage: suggestedStageId
                 });
             }
         } else {
