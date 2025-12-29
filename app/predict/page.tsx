@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styles from './page.module.css';
 import {
     HookType,
@@ -22,6 +22,30 @@ import {
     PotentialFailure,
     getRiskTierDisplay,
 } from '@/lib/ml';
+
+// Ad interface for existing ads from localStorage
+interface Ad {
+    id: string;
+    name?: string;
+    extractedContent?: {
+        title?: string;
+        platform?: string;
+        hookType?: string;
+        contentCategory?: string;
+        mediaType?: string;
+    };
+    categories?: string[];
+    traits?: string[];
+    thumbnail?: string;
+    thumbnailUrl?: string;
+    platform?: string;
+    hook_type?: string;
+    mediaType?: 'video' | 'photo' | string;
+    importedFromFacebook?: boolean;
+}
+
+// Source mode type
+type SourceMode = 'configure' | 'pick' | 'upload';
 
 const QUICK_OPTIONS = {
     hook_types: [
@@ -57,6 +81,24 @@ export default function PredictPage() {
     const [dataPoints, setDataPoints] = useState(0);
     const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
 
+    // Source mode state
+    const [sourceMode, setSourceMode] = useState<SourceMode>('configure');
+
+    // Existing ads for pick mode
+    const [existingAds, setExistingAds] = useState<Ad[]>([]);
+    const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
+    const [adSearchQuery, setAdSearchQuery] = useState('');
+
+    // Upload mode state
+    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+    const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Ad copy section (optional)
+    const [primaryText, setPrimaryText] = useState('');
+    const [headline, setHeadline] = useState('');
+
     const [inputs, setInputs] = useState({
         hook_type: '' as HookType | '',
         editing_style: '' as EditingStyle | '',
@@ -73,6 +115,109 @@ export default function PredictPage() {
         launch_day: 'thursday' as DayOfWeek,
         launch_time: 'evening' as TimeOfDay,
     });
+
+    // Load existing ads from localStorage
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem('ads');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                setExistingAds(parsed);
+            }
+        } catch (e) {
+            console.error('Error loading ads:', e);
+        }
+    }, []);
+
+    // Helper to get ad name
+    const getAdName = (ad: Ad): string => {
+        return ad.extractedContent?.title || ad.name || 'Untitled Ad';
+    };
+
+    // Handle selecting an existing ad
+    const handleSelectAd = (ad: Ad) => {
+        setSelectedAd(ad);
+
+        // Auto-populate inputs from ad data
+        const hookType = ad.extractedContent?.hookType || ad.hook_type || '';
+        const platform = ad.extractedContent?.platform || ad.platform || '';
+        const contentCategory = ad.extractedContent?.contentCategory || ad.categories?.[0] || '';
+
+        // Map to valid enum values
+        const hookTypeMap: Record<string, HookType> = {
+            'curiosity': 'curiosity',
+            'shock': 'shock',
+            'before_after': 'before_after',
+            'question': 'question',
+            'story': 'story',
+            'transformation': 'before_after',
+            'testimonial': 'story',
+        };
+
+        const platformMap: Record<string, Platform> = {
+            'tiktok': 'tiktok',
+            'instagram': 'instagram',
+            'facebook': 'facebook',
+            'youtube': 'youtube',
+        };
+
+        const categoryMap: Record<string, ContentCategory> = {
+            'ugc': 'ugc',
+            'testimonial': 'testimonial',
+            'lifestyle': 'lifestyle',
+            'product_demo': 'product_demo',
+            'product demo': 'product_demo',
+            'educational': 'lifestyle',
+        };
+
+        setInputs(prev => ({
+            ...prev,
+            hook_type: hookTypeMap[hookType.toLowerCase()] || prev.hook_type,
+            platform: platformMap[platform.toLowerCase()] || prev.platform,
+            content_category: categoryMap[contentCategory.toLowerCase()] || prev.content_category,
+            // Infer features from traits if available
+            ugc_style: ad.traits?.some(t => t.toLowerCase().includes('ugc')) || ad.categories?.includes('UGC') || prev.ugc_style,
+            subtitles: ad.traits?.some(t => t.toLowerCase().includes('subtitle') || t.toLowerCase().includes('caption')) ?? prev.subtitles,
+            voiceover: ad.traits?.some(t => t.toLowerCase().includes('voiceover')) ?? prev.voiceover,
+            text_overlays: ad.traits?.some(t => t.toLowerCase().includes('text') || t.toLowerCase().includes('overlay')) ?? prev.text_overlays,
+        }));
+    };
+
+    // Handle file upload
+    const handleFileUpload = (file: File) => {
+        setUploadedFile(file);
+
+        // Create preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            setUploadPreview(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // Handle drag and drop
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+                handleFileUpload(file);
+            }
+        }
+    };
 
     const handlePredict = async () => {
         if (!inputs.hook_type || !inputs.editing_style || !inputs.content_category || !inputs.platform) {
@@ -108,24 +253,41 @@ export default function PredictPage() {
             setRiskAssessment(mlResult.riskAssessment);
             setDataPoints(mlResult.baselineStats.sampleSize);
 
+            // Build enhanced prediction request with ad copy
+            const predictionData: Record<string, unknown> = {
+                hookType: inputs.hook_type,
+                contentCategory: inputs.content_category,
+                editingStyle: inputs.editing_style,
+                platform: inputs.platform,
+                features: {
+                    hasSubtitles: inputs.subtitles,
+                    hasTextOverlays: inputs.text_overlays,
+                    isUGC: inputs.ugc_style,
+                    hasVoiceover: inputs.voiceover,
+                },
+            };
+
+            // Include ad copy if provided
+            if (primaryText.trim() || headline.trim()) {
+                predictionData.adCopy = {
+                    primaryText: primaryText.trim(),
+                    headline: headline.trim(),
+                };
+            }
+
+            // Include source info
+            if (sourceMode === 'pick' && selectedAd) {
+                predictionData.sourceAdId = selectedAd.id;
+                predictionData.sourceAdName = getAdName(selectedAd);
+            }
+
             // Call the AI API for GPT-powered prediction
             const response = await fetch('/api/ai', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'predict',
-                    data: {
-                        hookType: inputs.hook_type,
-                        contentCategory: inputs.content_category,
-                        editingStyle: inputs.editing_style,
-                        platform: inputs.platform,
-                        features: {
-                            hasSubtitles: inputs.subtitles,
-                            hasTextOverlays: inputs.text_overlays,
-                            isUGC: inputs.ugc_style,
-                            hasVoiceover: inputs.voiceover,
-                        },
-                    },
+                    data: predictionData,
                 }),
             });
 
@@ -161,6 +323,15 @@ export default function PredictPage() {
                     similar_videos: [],
                 };
 
+                // Add copy-related factors if provided
+                if (primaryText.trim()) {
+                    fallbackPrediction.top_factors.push({
+                        factor: 'Ad Copy Provided',
+                        impact: 'positive',
+                        weight: 0.7,
+                    });
+                }
+
                 // Add recommendations based on risk assessment
                 if (mlResult.riskAssessment.potentialFailures.length > 0) {
                     mlResult.riskAssessment.potentialFailures.forEach(f => {
@@ -170,6 +341,7 @@ export default function PredictPage() {
 
                 if (!inputs.ugc_style) fallbackPrediction.recommendations.push('Consider using UGC-style content for +15% engagement');
                 if (!inputs.subtitles) fallbackPrediction.recommendations.push('Add subtitles/captions for +12% watch time');
+                if (!primaryText.trim()) fallbackPrediction.recommendations.push('Add primary text to improve ad relevance and targeting');
 
                 setPrediction(fallbackPrediction);
             }
@@ -196,6 +368,11 @@ export default function PredictPage() {
     const resetPrediction = () => {
         setPrediction(null);
         setRiskAssessment(null);
+        setSelectedAd(null);
+        setUploadedFile(null);
+        setUploadPreview(null);
+        setPrimaryText('');
+        setHeadline('');
         setInputs({
             hook_type: '',
             editing_style: '',
@@ -213,6 +390,11 @@ export default function PredictPage() {
             launch_time: 'evening',
         });
     };
+
+    // Filter ads based on search
+    const filteredAds = existingAds.filter(ad =>
+        getAdName(ad).toLowerCase().includes(adSearchQuery.toLowerCase())
+    );
 
     return (
         <div className={styles.page}>
@@ -232,9 +414,209 @@ export default function PredictPage() {
 
             {!prediction ? (
                 <div className={styles.inputSection}>
+                    {/* Source Selection Tabs */}
+                    <div className={styles.sourceTabs}>
+                        <button
+                            className={`${styles.sourceTab} ${sourceMode === 'configure' ? styles.active : ''}`}
+                            onClick={() => setSourceMode('configure')}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M12 3h7a2 2 0 012 2v14a2 2 0 01-2 2h-7m0-18H5a2 2 0 00-2 2v14a2 2 0 002 2h7m0-18v18" />
+                            </svg>
+                            Configure Manually
+                        </button>
+                        <button
+                            className={`${styles.sourceTab} ${sourceMode === 'pick' ? styles.active : ''}`}
+                            onClick={() => setSourceMode('pick')}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <polyline points="21 15 16 10 5 21" />
+                            </svg>
+                            Pick Existing Ad
+                        </button>
+                        <button
+                            className={`${styles.sourceTab} ${sourceMode === 'upload' ? styles.active : ''}`}
+                            onClick={() => setSourceMode('upload')}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                            Upload New Ad
+                        </button>
+                    </div>
+
+                    {/* Pick Existing Ad Mode */}
+                    {sourceMode === 'pick' && (
+                        <div className={`glass-card ${styles.pickSection}`}>
+                            <h3>Select an Ad from Your Library</h3>
+                            <p className={styles.muted}>Choose an existing ad to predict its performance with current traits</p>
+
+                            <div className={styles.adSearchBox}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                                <input
+                                    type="text"
+                                    placeholder="Search your ads..."
+                                    value={adSearchQuery}
+                                    onChange={(e) => setAdSearchQuery(e.target.value)}
+                                />
+                            </div>
+
+                            {filteredAds.length === 0 ? (
+                                <div className={styles.emptyAds}>
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                                        <polygon points="23 7 16 12 23 17 23 7" />
+                                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                                    </svg>
+                                    <p>No ads found. <a href="/upload">Upload an ad</a> or <a href="/import">import from Facebook</a>.</p>
+                                </div>
+                            ) : (
+                                <div className={styles.adGrid}>
+                                    {filteredAds.slice(0, 12).map(ad => (
+                                        <div
+                                            key={ad.id}
+                                            className={`${styles.adCard} ${selectedAd?.id === ad.id ? styles.selected : ''}`}
+                                            onClick={() => handleSelectAd(ad)}
+                                        >
+                                            <div className={styles.adThumbnail}>
+                                                {ad.thumbnailUrl ? (
+                                                    <img src={ad.thumbnailUrl} alt={getAdName(ad)} />
+                                                ) : (
+                                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <polygon points="5 3 19 12 5 21 5 3" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                            <div className={styles.adInfo}>
+                                                <span className={styles.adName}>{getAdName(ad)}</span>
+                                                <span className={styles.adMeta}>
+                                                    {ad.importedFromFacebook ? '📊 Facebook' : '📤 Uploaded'}
+                                                </span>
+                                            </div>
+                                            {selectedAd?.id === ad.id && (
+                                                <div className={styles.selectedCheck}>✓</div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {selectedAd && (
+                                <div className={styles.selectedAdPreview}>
+                                    <h4>Selected: {getAdName(selectedAd)}</h4>
+                                    <p className={styles.muted}>Traits have been auto-populated. You can adjust them below.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Upload New Ad Mode */}
+                    {sourceMode === 'upload' && (
+                        <div className={`glass-card ${styles.uploadSection}`}>
+                            <h3>Upload Ad Creative</h3>
+                            <p className={styles.muted}>Upload an image or video to analyze its traits</p>
+
+                            <div
+                                className={`${styles.dropzone} ${isDragging ? styles.dragging : ''} ${uploadPreview ? styles.hasFile : ''}`}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*,video/*"
+                                    onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                                    style={{ display: 'none' }}
+                                />
+
+                                {uploadPreview ? (
+                                    <div className={styles.uploadPreview}>
+                                        {uploadedFile?.type.startsWith('video/') ? (
+                                            <video src={uploadPreview} controls style={{ maxHeight: '200px', borderRadius: '8px' }} />
+                                        ) : (
+                                            <img src={uploadPreview} alt="Preview" style={{ maxHeight: '200px', borderRadius: '8px' }} />
+                                        )}
+                                        <button
+                                            className="btn btn-ghost btn-sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUploadedFile(null);
+                                                setUploadPreview(null);
+                                            }}
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                                            <polyline points="17 8 12 3 7 8" />
+                                            <line x1="12" y1="3" x2="12" y2="15" />
+                                        </svg>
+                                        <p>Drag & drop your image or video</p>
+                                        <span className={styles.muted}>or click to browse</span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Ad Copy Section (Optional) */}
+                    <div className={`glass-card ${styles.adCopySection}`}>
+                        <h3>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                                <polyline points="10 9 9 9 8 9" />
+                            </svg>
+                            Ad Copy <span className={styles.optional}>(Optional)</span>
+                        </h3>
+                        <p className={styles.muted}>Add your ad text for more accurate predictions based on messaging analysis</p>
+
+                        <div className={styles.adCopyInputs}>
+                            <div className="form-group">
+                                <label className="form-label">Headline</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="e.g., Stop Scrolling! This Will Change Your Life..."
+                                    value={headline}
+                                    onChange={(e) => setHeadline(e.target.value)}
+                                    maxLength={150}
+                                />
+                                <span className={styles.charCount}>{headline.length}/150</span>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Primary Text</label>
+                                <textarea
+                                    className="form-textarea"
+                                    placeholder="Enter your ad's primary text/body copy here. The more context you provide, the better the prediction accuracy."
+                                    value={primaryText}
+                                    onChange={(e) => setPrimaryText(e.target.value)}
+                                    rows={4}
+                                    maxLength={500}
+                                />
+                                <span className={styles.charCount}>{primaryText.length}/500</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Configuration Section */}
                     <div className={`glass-card ${styles.inputCard}`}>
-                        <h2>Configure Your Ad</h2>
-                        <p>Select the characteristics of your planned video to get a prediction</p>
+                        <h2>Configure Ad Traits</h2>
+                        <p>Select the characteristics of your ad to get a prediction</p>
 
                         {/* Hook Type */}
                         <div className={styles.optionSection}>
@@ -415,7 +797,7 @@ export default function PredictPage() {
                                 <>
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M12 4.5a2.5 2.5 0 00-4.96-.46 2.5 2.5 0 00-1.98 3 2.5 2.5 0 00-1.32 4.24 3 3 0 00.34 5.58 2.5 2.5 0 002.96 3.08A2.5 2.5 0 0012 19.5" />
-                                        <path d="M12 4.5a2.5 2.5 0 014.96-.46 2.5 2.5 0 011.98 3 2.5 2.5 0 011.32 4.24 3 3 0 01-.34 5.58 2.5 2.5 0 01-2.96 3.08A2.5 2.5 0 0012 19.5" />
+                                        <path d="M12 4.5a2.5 2.5 0 014.96-.46 2.5 2.5 0 011.98 3 2.5 2.5 0 011.32 4.24 3 3 0 01-.34 5.58 2.5 2.5 0 01-2.96 3.08A2.5 2.5 0 0112 19.5" />
                                     </svg>
                                     Get AI Prediction
                                 </>

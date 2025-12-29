@@ -54,6 +54,84 @@ interface StoredAd {
     lastSyncedAt?: string;
     createdAt?: string;
     updatedAt?: string;
+    // Campaign/AdSet hierarchy
+    campaign?: { id?: string; name?: string };
+    adset?: { id?: string; name?: string };
+}
+
+// Helper to get all ads in the same adset
+function getAdsInSameAdset(ads: StoredAd[], currentAd: StoredAd): StoredAd[] {
+    const adsetId = currentAd.adset?.id;
+    const adsetName = currentAd.adset?.name;
+    if (!adsetId && !adsetName) return [currentAd]; // No adset info, only consider current ad
+    return ads.filter(ad =>
+        (adsetId && ad.adset?.id === adsetId) ||
+        (adsetName && ad.adset?.name === adsetName)
+    );
+}
+
+// Helper to check if ANY ad in the adset has a specific metric
+function adsetHasMetric(adsInAdset: StoredAd[], metricKey: keyof AdInsights): boolean {
+    return adsInAdset.some(ad => {
+        const value = ad.adInsights?.[metricKey];
+        return value !== undefined && value !== null && value !== 0;
+    });
+}
+
+// Helper to check if adset has any clicks/engagement metrics
+function adsetHasClicksMetrics(adsInAdset: StoredAd[]): boolean {
+    return adsInAdset.some(ad => {
+        const insights = ad.adInsights;
+        return (insights?.clicks && insights.clicks > 0) ||
+            (insights?.linkClicks && insights.linkClicks > 0) ||
+            (insights?.ctr && insights.ctr > 0) ||
+            (insights?.cpc && insights.cpc > 0) ||
+            (insights?.cpm && insights.cpm > 0) ||
+            (insights?.frequency && insights.frequency > 0);
+    });
+}
+
+// Helper to check if adset has any results/conversion metrics
+function adsetHasResultsMetrics(adsInAdset: StoredAd[]): boolean {
+    return adsInAdset.some(ad => {
+        const insights = ad.adInsights;
+        return (insights?.results && insights.results > 0) ||
+            (insights?.costPerResult && insights.costPerResult > 0) ||
+            (insights?.landingPageViews && insights.landingPageViews > 0) ||
+            (insights?.leads && insights.leads > 0) ||
+            (insights?.purchases && insights.purchases > 0) ||
+            (insights?.messagesStarted && insights.messagesStarted > 0);
+    });
+}
+
+// Helper to check if adset has any social engagement metrics
+function adsetHasSocialMetrics(adsInAdset: StoredAd[]): boolean {
+    return adsInAdset.some(ad => {
+        const insights = ad.adInsights;
+        return (insights?.pageEngagement && insights.pageEngagement > 0) ||
+            (insights?.postReactions && insights.postReactions > 0) ||
+            (insights?.postComments && insights.postComments > 0) ||
+            (insights?.postShares && insights.postShares > 0);
+    });
+}
+
+// Helper to check if adset has any video metrics
+function adsetHasVideoMetrics(adsInAdset: StoredAd[]): boolean {
+    return adsInAdset.some(ad => {
+        const insights = ad.adInsights;
+        return (insights?.videoViews && insights.videoViews > 0) ||
+            (insights?.videoThruPlays && insights.videoThruPlays > 0);
+    });
+}
+
+// Helper to check if adset has any quality ranking metrics
+function adsetHasQualityMetrics(adsInAdset: StoredAd[]): boolean {
+    return adsInAdset.some(ad => {
+        const insights = ad.adInsights;
+        return insights?.qualityRanking ||
+            insights?.engagementRateRanking ||
+            insights?.conversionRateRanking;
+    });
 }
 
 export default function ResultsPage() {

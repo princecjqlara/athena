@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import styles from './page.module.css';
+import { useTheme } from '@/components/ThemeProvider';
 
 // Category color palettes (variations for related traits) - EXPANDED for 30+ categories
 const CATEGORY_COLORS: Record<string, { primary: string; light: string; dark: string }> = {
@@ -417,6 +418,10 @@ export default function MindMapPage() {
     const [zoom, setZoom] = useState(1);
     const [viewMode, setViewMode] = useState<'all' | 'ads' | 'traits' | 'metrics' | 'daily'>('all');
     const [viewDimension, setViewDimension] = useState<'3d' | '2d'>('3d');
+
+    // Theme detection for light/dark mode styling
+    const { resolvedTheme } = useTheme();
+    const isLightMode = resolvedTheme === 'light';
 
     // Edit mode state
     const [isEditMode, setIsEditMode] = useState(false);
@@ -1516,18 +1521,20 @@ export default function MindMapPage() {
                                             <text
                                                 y={4}
                                                 textAnchor="middle"
-                                                fill="white"
+                                                fill={isLightMode ? "#1f2937" : "white"}
                                                 fontSize={10 * node.projected.scale}
                                                 fontWeight="600"
+                                                style={{ textShadow: isLightMode ? '0 0 3px rgba(255,255,255,0.8)' : 'none' }}
                                             >
                                                 {node.label.slice(0, 8)}
                                             </text>
                                             <text
                                                 y={node.size * node.projected.scale + 12}
                                                 textAnchor="middle"
-                                                fill="white"
+                                                fill={isLightMode ? "#374151" : "white"}
                                                 fontSize={8 * node.projected.scale}
-                                                opacity={0.7}
+                                                opacity={isLightMode ? 0.85 : 0.7}
+                                                style={{ textShadow: isLightMode ? '0 0 3px rgba(255,255,255,0.8)' : 'none' }}
                                             >
                                                 {node.category}
                                             </text>
@@ -1543,7 +1550,9 @@ export default function MindMapPage() {
                                                 width={50 * node.projected.scale}
                                                 height={24 * node.projected.scale}
                                                 rx={4}
-                                                fill="rgba(0,0,0,0.8)"
+                                                fill={isLightMode ? "rgba(255,255,255,0.95)" : "rgba(0,0,0,0.8)"}
+                                                stroke={isLightMode ? "rgba(0,0,0,0.1)" : "none"}
+                                                strokeWidth={isLightMode ? 1 : 0}
                                             />
                                             <text
                                                 x={25 * node.projected.scale}
@@ -1558,7 +1567,7 @@ export default function MindMapPage() {
                                                 x={25 * node.projected.scale}
                                                 y={20 * node.projected.scale}
                                                 textAnchor="middle"
-                                                fill="#fff"
+                                                fill={isLightMode ? "#374151" : "#fff"}
                                                 fontSize={7 * node.projected.scale}
                                             >
                                                 A:{node.actualScore}%

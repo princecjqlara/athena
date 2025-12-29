@@ -206,6 +206,9 @@ export function useChatHistory(): UseChatHistoryReturn {
 
     // Create new session
     const createNewSession = useCallback(async (): Promise<string | null> => {
+        // Always reset local state first for immediate UI feedback
+        setMessages([WELCOME_MESSAGE]);
+
         try {
             const userId = getUserId();
             const { data, error } = await supabase
@@ -222,19 +225,22 @@ export function useChatHistory(): UseChatHistoryReturn {
 
             if (error) {
                 console.error('Error creating session:', error);
+                // Reset to null session - will work in local mode
+                setCurrentSessionId(null);
                 return null;
             }
 
-            // Reset messages to welcome
-            setMessages([WELCOME_MESSAGE]);
+            // Set the new session ID
             setCurrentSessionId(data.id);
 
-            // Refresh sessions list
-            await refreshSessions();
+            // Refresh sessions list (don't await to avoid blocking)
+            refreshSessions().catch(err => console.error('Failed to refresh sessions:', err));
 
             return data.id;
         } catch (err) {
             console.error('Failed to create session:', err);
+            // Still reset to allow local usage
+            setCurrentSessionId(null);
             return null;
         }
     }, [refreshSessions]);
@@ -549,8 +555,17 @@ export function useChatHistory(): UseChatHistoryReturn {
 
     // Reset context - creates a new session and clears messages
     const resetContext = useCallback(async () => {
-        // Start a brand new session
-        await createNewSession();
+        // Immediately clear local state for instant feedback
+        setMessages([WELCOME_MESSAGE]);
+        setCurrentSessionId(null);
+
+        // Then try to create a new session in the database
+        try {
+            await createNewSession();
+        } catch (err) {
+            console.error('Failed to create new session during reset:', err);
+            // Already reset local state, so UI will still work
+        }
     }, [createNewSession]);
 
     return {

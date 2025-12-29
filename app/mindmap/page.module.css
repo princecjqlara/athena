@@ -754,5 +754,124 @@
 
 [data-theme="light"] .canvas3d,
 .light .canvas3d {
-    background: radial-gradient(ellipse at center, rgba(200, 245, 96, 0.1) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 70%);
+    background:
+        radial-gradient(ellipse at center, rgba(139, 92, 246, 0.08) 0%, rgba(200, 245, 96, 0.04) 40%, transparent 70%),
+        linear-gradient(135deg, rgba(248, 250, 252, 0.9) 0%, rgba(241, 245, 249, 0.95) 100%);
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: inset 0 2px 15px rgba(0, 0, 0, 0.03);
+}
+
+/* Light mode orb styles - softer, more pastel look */
+[data-theme="light"] .canvas3d svg circle,
+.light .canvas3d svg circle {
+    filter: saturate(0.85) brightness(1.05);
+}
+
+/* Light mode connection lines - more visible */
+[data-theme="light"] .canvas3d svg line,
+.light .canvas3d svg line {
+    stroke-opacity: 0.4 !important;
+}
+
+/* Light mode text labels inside orbs */
+[data-theme="light"] .canvas3d svg text,
+.light .canvas3d svg text {
+    fill: #1f2937 !important;
+    text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+}
+
+/* Light mode orb outer ring - subtle shadow effect */
+[data-theme="light"] .canvas3d svg g circle:first-child,
+.light .canvas3d svg g circle:first-child {
+    opacity: 0.3 !important;
+}
+
+/* Light mode Results Orb panel */
+[data-theme="light"] .resultsOrb,
+.light .resultsOrb {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.1));
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.1);
+}
+
+/* Light mode metric boxes in Results Orb */
+[data-theme="light"] .resultsOrb div[style*="background: rgba"],
+.light .resultsOrb div[style*="background: rgba"] {
+    background: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Light mode node details panel */
+[data-theme="light"] .nodeDetails,
+.light .nodeDetails {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Light mode trait description */
+[data-theme="light"] .traitDescription,
+.light .traitDescription {
+    background: rgba(99, 102, 241, 0.08);
+    border-left-color: rgba(99, 102, 241, 0.6);
+}
+
+/* Light mode prediction comparison */
+[data-theme="light"] .predictionComparison,
+.light .predictionComparison {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+/* Light mode detail sections */
+[data-theme="light"] .detailSection,
+.light .detailSection {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+/* Light mode analysis box */
+[data-theme="light"] .analysisBox,
+.light .analysisBox {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+/* Light mode edit form */
+[data-theme="light"] .editForm,
+.light .editForm {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+/* Light mode metrics panel */
+[data-theme="light"] .metricsPanel,
+.light .metricsPanel {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Light mode metric stat */
+[data-theme="light"] .metricStat,
+.light .metricStat {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+/* Light mode ad action buttons */
+[data-theme="light"] .editButton,
+.light .editButton {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+[data-theme="light"] .editButton:hover,
+.light .editButton:hover {
+    background: rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="light"] .deleteButton,
+.light .deleteButton {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+[data-theme="light"] .deleteButton:hover,
+.light .deleteButton:hover {
+    background: rgba(239, 68, 68, 0.15);
 }
