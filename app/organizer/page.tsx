@@ -70,7 +70,7 @@ export default function OrganizerDashboard() {
     const [loading, setLoading] = useState(true);
     const [impersonating, setImpersonating] = useState<ImpersonationSession | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy' | 'marketplace' | 'prompts' | 'traits'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'galaxy' | 'marketplace' | 'prompts' | 'traits' | 'ai-traits'>('users');
     const [inviteCode, setInviteCode] = useState<string | null>(null);
     const [selectedCodeRole, setSelectedCodeRole] = useState<'admin' | 'marketer' | 'client'>('admin');
     const [generatedCodeType, setGeneratedCodeType] = useState<string | null>(null);
@@ -108,6 +108,18 @@ export default function OrganizerDashboard() {
     const [showAddTrait, setShowAddTrait] = useState(false);
     const [newTrait, setNewTrait] = useState({ traitName: '', traitCategory: 'Custom', definition: '', businessType: '' });
 
+    // AI-generated traits state (from public_traits table)
+    const [aiTraits, setAiTraits] = useState<Array<{
+        id: string;
+        name: string;
+        group_name: string;
+        emoji: string;
+        description: string;
+        created_by_ai: boolean;
+        status: string;
+        created_at: string;
+    }>>([]);
+
     useEffect(() => {
         fetchData();
         checkImpersonation();
@@ -122,6 +134,9 @@ export default function OrganizerDashboard() {
         }
         if (activeTab === 'traits') {
             fetchLearnedTraits();
+        }
+        if (activeTab === 'ai-traits') {
+            fetchAiTraits();
         }
     }, [activeTab]);
 
@@ -252,6 +267,45 @@ export default function OrganizerDashboard() {
             fetchLearnedTraits();
         } catch (error) {
             console.error('Error deleting trait:', error);
+        }
+    };
+
+    // AI-Generated Traits Functions (from public_traits table)
+    const fetchAiTraits = async () => {
+        try {
+            const res = await fetch('/api/traits?includeAll=true');
+            if (res.ok) {
+                const data = await res.json();
+                setAiTraits(data.traits || []);
+            }
+        } catch (error) {
+            console.error('Error fetching AI traits:', error);
+        }
+    };
+
+    const moderateTrait = async (id: string, status: 'approved' | 'rejected') => {
+        try {
+            const userId = localStorage.getItem('athena_user_id');
+            const res = await fetch('/api/traits', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, status, reviewedBy: userId })
+            });
+            if (res.ok) {
+                fetchAiTraits();
+            }
+        } catch (error) {
+            console.error('Error moderating trait:', error);
+        }
+    };
+
+    const deleteAiTrait = async (id: string) => {
+        if (!confirm('Delete this AI-generated trait permanently?')) return;
+        try {
+            await fetch(`/api/traits?id=${id}`, { method: 'DELETE' });
+            fetchAiTraits();
+        } catch (error) {
+            console.error('Error deleting AI trait:', error);
         }
     };
 
@@ -490,6 +544,12 @@ export default function OrganizerDashboard() {
                     onClick={() => setActiveTab('traits')}
                 >
                     🧬 Traits
+                </button>
+                <button
+                    className={`tab ${activeTab === 'ai-traits' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('ai-traits')}
+                >
+                    🤖 AI Traits
                 </button>
             </div>
 
@@ -903,6 +963,161 @@ export default function OrganizerDashboard() {
                                 ))
                             )}
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'ai-traits' && (
+                    <div className="ai-traits-panel">
+                        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <div>
+                                <h2>🤖 AI-Generated Traits</h2>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '4px 0 0' }}>
+                                    Review and moderate traits created by AI. Approve to make public, reject to hide.
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <span style={{ padding: '8px 12px', background: 'rgba(245,158,11,0.2)', borderRadius: '8px', fontSize: '0.85rem', color: '#f59e0b' }}>
+                                    ⏳ Pending: {aiTraits.filter(t => t.status === 'pending').length}
+                                </span>
+                                <span style={{ padding: '8px 12px', background: 'rgba(34,197,94,0.2)', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--success)' }}>
+                                    ✅ Approved: {aiTraits.filter(t => t.status === 'approved').length}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Pending Traits Section */}
+                        {aiTraits.filter(t => t.status === 'pending').length > 0 && (
+                            <div style={{ marginBottom: '24px' }}>
+                                <h3 style={{ fontSize: '1rem', marginBottom: '12px', color: '#f59e0b' }}>⏳ Pending Review</h3>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    {aiTraits.filter(t => t.status === 'pending').map(trait => (
+                                        <div key={trait.id} style={{
+                                            padding: '16px',
+                                            background: 'var(--bg-secondary)',
+                                            borderRadius: '12px',
+                                            border: '2px solid rgba(245,158,11,0.3)',
+                                            animation: 'pulse 2s infinite'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                        <span style={{ fontSize: '1.2rem' }}>{trait.emoji}</span>
+                                                        <strong>{trait.name}</strong>
+                                                        <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(139,92,246,0.2)', borderRadius: '12px', color: '#8B5CF6' }}>
+                                                            {trait.group_name}
+                                                        </span>
+                                                        {trait.created_by_ai && (
+                                                            <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(59,130,246,0.2)', borderRadius: '12px', color: '#3b82f6' }}>
+                                                                🤖 AI Generated
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                                                        {trait.description}
+                                                    </p>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        onClick={() => moderateTrait(trait.id, 'approved')}
+                                                        style={{ background: 'var(--success)', border: 'none', color: 'white', cursor: 'pointer', padding: '8px 16px', borderRadius: '8px', fontWeight: '600' }}
+                                                    >
+                                                        ✓ Approve
+                                                    </button>
+                                                    <button
+                                                        onClick={() => moderateTrait(trait.id, 'rejected')}
+                                                        style={{ background: 'transparent', border: '1px solid var(--error)', color: 'var(--error)', cursor: 'pointer', padding: '8px 16px', borderRadius: '8px' }}
+                                                    >
+                                                        ✕ Reject
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Approved Traits Section */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '1rem', marginBottom: '12px', color: 'var(--success)' }}>✅ Approved Traits</h3>
+                            <div style={{ display: 'grid', gap: '12px' }}>
+                                {aiTraits.filter(t => t.status === 'approved').length === 0 ? (
+                                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
+                                        No approved traits yet
+                                    </div>
+                                ) : (
+                                    aiTraits.filter(t => t.status === 'approved').map(trait => (
+                                        <div key={trait.id} style={{ padding: '16px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                        <span style={{ fontSize: '1.2rem' }}>{trait.emoji}</span>
+                                                        <strong>{trait.name}</strong>
+                                                        <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(139,92,246,0.2)', borderRadius: '12px', color: '#8B5CF6' }}>
+                                                            {trait.group_name}
+                                                        </span>
+                                                        {trait.created_by_ai && (
+                                                            <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(59,130,246,0.2)', borderRadius: '12px', color: '#3b82f6' }}>
+                                                                🤖 AI Generated
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                                                        {trait.description}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => deleteAiTrait(trait.id)}
+                                                    style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px 8px' }}
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Rejected Traits Section */}
+                        {aiTraits.filter(t => t.status === 'rejected').length > 0 && (
+                            <div>
+                                <h3 style={{ fontSize: '1rem', marginBottom: '12px', color: 'var(--text-muted)' }}>❌ Rejected Traits</h3>
+                                <div style={{ display: 'grid', gap: '12px', opacity: 0.6 }}>
+                                    {aiTraits.filter(t => t.status === 'rejected').map(trait => (
+                                        <div key={trait.id} style={{ padding: '16px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                        <span style={{ fontSize: '1.2rem' }}>{trait.emoji}</span>
+                                                        <strong style={{ textDecoration: 'line-through' }}>{trait.name}</strong>
+                                                        {trait.created_by_ai && (
+                                                            <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'rgba(59,130,246,0.2)', borderRadius: '12px', color: '#3b82f6' }}>
+                                                                🤖 AI Generated
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                        onClick={() => moderateTrait(trait.id, 'approved')}
+                                                        style={{ background: 'transparent', border: '1px solid var(--success)', color: 'var(--success)', cursor: 'pointer', padding: '4px 12px', borderRadius: '6px', fontSize: '0.8rem' }}
+                                                    >
+                                                        Restore
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteAiTrait(trait.id)}
+                                                        style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px 8px' }}
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

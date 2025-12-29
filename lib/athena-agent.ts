@@ -589,8 +589,8 @@ function executeCreatePipeline(params: Record<string, unknown>): ActionResult {
     };
 }
 
-// Create custom trait
-function executeCreateTrait(params: Record<string, unknown>): ActionResult {
+// Create custom trait - syncs to both localStorage AND Supabase
+async function executeCreateTrait(params: Record<string, unknown>): Promise<ActionResult> {
     const name = params.name as string;
     if (!name) {
         return {
@@ -603,11 +603,12 @@ function executeCreateTrait(params: Record<string, unknown>): ActionResult {
     const group = (params.group as string) || 'Custom';
     const description = (params.description as string) || `Custom trait: ${name}`;
     const emoji = (params.emoji as string) || '✨';
+    const createdByAi = (params.createdByAi as boolean) ?? true;
 
     // Get existing custom traits from localStorage
     const customTraits = JSON.parse(localStorage.getItem('custom_traits') || '[]');
 
-    // Check if trait already exists
+    // Check if trait already exists locally
     const exists = customTraits.some((t: { name: string }) =>
         t.name.toLowerCase() === name.toLowerCase()
     );
@@ -626,15 +627,38 @@ function executeCreateTrait(params: Record<string, unknown>): ActionResult {
         group,
         description,
         emoji,
+        createdByAi,
         createdAt: new Date().toISOString()
     };
 
+    // Save to localStorage first
     customTraits.push(newTrait);
     localStorage.setItem('custom_traits', JSON.stringify(customTraits));
 
+    // Also sync to Supabase for public sharing
+    try {
+        const userId = localStorage.getItem('athena_user_id');
+        await fetch('/api/traits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                group,
+                emoji,
+                description,
+                userId,
+                createdByAi
+            })
+        });
+    } catch (error) {
+        console.warn('Failed to sync trait to cloud:', error);
+        // Continue - local save was successful
+    }
+
+    const aiLabel = createdByAi ? ' (🤖 AI Generated)' : '';
     return {
         success: true,
-        message: `✅ Created custom trait "${emoji} ${name}" in group "${group}"`,
+        message: `✅ Created custom trait "${emoji} ${name}" in group "${group}"${aiLabel}\n\n_Trait shared publicly and pending organizer approval._`,
         data: newTrait
     };
 }
