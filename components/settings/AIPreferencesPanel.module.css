@@ -1,0 +1,170 @@
+/* AIPreferencesPanel Styles */
+
+.panel {
+    background: var(--bg-secondary, #1a1a2e);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.header {
+    margin-bottom: 24px;
+}
+
+.title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: var(--text-primary, #ffffff);
+}
+
+.subtitle {
+    font-size: 0.9rem;
+    color: var(--text-muted, #718096);
+    margin: 0;
+}
+
+/* Sections */
+.section {
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
+.section:last-of-type {
+    border-bottom: none;
+}
+
+.section h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+    color: var(--text-primary, #ffffff);
+}
+
+.hint {
+    font-size: 0.8rem;
+    color: var(--text-muted, #718096);
+    margin: 0 0 12px;
+}
+
+/* Select */
+.select {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    border-radius: 8px;
+    color: var(--text-primary, #ffffff);
+    font-size: 0.9rem;
+}
+
+.select:focus {
+    outline: none;
+    border-color: var(--primary, #c8f560);
+}
+
+/* Checkbox Group */
+.checkboxGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-secondary, #a0aec0);
+}
+
+.checkbox input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary, #c8f560);
+}
+
+/* Target Inputs */
+.targetInputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.targetInput {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.targetInput label {
+    font-size: 0.8rem;
+    color: var(--text-muted, #718096);
+}
+
+.targetInput input {
+    padding: 10px 14px;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    border-radius: 8px;
+    color: var(--text-primary, #ffffff);
+    font-size: 0.9rem;
+}
+
+.targetInput input:focus {
+    outline: none;
+    border-color: var(--primary, #c8f560);
+}
+
+/* Footer */
+.footer {
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.saveBtn {
+    padding: 12px 24px;
+    background: var(--primary, #c8f560);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    color: #1a1a2e;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.saveBtn:hover:not(:disabled) {
+    background: #a8e030;
+}
+
+.saveBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* States */
+.loading,
+.error {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted, #718096);
+}
+
+/* Light Mode */
+[data-theme="light"] .panel {
+    background: var(--bg-secondary);
+}
+
+[data-theme="light"] .title,
+[data-theme="light"] .section h3 {
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .select,
+[data-theme="light"] .targetInput input {
+    background: white;
+    color: var(--text-primary);
+}
