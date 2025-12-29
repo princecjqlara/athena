@@ -204,7 +204,7 @@ export default function AIPreferencesPanel({ userId, orgId, onSave }: AIPreferen
                         />
                     </div>
                     <div className={styles.targetInput}>
-                        <label>Target CPA ($)</label>
+                        <label>Target CPA (₱)</label>
                         <input
                             type="number"
                             step="1"
@@ -224,7 +224,7 @@ export default function AIPreferencesPanel({ userId, orgId, onSave }: AIPreferen
                 <p className={styles.hint}>Min/max daily budget limits</p>
                 <div className={styles.targetInputs}>
                     <div className={styles.targetInput}>
-                        <label>Min Budget ($)</label>
+                        <label>Min Budget (₱)</label>
                         <input
                             type="number"
                             value={preferences.min_budget || ''}
@@ -232,7 +232,7 @@ export default function AIPreferencesPanel({ userId, orgId, onSave }: AIPreferen
                         />
                     </div>
                     <div className={styles.targetInput}>
-                        <label>Max Budget ($)</label>
+                        <label>Max Budget (₱)</label>
                         <input
                             type="number"
                             value={preferences.max_budget || ''}
