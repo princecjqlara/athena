@@ -2,8 +2,100 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
+import {
+    LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area,
+    XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
+} from 'recharts';
+
+// Extended insights interface for graphs
+interface ExtendedInsights {
+    basic: {
+        impressions: number;
+        reach: number;
+        frequency: number;
+        clicks: number;
+        ctr: number;
+        cpc: number;
+        cpm: number;
+        spend: number;
+        linkClicks: number;
+        postEngagement: number;
+        videoViews25: number;
+        videoViews50: number;
+        videoViews75: number;
+        videoViews100: number;
+        leads: number;
+        purchases: number;
+        registrations: number;
+    };
+    demographics: {
+        age: Record<string, { impressions: number; clicks: number; percent: number }>;
+        gender: {
+            male: { impressions: number; clicks: number; percent: number };
+            female: { impressions: number; clicks: number; percent: number };
+            unknown: { impressions: number; clicks: number; percent: number };
+        };
+    };
+    geographic: {
+        countries: Array<{ country: string; impressions: number; clicks: number; spend: number }>;
+    };
+    distribution: {
+        platforms: Record<string, number>;
+        placements: Record<string, number>;
+        devices: Record<string, number>;
+    };
+    timeAnalysis: {
+        mostActiveHour: number;
+        hourlyData: Array<{ hour: number; impressions: number; clicks: number }>;
+    };
+    dailyReport: {
+        days: Array<{
+            date: string;
+            impressions: number;
+            reach: number;
+            clicks: number;
+            spend: number;
+            ctr: number;
+            cpc: number;
+            cpm: number;
+            leads: number;
+            purchases: number;
+            messagesStarted: number;
+            videoPlays: number;
+            videoP25: number;
+            videoP50: number;
+            videoP75: number;
+            videoP100: number;
+            avgWatchTime: number;
+        }>;
+        videoRetention: {
+            totalPlays: number;
+            retention: Array<{ point: string; viewers: number; percent: number }>;
+            avgWatchTime: number;
+            completionRate: number;
+        } | null;
+        summary: {
+            totalDays: number;
+            startDate: string | null;
+            endDate: string | null;
+            avgDailySpend: number;
+            avgDailyClicks: number;
+            avgDailyImpressions: number;
+            totalSpend: number;
+            totalClicks: number;
+            totalImpressions: number;
+            bestDay: { date: string; ctr: number; clicks: number; spend: number } | null;
+            worstDay: { date: string; ctr: number; clicks: number; spend: number } | null;
+        };
+    };
+}
+
+// Chart colors
+const CHART_COLORS = ['#8b5cf6', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
+const GENDER_COLORS = { male: '#3b82f6', female: '#ec4899', unknown: '#6b7280' };
 
 // Define interfaces locally since they may differ from the types file
+
 interface AdInsights {
     // Core Delivery & Reach
     impressions?: number;
@@ -303,10 +395,22 @@ export default function ResultsPage() {
     const [syncStatus, setSyncStatus] = useState<string | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
 
+    // Extended insights state for graphs
+    const [extendedInsights, setExtendedInsights] = useState<ExtendedInsights | null>(null);
+    const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+    const [insightsError, setInsightsError] = useState<string | null>(null);
+    const [activeChart, setActiveChart] = useState<'performance' | 'audience' | 'distribution'>('performance');
+
     // Load ads from localStorage
     useEffect(() => {
         loadAds();
     }, []);
+
+    // Clear extended insights when ad changes
+    useEffect(() => {
+        setExtendedInsights(null);
+        setInsightsError(null);
+    }, [selectedAd?.id]);
 
     const loadAds = () => {
         setLoading(true);
@@ -314,6 +418,43 @@ export default function ResultsPage() {
         setAds(storedAds);
         setLoading(false);
     };
+
+    // Fetch extended insights for the selected ad
+    const fetchExtendedInsights = async () => {
+        if (!selectedAd?.facebookAdId) {
+            setInsightsError('No Facebook Ad ID available');
+            return;
+        }
+
+        const accessToken = localStorage.getItem('meta_marketing_token');
+        if (!accessToken) {
+            setInsightsError('Please connect your Facebook account first');
+            return;
+        }
+
+        setIsLoadingInsights(true);
+        setInsightsError(null);
+
+        try {
+            const response = await fetch(
+                `/api/facebook/insights?adId=${selectedAd.facebookAdId}&accessToken=${accessToken}`
+            );
+            const data = await response.json();
+
+            if (!data.success) {
+                setInsightsError(data.error || 'Failed to fetch insights');
+                return;
+            }
+
+            setExtendedInsights(data.data);
+        } catch (error) {
+            console.error('Error fetching extended insights:', error);
+            setInsightsError('Failed to fetch insights: ' + String(error));
+        } finally {
+            setIsLoadingInsights(false);
+        }
+    };
+
 
     // Sync all results from Facebook
     const handleSyncAll = async () => {
@@ -1046,6 +1187,407 @@ export default function ResultsPage() {
                                                 </div>
                                             </>
                                         )}
+
+                                        {/* 📊 Extended Insights & Graphs Section */}
+                                        <div style={{ marginTop: 'var(--spacing-lg)', borderTop: '2px solid var(--border)', paddingTop: 'var(--spacing-lg)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                                                <h3 style={{ margin: 0 }}>📊 Advanced Analytics & Graphs</h3>
+                                                {!extendedInsights && (
+                                                    <button
+                                                        className="btn btn-primary"
+                                                        onClick={fetchExtendedInsights}
+                                                        disabled={isLoadingInsights || !selectedAd?.facebookAdId}
+                                                        style={{ fontSize: '0.85rem', padding: '8px 16px' }}
+                                                    >
+                                                        {isLoadingInsights ? '🔄 Loading...' : '📈 Load Graphs & Analytics'}
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {insightsError && (
+                                                <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', color: '#ef4444', marginBottom: '16px' }}>
+                                                    ⚠️ {insightsError}
+                                                </div>
+                                            )}
+
+                                            {isLoadingInsights && (
+                                                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📊</div>
+                                                    <p>Loading extended insights and graphs...</p>
+                                                </div>
+                                            )}
+
+                                            {extendedInsights && (
+                                                <>
+                                                    {/* Chart Type Tabs */}
+                                                    <div style={{ display: 'flex', gap: '8px', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+                                                        <button
+                                                            className={`btn ${activeChart === 'performance' ? 'btn-primary' : 'btn-ghost'}`}
+                                                            onClick={() => setActiveChart('performance')}
+                                                            style={{ fontSize: '0.85rem' }}
+                                                        >
+                                                            📈 Performance
+                                                        </button>
+                                                        <button
+                                                            className={`btn ${activeChart === 'audience' ? 'btn-primary' : 'btn-ghost'}`}
+                                                            onClick={() => setActiveChart('audience')}
+                                                            style={{ fontSize: '0.85rem' }}
+                                                        >
+                                                            👥 Audience
+                                                        </button>
+                                                        <button
+                                                            className={`btn ${activeChart === 'distribution' ? 'btn-primary' : 'btn-ghost'}`}
+                                                            onClick={() => setActiveChart('distribution')}
+                                                            style={{ fontSize: '0.85rem' }}
+                                                        >
+                                                            🌍 Distribution
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Performance Charts */}
+                                                    {activeChart === 'performance' && extendedInsights.dailyReport?.days?.length > 0 && (
+                                                        <div>
+                                                            {/* Summary Stats */}
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                                                                <div className="glass-card" style={{ padding: '12px', textAlign: 'center' }}>
+                                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Days</div>
+                                                                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#8b5cf6' }}>
+                                                                        {extendedInsights.dailyReport.summary.totalDays}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="glass-card" style={{ padding: '12px', textAlign: 'center' }}>
+                                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Avg Daily Spend</div>
+                                                                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#3b82f6' }}>
+                                                                        {formatCurrency(extendedInsights.dailyReport.summary.avgDailySpend)}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="glass-card" style={{ padding: '12px', textAlign: 'center' }}>
+                                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Avg Daily Clicks</div>
+                                                                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#22c55e' }}>
+                                                                        {extendedInsights.dailyReport.summary.avgDailyClicks}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="glass-card" style={{ padding: '12px', textAlign: 'center' }}>
+                                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Avg Daily Impr</div>
+                                                                    <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#f59e0b' }}>
+                                                                        {formatNumber(extendedInsights.dailyReport.summary.avgDailyImpressions)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Day-by-Day Line Chart */}
+                                                            <h4 style={{ marginBottom: '12px', color: 'var(--text-muted)' }}>📅 Day-by-Day Performance</h4>
+                                                            <div style={{ height: '300px', marginBottom: '24px' }}>
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <LineChart data={extendedInsights.dailyReport.days.map(d => ({
+                                                                        ...d,
+                                                                        date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                                                    }))}>
+                                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                                                                        <XAxis dataKey="date" stroke="var(--text-muted)" fontSize={11} />
+                                                                        <YAxis yAxisId="left" stroke="#8b5cf6" fontSize={11} />
+                                                                        <YAxis yAxisId="right" orientation="right" stroke="#22c55e" fontSize={11} />
+                                                                        <Tooltip
+                                                                            contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                                                            labelStyle={{ color: 'var(--text)' }}
+                                                                        />
+                                                                        <Legend />
+                                                                        <Line yAxisId="left" type="monotone" dataKey="impressions" name="Impressions" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                                                                        <Line yAxisId="right" type="monotone" dataKey="clicks" name="Clicks" stroke="#22c55e" strokeWidth={2} dot={false} />
+                                                                        <Line yAxisId="right" type="monotone" dataKey="spend" name="Spend (₱)" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                                                                    </LineChart>
+                                                                </ResponsiveContainer>
+                                                            </div>
+
+                                                            {/* CTR Trend Chart */}
+                                                            <h4 style={{ marginBottom: '12px', color: 'var(--text-muted)' }}>📊 CTR Trend Over Time</h4>
+                                                            <div style={{ height: '200px', marginBottom: '24px' }}>
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <AreaChart data={extendedInsights.dailyReport.days.map(d => ({
+                                                                        ...d,
+                                                                        date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                                                    }))}>
+                                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                                                                        <XAxis dataKey="date" stroke="var(--text-muted)" fontSize={11} />
+                                                                        <YAxis stroke="var(--text-muted)" fontSize={11} />
+                                                                        <Tooltip
+                                                                            contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                                                            formatter={(value) => [Number(value ?? 0).toFixed(2) + '%', 'CTR']}
+                                                                        />
+                                                                        <Area type="monotone" dataKey="ctr" name="CTR %" stroke="#22c55e" fill="rgba(34, 197, 94, 0.2)" strokeWidth={2} />
+                                                                    </AreaChart>
+                                                                </ResponsiveContainer>
+                                                            </div>
+
+                                                            {/* Video Retention Chart (if video) */}
+                                                            {extendedInsights.dailyReport.videoRetention && (
+                                                                <>
+                                                                    <h4 style={{ marginBottom: '12px', color: 'var(--text-muted)' }}>🎬 Video Retention Curve</h4>
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: '16px', marginBottom: '24px' }}>
+                                                                        <div style={{ height: '200px' }}>
+                                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                                <AreaChart data={extendedInsights.dailyReport.videoRetention.retention}>
+                                                                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                                                                                    <XAxis dataKey="point" stroke="var(--text-muted)" fontSize={11} />
+                                                                                    <YAxis stroke="var(--text-muted)" fontSize={11} domain={[0, 100]} />
+                                                                                    <Tooltip
+                                                                                        contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                                                                        formatter={(value) => [(value ?? 0) + '%', 'Retention']}
+                                                                                    />
+                                                                                    <Area type="monotone" dataKey="percent" name="% Viewers" stroke="#ec4899" fill="rgba(236, 72, 153, 0.3)" strokeWidth={2} />
+                                                                                </AreaChart>
+                                                                            </ResponsiveContainer>
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="glass-card" style={{ padding: '12px', marginBottom: '8px' }}>
+                                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Plays</div>
+                                                                                <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{formatNumber(extendedInsights.dailyReport.videoRetention.totalPlays)}</div>
+                                                                            </div>
+                                                                            <div className="glass-card" style={{ padding: '12px', marginBottom: '8px' }}>
+                                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Completion Rate</div>
+                                                                                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: extendedInsights.dailyReport.videoRetention.completionRate > 20 ? '#22c55e' : '#f59e0b' }}>
+                                                                                    {extendedInsights.dailyReport.videoRetention.completionRate}%
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="glass-card" style={{ padding: '12px' }}>
+                                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Avg Watch Time</div>
+                                                                                <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{extendedInsights.dailyReport.videoRetention.avgWatchTime.toFixed(1)}s</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {activeChart === 'performance' && (!extendedInsights.dailyReport?.days?.length) && (
+                                                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                                            <p>No daily performance data available for this ad.</p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Audience Charts */}
+                                                    {activeChart === 'audience' && (
+                                                        <div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                                                                {/* Age Breakdown */}
+                                                                <div>
+                                                                    <h4 style={{ marginBottom: '12px', color: 'var(--text-muted)' }}>👤 Age Breakdown</h4>
+                                                                    <div style={{ height: '250px' }}>
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <BarChart data={Object.entries(extendedInsights.demographics?.age || {}).map(([age, data]) => ({
+                                                                                age,
+                                                                                percent: data.percent,
+                                                                                impressions: data.impressions
+                                                                            }))}>
+                                                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                                                                                <XAxis dataKey="age" stroke="var(--text-muted)" fontSize={10} />
+                                                                                <YAxis stroke="var(--text-muted)" fontSize={11} />
+                                                                                <Tooltip
+                                                                                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                                                                    formatter={(value, name) => [name === 'percent' ? (value ?? 0) + '%' : formatNumber(value as number | undefined), name === 'percent' ? 'Share' : 'Impressions']}
+                                                                                />
+                                                                                <Bar dataKey="percent" name="Share %" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                                                                            </BarChart>
+                                                                        </ResponsiveContainer>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Gender Breakdown */}
+                                                                <div>
+                                                                    <h4 style={{ marginBottom: '12px', color: 'var(--text-muted)' }}>🚻 Gender Distribution</h4>
+                                                                    <div style={{ height: '250px' }}>
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <PieChart>
+                                                                                <Pie
+                                                                                    data={Object.entries(extendedInsights.demographics?.gender || {})
+                                                                                        .filter(([, data]) => data.percent > 0)
+                                                                                        .map(([gender, data]) => ({
+                                                                                            name: gender.charAt(0).toUpperCase() + gender.slice(1),
+                                                                                            value: data.percent,
+                                                                                            impressions: data.impressions
+                                                                                        }))}
+                                                                                    cx="50%"
+                                                                                    cy="50%"
+                                                                                    outerRadius={80}
+                                                                                    dataKey="value"
+                                                                                    label={({ name, value }) => `${name}: ${value}%`}
+                                                                                    labelLine={false}
+                                                                                >
+                                                                                    {Object.keys(extendedInsights.demographics?.gender || {}).map((gender, index) => (
+                                                                                        <Cell key={`cell-${index}`} fill={GENDER_COLORS[gender as keyof typeof GENDER_COLORS] || CHART_COLORS[index]} />
+                                                                                    ))}
+                                                                                </Pie>
+                                                                                <Tooltip
+                                                                                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                                                                    formatter={(value) => [(value ?? 0) + '%', 'Share']}
+                                                                                />
+                                                                            </PieChart>
+                                                                        </ResponsiveContainer>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Hourly Activity */}
+                                                            {extendedInsights.timeAnalysis?.hourlyData?.length > 0 && (
+                                                                <>
+                                                                    <h4 style={{ marginTop: '24px', marginBottom: '12px', color: 'var(--text-muted)' }}>
+                                                                        ⏰ Hourly Activity (Most Active: {extendedInsights.timeAnalysis.mostActiveHour}:00)
+                                                                    </h4>
+                                                                    <div style={{ height: '200px' }}>
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <BarChart data={extendedInsights.timeAnalysis.hourlyData}>
+                                                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                                                                                <XAxis dataKey="hour" stroke="var(--text-muted)" fontSize={10} tickFormatter={(h) => `${h}:00`} />
+                                                                                <YAxis stroke="var(--text-muted)" fontSize={11} />
+                                                                                <Tooltip
+                                                                                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                                                                    labelFormatter={(h) => `${h}:00`}
+                                                                                />
+                                                                                <Bar dataKey="impressions" name="Impressions" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                                                                            </BarChart>
+                                                                        </ResponsiveContainer>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Distribution Charts */}
+                                                    {activeChart === 'distribution' && (
+                                                        <div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                                                                {/* Platform Distribution */}
+                                                                <div>
+                                                                    <h4 style={{ marginBottom: '12px', color: 'var(--text-muted)' }}>📱 Platform (Facebook, Instagram, etc.)</h4>
+                                                                    <div style={{ height: '220px' }}>
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <PieChart>
+                                                                                <Pie
+                                                                                    data={Object.entries(extendedInsights.distribution?.platforms || {}).map(([name, value]) => ({
+                                                                                        name: name.charAt(0).toUpperCase() + name.slice(1),
+                                                                                        value
+                                                                                    }))}
+                                                                                    cx="50%"
+                                                                                    cy="50%"
+                                                                                    outerRadius={70}
+                                                                                    dataKey="value"
+                                                                                    label={({ name, value }) => `${name}: ${value}%`}
+                                                                                    labelLine={false}
+                                                                                >
+                                                                                    {Object.keys(extendedInsights.distribution?.platforms || {}).map((_, index) => (
+                                                                                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                                                                    ))}
+                                                                                </Pie>
+                                                                                <Tooltip
+                                                                                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                                                                    formatter={(value) => [(value ?? 0) + '%', 'Share']}
+                                                                                />
+                                                                            </PieChart>
+                                                                        </ResponsiveContainer>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Device Distribution */}
+                                                                <div>
+                                                                    <h4 style={{ marginBottom: '12px', color: 'var(--text-muted)' }}>💻 Device (Mobile, Desktop)</h4>
+                                                                    <div style={{ height: '220px' }}>
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <PieChart>
+                                                                                <Pie
+                                                                                    data={Object.entries(extendedInsights.distribution?.devices || {}).map(([name, value]) => ({
+                                                                                        name: name.charAt(0).toUpperCase() + name.slice(1),
+                                                                                        value
+                                                                                    }))}
+                                                                                    cx="50%"
+                                                                                    cy="50%"
+                                                                                    outerRadius={70}
+                                                                                    dataKey="value"
+                                                                                    label={({ name, value }) => `${name}: ${value}%`}
+                                                                                    labelLine={false}
+                                                                                >
+                                                                                    {Object.keys(extendedInsights.distribution?.devices || {}).map((_, index) => (
+                                                                                        <Cell key={`cell-${index}`} fill={CHART_COLORS[(index + 2) % CHART_COLORS.length]} />
+                                                                                    ))}
+                                                                                </Pie>
+                                                                                <Tooltip
+                                                                                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                                                                    formatter={(value) => [(value ?? 0) + '%', 'Share']}
+                                                                                />
+                                                                            </PieChart>
+                                                                        </ResponsiveContainer>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Placement Breakdown */}
+                                                            <h4 style={{ marginBottom: '12px', color: 'var(--text-muted)' }}>📍 Placement (Feed, Stories, Reels, etc.)</h4>
+                                                            <div style={{ height: '200px', marginBottom: '24px' }}>
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <BarChart
+                                                                        data={Object.entries(extendedInsights.distribution?.placements || {}).map(([name, value]) => ({
+                                                                            name: name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+                                                                            value
+                                                                        }))}
+                                                                        layout="vertical"
+                                                                    >
+                                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                                                                        <XAxis type="number" stroke="var(--text-muted)" fontSize={11} domain={[0, 100]} />
+                                                                        <YAxis type="category" dataKey="name" stroke="var(--text-muted)" fontSize={10} width={100} />
+                                                                        <Tooltip
+                                                                            contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                                                            formatter={(value) => [(value ?? 0) + '%', 'Share']}
+                                                                        />
+                                                                        <Bar dataKey="value" name="Share %" fill="#22c55e" radius={[0, 4, 4, 0]} />
+                                                                    </BarChart>
+                                                                </ResponsiveContainer>
+                                                            </div>
+
+                                                            {/* Geographic Breakdown */}
+                                                            {extendedInsights.geographic?.countries?.length > 0 && (
+                                                                <>
+                                                                    <h4 style={{ marginBottom: '12px', color: 'var(--text-muted)' }}>🌍 Top Countries</h4>
+                                                                    <div style={{ height: '200px' }}>
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <BarChart
+                                                                                data={extendedInsights.geographic.countries.slice(0, 8)}
+                                                                                layout="vertical"
+                                                                            >
+                                                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                                                                                <XAxis type="number" stroke="var(--text-muted)" fontSize={11} />
+                                                                                <YAxis type="category" dataKey="country" stroke="var(--text-muted)" fontSize={10} width={80} />
+                                                                                <Tooltip
+                                                                                    contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                                                                    formatter={(value, name) => [
+                                                                                        name === 'spend' ? formatCurrency(value as number | undefined) : formatNumber(value as number | undefined),
+                                                                                        String(name).charAt(0).toUpperCase() + String(name).slice(1)
+                                                                                    ]}
+                                                                                />
+                                                                                <Bar dataKey="impressions" name="Impressions" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                                                                            </BarChart>
+                                                                        </ResponsiveContainer>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+
+                                            {!extendedInsights && !isLoadingInsights && !insightsError && (
+                                                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', background: 'var(--surface)', borderRadius: '12px' }}>
+                                                    <div style={{ fontSize: '3rem', marginBottom: '12px' }}>📊</div>
+                                                    <p style={{ margin: 0 }}>Click "Load Graphs & Analytics" to view detailed breakdowns including:</p>
+                                                    <ul style={{ listStyle: 'none', padding: 0, marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                                                        <li className="badge">📈 Day-by-Day Performance</li>
+                                                        <li className="badge">👥 Audience Demographics</li>
+                                                        <li className="badge">📱 Platform Distribution</li>
+                                                        <li className="badge">🌍 Geographic Breakdown</li>
+                                                        <li className="badge">🎬 Video Retention</li>
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
                                     </>
                                 );
                             })() : (

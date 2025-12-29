@@ -16,6 +16,15 @@ interface VideoOption {
         clicks?: number;
         reach?: number;
         conversions?: number;
+        revenue?: number;
+        roas?: number;
+        likes?: number;
+        comments?: number;
+        shares?: number;
+        saves?: number;
+        frequency?: number;
+        cpc?: number;
+        cpm?: number;
     };
 }
 
@@ -122,6 +131,17 @@ export default function AnalyticsPage() {
                     results?: number;
                     leads?: number;
                     messagesStarted?: number;
+                    postReactions?: number;
+                    likes?: number;
+                    postComments?: number;
+                    postShares?: number;
+                    postSaves?: number;
+                    revenue?: number;
+                    roas?: number;
+                    purchaseRoas?: number;
+                    frequency?: number;
+                    cpc?: number;
+                    cpm?: number;
                 };
                 createdAt?: string;
                 uploadedAt?: string;
@@ -137,6 +157,18 @@ export default function AnalyticsPage() {
                     clicks: ad.adInsights.clicks || 0,
                     reach: ad.adInsights.reach || 0,
                     conversions: ad.adInsights.results || ad.adInsights.leads || ad.adInsights.messagesStarted || 0,
+                    // Engagement metrics from Facebook
+                    likes: ad.adInsights.postReactions || ad.adInsights.likes || 0,
+                    comments: ad.adInsights.postComments || 0,
+                    shares: ad.adInsights.postShares || 0,
+                    saves: ad.adInsights.postSaves || 0,
+                    // Revenue/ROAS from Facebook
+                    revenue: ad.adInsights.revenue || 0,
+                    roas: ad.adInsights.purchaseRoas || ad.adInsights.roas || 0,
+                    // Additional metrics
+                    frequency: ad.adInsights.frequency || 0,
+                    cpc: ad.adInsights.cpc || 0,
+                    cpm: ad.adInsights.cpm || 0,
                 } : undefined
             }));
 
@@ -149,6 +181,13 @@ export default function AnalyticsPage() {
         }
     }, []);
 
+    // Auto-select first ad when videos load
+    useEffect(() => {
+        if (videos.length > 0 && !form.video_id) {
+            setForm(prev => ({ ...prev, video_id: videos[0].id }));
+        }
+    }, [videos, form.video_id]);
+
     // Auto-fill form when ad is selected
     useEffect(() => {
         if (form.video_id) {
@@ -156,12 +195,21 @@ export default function AnalyticsPage() {
             if (selectedAd?.metrics) {
                 setForm(prev => ({
                     ...prev,
+                    // Core metrics
                     ad_spend: selectedAd.metrics?.spend || prev.ad_spend,
                     impressions: selectedAd.metrics?.impressions || prev.impressions,
                     reach: selectedAd.metrics?.reach || prev.reach,
                     clicks: selectedAd.metrics?.clicks || prev.clicks,
                     ctr: selectedAd.metrics?.ctr || prev.ctr,
                     conversions: selectedAd.metrics?.conversions || prev.conversions,
+                    // Revenue/ROAS from Facebook
+                    revenue: selectedAd.metrics?.revenue || prev.revenue,
+                    roas: selectedAd.metrics?.roas || prev.roas,
+                    // Engagement metrics from Facebook
+                    likes: selectedAd.metrics?.likes || prev.likes,
+                    comments: selectedAd.metrics?.comments || prev.comments,
+                    shares: selectedAd.metrics?.shares || prev.shares,
+                    saves: selectedAd.metrics?.saves || prev.saves,
                 }));
             }
         }

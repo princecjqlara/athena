@@ -169,6 +169,34 @@ export default function AdminDashboard() {
         }
     };
 
+    const deleteUser = async (userId: string, userName: string, userRole: string) => {
+        // Admins can only delete marketers and clients
+        if (userRole === 'admin' || userRole === 'organizer') {
+            alert('Cannot delete admin or organizer users');
+            return;
+        }
+        if (!confirm(`Are you sure you want to delete ${userName || 'this user'}? This action cannot be undone.`)) {
+            return;
+        }
+        try {
+            const res = await fetch('/api/admin/users', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert('User deleted successfully');
+                fetchData();
+            } else {
+                alert(data.error || 'Failed to delete user');
+            }
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            alert('Failed to delete user');
+        }
+    };
+
     const pendingRequests = requests.filter(r => r.status === 'pending');
     const activeInviteCodes = inviteCodes.filter(c => !c.is_used && new Date(c.expires_at) > new Date());
 
@@ -270,6 +298,24 @@ export default function AdminDashboard() {
                                                         onClick={() => handleStatusChange(user.id, 'active')}
                                                     >
                                                         Reactivate
+                                                    </button>
+                                                )}
+                                                {(user.role === 'marketer' || user.role === 'client') && (
+                                                    <button
+                                                        className="btn-delete"
+                                                        onClick={() => deleteUser(user.id, user.full_name, user.role)}
+                                                        style={{
+                                                            marginLeft: '8px',
+                                                            padding: '6px 12px',
+                                                            background: 'rgba(239, 68, 68, 0.2)',
+                                                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                            borderRadius: '6px',
+                                                            color: '#ef4444',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.85rem'
+                                                        }}
+                                                    >
+                                                        🗑️ Delete
                                                     </button>
                                                 )}
                                             </td>

@@ -20,39 +20,66 @@ export default function AthenaPage() {
     });
     const [isLoading, setIsLoading] = useState(true);
 
+    // Calculate local health score - same logic as Data Health page
+    const calculateLocalHealthScore = () => {
+        const ads = JSON.parse(localStorage.getItem('ads') || '[]');
+
+        let completeness = 100;
+        let freshness = 100;
+        let attribution = 80;
+        const schema = 100;
+
+        if (ads.length === 0) {
+            completeness = 50;
+            freshness = 50;
+        } else {
+            const adsWithMetrics = ads.filter((a: { adInsights?: unknown }) => a.adInsights);
+            if (adsWithMetrics.length < ads.length * 0.8) completeness -= 20;
+
+            const recentAds = ads.filter((a: { uploadedAt?: string }) => {
+                if (!a.uploadedAt) return false;
+                const daysAgo = (Date.now() - new Date(a.uploadedAt).getTime()) / (1000 * 60 * 60 * 24);
+                return daysAgo < 7;
+            });
+            if (recentAds.length < ads.length * 0.5) freshness -= 30;
+        }
+
+        return Math.round((completeness + freshness + attribution + schema) / 4);
+    };
+
     // Load stats from API or calculate from local data
     useEffect(() => {
         const loadStats = async () => {
+            let dataHealthScore = calculateLocalHealthScore();
+
             try {
                 // Try to fetch from API
                 const response = await fetch('/api/athena/stats');
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
-                        setStats(data.stats);
+                        // Use the local health score for consistency with the Health page
+                        setStats({
+                            ...data.stats,
+                            dataHealthScore
+                        });
+                        setIsLoading(false);
+                        return;
                     }
                 }
             } catch (error) {
                 console.log('Using local data for stats');
-                // Calculate local stats from localStorage
-                const ads = JSON.parse(localStorage.getItem('ads') || '[]');
-                const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-
-                // Calculate data health based on completeness
-                let dataHealth = 100;
-                if (ads.length === 0) dataHealth -= 30;
-                if (leads.length === 0) dataHealth -= 20;
-                // Check for missing metrics
-                const adsWithMetrics = ads.filter((a: { adInsights?: unknown }) => a.adInsights);
-                if (adsWithMetrics.length < ads.length * 0.8) dataHealth -= 20;
-
-                setStats({
-                    recommendations: Math.floor(ads.length / 3), // Simulated recommendations
-                    anomalies: Math.floor(Math.random() * 3), // Simulated anomalies
-                    dataHealthScore: Math.max(50, dataHealth),
-                    agentRuns: ads.length > 0 ? Math.floor(ads.length / 2) : 0
-                });
             }
+
+            // Fallback: Calculate all stats from localStorage
+            const ads = JSON.parse(localStorage.getItem('ads') || '[]');
+
+            setStats({
+                recommendations: Math.floor(ads.length / 3), // Simulated recommendations
+                anomalies: Math.floor(Math.random() * 3), // Simulated anomalies
+                dataHealthScore,
+                agentRuns: ads.length > 0 ? Math.floor(ads.length / 2) : 0
+            });
             setIsLoading(false);
         };
 

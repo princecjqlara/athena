@@ -321,6 +321,7 @@ CREATE POLICY chat_messages_delete_own ON chat_messages
     FOR DELETE USING (true);
 
 -- View for session list with message counts (ordered by pinned first, then by date)
+DROP VIEW IF EXISTS chat_sessions_with_stats;
 CREATE OR REPLACE VIEW chat_sessions_with_stats AS
 SELECT 
     cs.*,
