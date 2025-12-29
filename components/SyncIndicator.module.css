@@ -1,0 +1,270 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+}
+
+.compactContainer {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.mainRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.syncButton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #6366F1, #8B5CF6);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.syncButton:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.syncButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.syncButton.syncing {
+    background: linear-gradient(135deg, #4F46E5, #7C3AED);
+}
+
+.syncIcon {
+    flex-shrink: 0;
+}
+
+.syncIcon.spinning {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.statusInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.lastSynced {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.lastSyncedCompact {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.statusDot {
+    width: 6px;
+    height: 6px;
+    background: #10B981;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.syncError {
+    color: #EF4444;
+    font-size: 0.75rem;
+}
+
+.autoSyncBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 20px;
+    font-size: 0.7rem;
+    color: #6366F1;
+    width: fit-content;
+}
+
+.autoIndicator {
+    font-size: 0.75rem;
+}
+
+.settingsButton {
+    padding: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settingsButton:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-secondary);
+}
+
+.settingsPanel {
+    padding-top: 12px;
+    border-top: 1px solid var(--border-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.settingRow {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.settingLabel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.settingLabel input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #6366F1;
+    cursor: pointer;
+}
+
+.checkboxLabel {
+    color: var(--text-primary);
+}
+
+.intervalButtons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.intervalButton {
+    padding: 4px 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.intervalButton:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--border-secondary);
+}
+
+.intervalButton.intervalActive {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #6366F1;
+}
+
+.settingInfo {
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.settingInfo p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.settingInfo p+p {
+    margin-top: 4px;
+}
+
+.syncCountInfo {
+    opacity: 0.7;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .mainRow {
+        flex-wrap: wrap;
+    }
+
+    .syncButton {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .statusInfo {
+        order: 1;
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .intervalButtons {
+        justify-content: flex-start;
+    }
+}

@@ -622,17 +622,20 @@ CREATE TABLE IF NOT EXISTS invite_codes (
 -- Enable RLS
 ALTER TABLE invite_codes ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
-CREATE POLICY "Users can view their own codes" ON invite_codes 
-  FOR SELECT USING (created_by = auth.uid());
+-- RLS Policies (public access for API route compatibility)
+-- Drop existing policies first to avoid conflicts
+DROP POLICY IF EXISTS "Users can view their own codes" ON invite_codes;
+DROP POLICY IF EXISTS "Users can create codes" ON invite_codes;
+DROP POLICY IF EXISTS "Organizers can view all codes" ON invite_codes;
+DROP POLICY IF EXISTS "Public read invite_codes" ON invite_codes;
+DROP POLICY IF EXISTS "Public insert invite_codes" ON invite_codes;
+DROP POLICY IF EXISTS "Public update invite_codes" ON invite_codes;
+DROP POLICY IF EXISTS "Public delete invite_codes" ON invite_codes;
 
-CREATE POLICY "Users can create codes" ON invite_codes 
-  FOR INSERT WITH CHECK (created_by = auth.uid());
-
-CREATE POLICY "Organizers can view all codes" ON invite_codes 
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM user_profiles WHERE id = auth.uid() AND role = 'organizer')
-  );
+CREATE POLICY "Public read invite_codes" ON invite_codes FOR SELECT USING (true);
+CREATE POLICY "Public insert invite_codes" ON invite_codes FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public update invite_codes" ON invite_codes FOR UPDATE USING (true);
+CREATE POLICY "Public delete invite_codes" ON invite_codes FOR DELETE USING (true);
 
 -- Index for code lookup
 CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);

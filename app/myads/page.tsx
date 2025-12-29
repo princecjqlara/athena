@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 import DailyReportsViewer from '@/components/DailyReportsViewer';
+import SyncIndicator from '@/components/SyncIndicator';
+import { useFacebookSync } from '@/hooks/useFacebookSync';
+
 
 // Unified Ad interface that handles both imported and uploaded ads
 interface Ad {
@@ -164,6 +167,15 @@ export default function MyAdsPage() {
     const [dailyReportData, setDailyReportData] = useState<any>(null);
     const [isLoadingReport, setIsLoadingReport] = useState(false);
 
+    // Facebook Auto-Sync Hook
+    const {
+        syncState,
+        syncNow,
+        toggleAutoSync,
+        setSyncInterval,
+        formatLastSynced
+    } = useFacebookSync({ autoSyncOnMount: true, syncDelayMs: 1500 });
+
     // Fetch daily report for an ad
     const fetchDailyReport = async (ad: Ad) => {
         setSelectedAdForReport(ad);
@@ -213,8 +225,20 @@ export default function MyAdsPage() {
         // Listen for storage changes (from other tabs/pages)
         const handleStorageChange = () => loadAds();
         window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
+
+        // Listen for Facebook sync completion
+        const handleSyncComplete = () => {
+            console.log('[MyAds] Sync complete, reloading ads...');
+            loadAds();
+        };
+        window.addEventListener('facebook-sync-complete', handleSyncComplete);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('facebook-sync-complete', handleSyncComplete);
+        };
     }, []);
+
 
     // Delete an ad
     const handleDeleteAd = (adId: string, adName: string) => {
@@ -476,6 +500,17 @@ Ad description: ${adDescription}`,
                     </a>
                 </div>
             </header>
+
+            {/* Facebook Auto-Sync Indicator */}
+            {stats.imported > 0 && (
+                <SyncIndicator
+                    syncState={syncState}
+                    onSync={syncNow}
+                    onToggleAutoSync={toggleAutoSync}
+                    onSetInterval={setSyncInterval}
+                    formatLastSynced={formatLastSynced}
+                />
+            )}
 
             {/* Quick Stats */}
             <div className={styles.statsBar}>
