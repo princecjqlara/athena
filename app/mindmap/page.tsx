@@ -413,6 +413,14 @@ export default function MindMapPage() {
     const [selectedNode, setSelectedNode] = useState<Node3D | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
+
+    // AI-powered search state
+    const [isAISearchEnabled, setIsAISearchEnabled] = useState(true);
+    const [isAISearching, setIsAISearching] = useState(false);
+    const [aiSearchResults, setAiSearchResults] = useState<Array<{ id: string; relevance: number; reason: string }>>([]);
+    const [aiSearchIntent, setAiSearchIntent] = useState<string>('');
+    const aiSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     const [rotation, setRotation] = useState({ x: 0, y: 0 });
     const [isAutoRotate, setIsAutoRotate] = useState(true);
     const [zoom, setZoom] = useState(1);
@@ -1076,29 +1084,105 @@ export default function MindMapPage() {
         return () => clearInterval(interval);
     }, [isAutoRotate]);
 
-    // Search functionality
+    // Search functionality - with AI enhancement
     useEffect(() => {
+        // Clear previous AI search timeout
+        if (aiSearchTimeoutRef.current) {
+            clearTimeout(aiSearchTimeoutRef.current);
+        }
+
         if (!searchQuery.trim()) {
             setHighlightedNodes(new Set());
+            setAiSearchResults([]);
+            setAiSearchIntent('');
+            setIsAISearching(false);
             return;
         }
 
+        // Immediate text-based search (fallback / fast results)
         const query = searchQuery.toLowerCase();
-        const matches = new Set<string>();
+        const textMatches = new Set<string>();
 
         nodes.forEach((node) => {
             if (
                 node.label.toLowerCase().includes(query) ||
                 node.category.toLowerCase().includes(query)
             ) {
-                matches.add(node.id);
+                textMatches.add(node.id);
                 // Also highlight connected nodes
-                node.connections.forEach(c => matches.add(c));
+                node.connections.forEach(c => textMatches.add(c));
             }
         });
 
-        setHighlightedNodes(matches);
-    }, [searchQuery, nodes]);
+        setHighlightedNodes(textMatches);
+
+        // AI-powered search (debounced) - only for longer queries  
+        if (isAISearchEnabled && searchQuery.length >= 3) {
+            setIsAISearching(true);
+
+            aiSearchTimeoutRef.current = setTimeout(async () => {
+                try {
+                    // Prepare compressed node data for AI
+                    const nodeData = nodes.filter(n => n.type === 'ad' || n.type === 'trait').map(n => ({
+                        id: n.id,
+                        label: n.label,
+                        category: n.category,
+                        type: n.type,
+                        successRate: n.successRate,
+                        predictedScore: n.predictedScore,
+                        actualScore: n.actualScore,
+                        metrics: n.adInsights ? {
+                            impressions: n.adInsights.impressions,
+                            clicks: n.adInsights.clicks,
+                            ctr: n.adInsights.ctr,
+                            spend: n.adInsights.spend,
+                            results: n.adInsights.results,
+                            costPerResult: n.adInsights.costPerResult
+                        } : undefined,
+                        traits: n.traits?.slice(0, 5)
+                    }));
+
+                    const response = await fetch('/api/ai', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'search-orbs',
+                            data: { query: searchQuery, nodes: nodeData }
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success && result.data?.matches) {
+                        setAiSearchResults(result.data.matches);
+                        setAiSearchIntent(result.data.searchIntent || '');
+
+                        // Merge AI results with text results
+                        const aiMatches = new Set<string>(textMatches);
+                        result.data.matches.forEach((m: { id: string }) => {
+                            aiMatches.add(m.id);
+                            // Also highlight connected nodes
+                            const matchedNode = nodes.find(n => n.id === m.id);
+                            if (matchedNode) {
+                                matchedNode.connections.forEach(c => aiMatches.add(c));
+                            }
+                        });
+                        setHighlightedNodes(aiMatches);
+                    }
+                } catch (error) {
+                    console.error('AI search error:', error);
+                    // Keep text-based results on AI failure
+                }
+                setIsAISearching(false);
+            }, 600); // Debounce 600ms
+        }
+
+        return () => {
+            if (aiSearchTimeoutRef.current) {
+                clearTimeout(aiSearchTimeoutRef.current);
+            }
+        };
+    }, [searchQuery, nodes, isAISearchEnabled]);
 
     // Mouse handlers for rotation
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -1300,13 +1384,19 @@ export default function MindMapPage() {
             {/* Search Bar */}
             <div className={styles.searchContainer}>
                 <div className={styles.searchBox}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8" />
-                        <path d="M21 21l-4.35-4.35" />
-                    </svg>
+                    {isAISearching ? (
+                        <svg className={styles.searchSpinner} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" strokeDasharray="30" strokeDashoffset="10" />
+                        </svg>
+                    ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="M21 21l-4.35-4.35" />
+                        </svg>
+                    )}
                     <input
                         type="text"
-                        placeholder="Search ads or traits..."
+                        placeholder={isAISearchEnabled ? "Ask AI: 'high CTR ads', 'video content'..." : "Search ads or traits..."}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className={styles.searchInput}
@@ -1314,7 +1404,22 @@ export default function MindMapPage() {
                     {searchQuery && (
                         <button className={styles.clearSearch} onClick={() => setSearchQuery('')}>×</button>
                     )}
+                    <button
+                        className={`${styles.aiToggle} ${isAISearchEnabled ? styles.aiEnabled : ''}`}
+                        onClick={() => setIsAISearchEnabled(!isAISearchEnabled)}
+                        title={isAISearchEnabled ? "AI Search: ON" : "AI Search: OFF"}
+                    >
+                        🤖
+                    </button>
                 </div>
+
+                {/* AI Search Intent Display */}
+                {aiSearchIntent && isAISearchEnabled && (
+                    <div className={styles.aiSearchIntent}>
+                        <span>🔍 AI understands: </span>
+                        <strong>{aiSearchIntent}</strong>
+                    </div>
+                )}
 
                 {searchResults.length > 0 && (
                     <div className={styles.searchResults}>

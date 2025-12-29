@@ -187,6 +187,14 @@ Be conversational, helpful, and reference their actual data. You have FULL CONTR
         prompt = buildChatPrompt(data.message, data.context, data.history);
         return await handleChatResponse(prompt, systemMessage, apiKey);
 
+      case 'search-orbs':
+        // AI-powered semantic search for orbs/ads
+        systemMessage = `You are an intelligent ad search assistant. Analyze the user's natural language query and find matching ads/orbs.
+        Understand intent like: "high CTR ads", "video content", "UGC style", "best performing", "low cost", etc.
+        Return matching node IDs ranked by relevance with explanations.`;
+        prompt = buildOrbSearchPrompt(data.query, data.nodes);
+        break;
+
       case 'analyze-metrics':
         systemMessage = `You are an expert Facebook advertising analyst. Analyze raw Facebook metrics and provide:
         - Human-readable labels for every action type
@@ -874,5 +882,68 @@ Return JSON:
   ],
   "recommendations": ["Actionable improvement suggestions"],
   "warnings": ["Any concerning metrics"]
+}`;
+}
+
+// Interface for search node data
+interface SearchNodeData {
+  id: string;
+  label: string;
+  category: string;
+  type: string;
+  successRate?: number;
+  predictedScore?: number;
+  actualScore?: number;
+  metrics?: {
+    impressions?: number;
+    reach?: number;
+    clicks?: number;
+    ctr?: number;
+    spend?: number;
+    results?: number;
+    costPerResult?: number;
+  };
+  traits?: string[];
+}
+
+function buildOrbSearchPrompt(query: string, nodes: SearchNodeData[]): string {
+  // Compress node data to reduce token usage
+  const compressedNodes = nodes.slice(0, 50).map(n => ({
+    id: n.id,
+    label: n.label,
+    type: n.type,
+    category: n.category,
+    score: n.actualScore || n.predictedScore || n.successRate || 0,
+    ctr: n.metrics?.ctr || 0,
+    spend: n.metrics?.spend || 0,
+    results: n.metrics?.results || 0,
+    traits: (n.traits || []).slice(0, 5)
+  }));
+
+  return `User's search query: "${query}"
+
+Available nodes (ads, traits, categories, metrics):
+${JSON.stringify(compressedNodes, null, 1)}
+
+Analyze the user's intent and find matching nodes. Understand queries like:
+- "high CTR ads" → find ads with ctr > 2
+- "best performing" → find ads with highest scores
+- "video content" → find ads with video-related traits
+- "UGC style" → find ads with UGC traits
+- "low cost" → find ads with low spend or costPerResult
+- "failing ads" → find ads with low scores
+- Trait searches like "curiosity hook", "tiktok", "subtitles"
+
+Return JSON with matched node IDs ranked by relevance:
+{
+  "matches": [
+    {
+      "id": "node_id",
+      "relevance": <0-100>,
+      "reason": "Brief reason why this matches"
+    }
+  ],
+  "searchIntent": "What the user is looking for",
+  "suggestedFilters": ["Additional suggestions for refining search"]
 }`;
 }

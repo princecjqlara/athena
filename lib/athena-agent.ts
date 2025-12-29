@@ -45,7 +45,11 @@ export type ActionName =
     | 'bulk_update_ads'
     | 'get_ad_details'
     | 'get_pipeline_details'
-    | 'refresh_predictions';
+    | 'refresh_predictions'
+    // Facebook Ad Management (Direct API)
+    | 'pause_ad'
+    | 'resume_ad'
+    | 'update_budget';
 
 export interface AgentAction {
     name: ActionName;
@@ -296,6 +300,33 @@ export const AGENT_ACTIONS: Record<ActionName, Omit<AgentAction, 'execute'>> = {
             { name: 'adIds', type: 'array', required: false, description: 'Specific ad IDs (empty for all)' }
         ]
     },
+    // ============ FACEBOOK AD MANAGEMENT (DIRECT API) ============
+    pause_ad: {
+        name: 'pause_ad',
+        description: 'Pause a running Facebook ad',
+        requiresConfirmation: true,
+        parameters: [
+            { name: 'adId', type: 'string', required: true, description: 'The Facebook ad ID to pause' }
+        ]
+    },
+    resume_ad: {
+        name: 'resume_ad',
+        description: 'Resume a paused Facebook ad',
+        requiresConfirmation: true,
+        parameters: [
+            { name: 'adId', type: 'string', required: true, description: 'The Facebook ad ID to resume' }
+        ]
+    },
+    update_budget: {
+        name: 'update_budget',
+        description: 'Update the budget for a Facebook ad set',
+        requiresConfirmation: true,
+        parameters: [
+            { name: 'adsetId', type: 'string', required: true, description: 'The Facebook ad set ID' },
+            { name: 'dailyBudget', type: 'number', required: false, description: 'New daily budget in pesos' },
+            { name: 'lifetimeBudget', type: 'number', required: false, description: 'New lifetime budget in pesos' }
+        ]
+    },
     // Pipeline Management
     delete_pipeline: {
         name: 'delete_pipeline',
@@ -464,6 +495,11 @@ const INTENT_PATTERNS: { pattern: RegExp; action: ActionName; extractParams?: (m
     { pattern: /filter.*ads?|find.*ads?|search.*ads?/i, action: 'filter_ads' },
     { pattern: /bulk.*update|update.*multiple|update.*all.*ads/i, action: 'bulk_update_ads' },
     { pattern: /refresh.*predict|recalculate.*score|update.*predict/i, action: 'refresh_predictions' },
+
+    // Facebook Ad Management patterns (Direct API)
+    { pattern: /pause.*ad|stop.*ad|disable.*ad/i, action: 'pause_ad' },
+    { pattern: /resume.*ad|start.*ad|enable.*ad|unpause.*ad|activate.*ad/i, action: 'resume_ad' },
+    { pattern: /update.*budget|change.*budget|set.*budget|increase.*budget|decrease.*budget/i, action: 'update_budget' },
 
     // Pipeline Management patterns
     { pattern: /delete.*pipeline|remove.*pipeline/i, action: 'delete_pipeline' },
@@ -654,6 +690,14 @@ export async function executeAction(
             return executeBulkUpdateAds(params);
         case 'refresh_predictions':
             return executeRefreshPredictions(params);
+
+        // Facebook Ad Management (Direct API)
+        case 'pause_ad':
+            return executePauseAd(params);
+        case 'resume_ad':
+            return executeResumeAd(params);
+        case 'update_budget':
+            return executeUpdateBudget(params);
 
         // Pipeline Management
         case 'delete_pipeline':
@@ -1978,6 +2022,190 @@ function executeClearAllData(params: Record<string, unknown>): ActionResult {
         message: `🗑️ Cleared all data: ${cleared.join(', ')}`,
         data: { clearedTypes: cleared }
     };
+}
+
+// ============ FACEBOOK AD MANAGEMENT FUNCTIONS ============
+
+async function executePauseAd(params: Record<string, unknown>): Promise<ActionResult> {
+    const adId = params.adId as string;
+    
+    if (!adId) {
+        return {
+            success: false,
+            message: 'Please specify the ad ID to pause',
+            error: 'Missing adId'
+        };
+    }
+
+    try {
+        const token = localStorage.getItem('fb_access_token');
+        
+        if (!token) {
+            return {
+                success: false,
+                message: 'Please connect your Facebook account first in Settings',
+                error: 'Not authenticated'
+            };
+        }
+
+        const response = await fetch('/api/facebook/ads/manage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                adId,
+                action: 'pause',
+                accessToken: token
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            return {
+                success: true,
+                message: `⏸️ Ad **${adId}** has been paused successfully!`,
+                data: data
+            };
+        }
+
+        return {
+            success: false,
+            message: data.error || 'Failed to pause ad',
+            error: data.error
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: 'Error pausing ad. Please check your connection.',
+            error: String(error)
+        };
+    }
+}
+
+async function executeResumeAd(params: Record<string, unknown>): Promise<ActionResult> {
+    const adId = params.adId as string;
+    
+    if (!adId) {
+        return {
+            success: false,
+            message: 'Please specify the ad ID to resume',
+            error: 'Missing adId'
+        };
+    }
+
+    try {
+        const token = localStorage.getItem('fb_access_token');
+        
+        if (!token) {
+            return {
+                success: false,
+                message: 'Please connect your Facebook account first in Settings',
+                error: 'Not authenticated'
+            };
+        }
+
+        const response = await fetch('/api/facebook/ads/manage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                adId,
+                action: 'resume',
+                accessToken: token
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            return {
+                success: true,
+                message: `▶️ Ad **${adId}** has been resumed and is now active!`,
+                data: data
+            };
+        }
+
+        return {
+            success: false,
+            message: data.error || 'Failed to resume ad',
+            error: data.error
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: 'Error resuming ad. Please check your connection.',
+            error: String(error)
+        };
+    }
+}
+
+async function executeUpdateBudget(params: Record<string, unknown>): Promise<ActionResult> {
+    const adsetId = params.adsetId as string;
+    const dailyBudget = params.dailyBudget as number | undefined;
+    const lifetimeBudget = params.lifetimeBudget as number | undefined;
+    
+    if (!adsetId) {
+        return {
+            success: false,
+            message: 'Please specify the ad set ID to update',
+            error: 'Missing adsetId'
+        };
+    }
+
+    if (dailyBudget === undefined && lifetimeBudget === undefined) {
+        return {
+            success: false,
+            message: 'Please specify either a daily budget or lifetime budget',
+            error: 'Missing budget value'
+        };
+    }
+
+    try {
+        const token = localStorage.getItem('fb_access_token');
+        
+        if (!token) {
+            return {
+                success: false,
+                message: 'Please connect your Facebook account first in Settings',
+                error: 'Not authenticated'
+            };
+        }
+
+        const response = await fetch('/api/facebook/adsets/budget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                adsetId,
+                dailyBudget,
+                lifetimeBudget,
+                accessToken: token
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const budgetMsg = dailyBudget 
+                ? `daily budget to ₱${dailyBudget}` 
+                : `lifetime budget to ₱${lifetimeBudget}`;
+            return {
+                success: true,
+                message: `💰 Ad set budget updated! Set ${budgetMsg}`,
+                data: data
+            };
+        }
+
+        return {
+            success: false,
+            message: data.error || 'Failed to update budget',
+            error: data.error
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: 'Error updating budget. Please check your connection.',
+            error: String(error)
+        };
+    }
 }
 
 export default {
