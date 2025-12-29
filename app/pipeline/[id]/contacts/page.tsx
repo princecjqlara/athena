@@ -71,17 +71,124 @@ export default function ContactsPage() {
             }
         }
 
-        // Load leads from pipeline localStorage (same source as pipeline page)
-        const savedLeads = localStorage.getItem(`pipeline_leads_${params.id}`);
-        if (savedLeads) {
-            setContacts(JSON.parse(savedLeads));
-        }
-
         // Load stored ads for ad name lookup
         const savedAds = localStorage.getItem('ads');
         if (savedAds) {
             setStoredAds(JSON.parse(savedAds));
         }
+
+        // Load leads from multiple sources and merge them
+        const loadAllLeads = async () => {
+            const allLeads: Lead[] = [];
+            const seenIds = new Set<string>();
+
+            // 1. Load pipeline-specific leads
+            const savedLeads = localStorage.getItem(`pipeline_leads_${params.id}`);
+            if (savedLeads) {
+                const pipelineLeads = JSON.parse(savedLeads);
+                pipelineLeads.forEach((lead: Lead) => {
+                    if (!seenIds.has(lead.id)) {
+                        seenIds.add(lead.id);
+                        allLeads.push(lead);
+                    }
+                });
+            }
+
+            // 2. Load global pipeline_contacts and convert to Lead format
+            const globalContacts = localStorage.getItem('pipeline_contacts');
+            if (globalContacts) {
+                const contacts = JSON.parse(globalContacts);
+                contacts.forEach((contact: any) => {
+                    // Skip if already added or if assigned to a different pipeline
+                    if (seenIds.has(contact.id)) return;
+                    if (contact.pipelineId && contact.pipelineId !== params.id) return;
+
+                    seenIds.add(contact.id);
+                    allLeads.push({
+                        id: contact.id,
+                        name: contact.name || 'Unknown',
+                        email: contact.email,
+                        phone: contact.phone,
+                        stageId: contact.stageId || 'inquiry',
+                        createdAt: contact.createdAt || new Date().toISOString(),
+                        lastActivity: contact.lastActivity || contact.createdAt || new Date().toISOString(),
+                        source: contact.source,
+                        sourceAdId: contact.sourceAdId || contact.facebookAdId,
+                        sourceAdName: contact.sourceAdName,
+                        facebookPsid: contact.facebookPsid,
+                        messages: contact.messages,
+                        aiAnalysis: contact.aiAnalysis
+                    });
+                });
+            }
+
+            // 3. Fetch from Supabase API
+            try {
+                const response = await fetch(`/api/contacts?pipelineId=${params.id}`);
+                const data = await response.json();
+
+                if (data.success && data.data?.length > 0) {
+                    data.data.forEach((contact: any) => {
+                        // Skip if already added
+                        if (seenIds.has(contact.id)) return;
+
+                        seenIds.add(contact.id);
+                        allLeads.push({
+                            id: contact.id,
+                            name: contact.name || 'Unknown',
+                            email: contact.email,
+                            phone: contact.phone,
+                            stageId: contact.stage_id || 'inquiry',
+                            createdAt: contact.created_at || new Date().toISOString(),
+                            lastActivity: contact.updated_at || contact.created_at || new Date().toISOString(),
+                            source: contact.source_ad_id ? 'ad' : 'organic',
+                            sourceAdId: contact.source_ad_id,
+                            sourceAdName: contact.source_ad_name,
+                            facebookPsid: contact.facebook_psid,
+                            aiAnalysis: contact.ai_analysis
+                        });
+                    });
+                }
+
+                // Also fetch all contacts if pipeline-specific returned nothing
+                if (allLeads.length === 0) {
+                    const allResponse = await fetch('/api/contacts');
+                    const allData = await allResponse.json();
+
+                    if (allData.success && allData.data?.length > 0) {
+                        allData.data.forEach((contact: any) => {
+                            if (seenIds.has(contact.id)) return;
+
+                            seenIds.add(contact.id);
+                            allLeads.push({
+                                id: contact.id,
+                                name: contact.name || 'Unknown',
+                                email: contact.email,
+                                phone: contact.phone,
+                                stageId: contact.stage_id || 'inquiry',
+                                createdAt: contact.created_at || new Date().toISOString(),
+                                lastActivity: contact.updated_at || contact.created_at || new Date().toISOString(),
+                                source: contact.source_ad_id ? 'ad' : 'organic',
+                                sourceAdId: contact.source_ad_id,
+                                sourceAdName: contact.source_ad_name,
+                                facebookPsid: contact.facebook_psid,
+                                aiAnalysis: contact.ai_analysis
+                            });
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('[Contacts] Error fetching from Supabase:', error);
+            }
+
+            // Sort by most recent first
+            allLeads.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+            setContacts(allLeads);
+            console.log(`[Contacts] Loaded ${allLeads.length} total leads for pipeline ${params.id}`);
+        };
+
+        loadAllLeads();
     }, [params.id]);
 
     const getStageName = (stageId: string) => {
