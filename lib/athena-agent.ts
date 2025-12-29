@@ -2473,6 +2473,252 @@ async function executeCreateFbAdset(params: Record<string, unknown>): Promise<Ac
     }
 }
 
+// ============ FACEBOOK AD CREATIVE & FULL AD FUNCTIONS (PHASE 3) ============
+
+async function executeUploadAdImage(params: Record<string, unknown>): Promise<ActionResult> {
+    const imageUrl = params.imageUrl as string;
+    const imageName = params.imageName as string | undefined;
+
+    if (!imageUrl) {
+        return {
+            success: false,
+            message: 'Please specify the image URL to upload',
+            error: 'Missing imageUrl'
+        };
+    }
+
+    try {
+        const token = localStorage.getItem('fb_access_token');
+        const adAccountId = localStorage.getItem('fb_selected_ad_account');
+
+        if (!token || !adAccountId) {
+            return {
+                success: false,
+                message: 'Please connect your Facebook account first in Settings',
+                error: 'Not authenticated'
+            };
+        }
+
+        const response = await fetch('/api/facebook/adimages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                imageUrl,
+                imageName,
+                accessToken: token,
+                adAccountId
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            return {
+                success: true,
+                message: `🖼️ Image uploaded successfully!\n\n` +
+                    `**Image Hash:** \`${data.imageHash}\`\n\n` +
+                    `Use this hash when creating ad creatives.`,
+                data: data
+            };
+        }
+
+        return {
+            success: false,
+            message: data.error || 'Failed to upload image',
+            error: data.error
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: 'Error uploading image. Please check your connection.',
+            error: String(error)
+        };
+    }
+}
+
+async function executeCreateAdCreative(params: Record<string, unknown>): Promise<ActionResult> {
+    const name = params.name as string;
+    const pageId = params.pageId as string;
+    const imageHash = params.imageHash as string | undefined;
+    const imageUrl = params.imageUrl as string | undefined;
+    const message = params.message as string;
+    const headline = params.headline as string | undefined;
+    const linkUrl = params.linkUrl as string | undefined;
+    const callToAction = (params.callToAction as string) || 'LEARN_MORE';
+
+    if (!name) {
+        return {
+            success: false,
+            message: 'Please specify a name for the creative',
+            error: 'Missing name'
+        };
+    }
+
+    if (!pageId) {
+        return {
+            success: false,
+            message: 'Please specify your Facebook Page ID',
+            error: 'Missing pageId'
+        };
+    }
+
+    if (!message) {
+        return {
+            success: false,
+            message: 'Please specify the ad message/text',
+            error: 'Missing message'
+        };
+    }
+
+    if (!imageHash && !imageUrl) {
+        return {
+            success: false,
+            message: 'Please provide either an image hash (from upload) or image URL',
+            error: 'Missing image'
+        };
+    }
+
+    try {
+        const token = localStorage.getItem('fb_access_token');
+        const adAccountId = localStorage.getItem('fb_selected_ad_account');
+
+        if (!token || !adAccountId) {
+            return {
+                success: false,
+                message: 'Please connect your Facebook account first in Settings',
+                error: 'Not authenticated'
+            };
+        }
+
+        const response = await fetch('/api/facebook/adcreatives', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                pageId,
+                imageHash,
+                imageUrl,
+                message,
+                headline,
+                linkUrl,
+                callToAction,
+                accessToken: token,
+                adAccountId
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            return {
+                success: true,
+                message: `✨ Ad Creative **"${name}"** created successfully!\n\n` +
+                    `**Creative ID:** \`${data.creativeId}\`\n` +
+                    `**CTA:** ${callToAction}\n\n` +
+                    `Next step: Create a full ad to link this creative to an ad set.`,
+                data: data
+            };
+        }
+
+        return {
+            success: false,
+            message: data.error || 'Failed to create creative',
+            error: data.error
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: 'Error creating creative. Please check your connection.',
+            error: String(error)
+        };
+    }
+}
+
+async function executeCreateFullAd(params: Record<string, unknown>): Promise<ActionResult> {
+    const name = params.name as string;
+    const adsetId = params.adsetId as string;
+    const creativeId = params.creativeId as string;
+    const status = (params.status as string) || 'PAUSED';
+
+    if (!name) {
+        return {
+            success: false,
+            message: 'Please specify a name for the ad',
+            error: 'Missing name'
+        };
+    }
+
+    if (!adsetId) {
+        return {
+            success: false,
+            message: 'Please specify the ad set ID',
+            error: 'Missing adsetId'
+        };
+    }
+
+    if (!creativeId) {
+        return {
+            success: false,
+            message: 'Please specify the creative ID',
+            error: 'Missing creativeId'
+        };
+    }
+
+    try {
+        const token = localStorage.getItem('fb_access_token');
+        const adAccountId = localStorage.getItem('fb_selected_ad_account');
+
+        if (!token || !adAccountId) {
+            return {
+                success: false,
+                message: 'Please connect your Facebook account first in Settings',
+                error: 'Not authenticated'
+            };
+        }
+
+        const response = await fetch('/api/facebook/ads/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                adsetId,
+                creativeId,
+                status,
+                accessToken: token,
+                adAccountId
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const statusEmoji = status.toUpperCase() === 'ACTIVE' ? '🚀' : '⏸️';
+            return {
+                success: true,
+                message: `${statusEmoji} **Ad "${name}" created successfully!**\n\n` +
+                    `**Ad ID:** \`${data.adId}\`\n` +
+                    `**Status:** ${status.toUpperCase()}\n\n` +
+                    (status.toUpperCase() === 'PAUSED'
+                        ? `The ad is paused. Say "resume ad ${data.adId}" when ready to go live!`
+                        : `Your ad is now live and delivering!`),
+                data: data
+            };
+        }
+
+        return {
+            success: false,
+            message: data.error || 'Failed to create ad',
+            error: data.error
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: 'Error creating ad. Please check your connection.',
+            error: String(error)
+        };
+    }
+}
+
 export default {
     AGENT_ACTIONS,
     parseIntent,

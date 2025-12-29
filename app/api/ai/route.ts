@@ -148,6 +148,7 @@ You have access to the user's complete ad database and can help them:
 - show_insights: Show insights about ads/performance
 - show_patterns: Show learned patterns
 - recommend_creative: Recommend creative elements
+- recommend_campaign_settings: Get ML-powered campaign settings recommendations (adTraits object, optional goals)
 - search_trends: Search current advertising trends (query, platform)
 - research_topic: Research specific advertising topic (topic)
 - clear_all_data: Clear all data (confirm: "DELETE ALL", dataTypes) ⚠️⚠️⚠️
@@ -204,8 +205,19 @@ Be conversational, helpful, and reference their actual data. You have FULL CONTR
         prompt = buildMetricsAnalysisPrompt(data.metrics, data.adName);
         break;
 
+      case 'recommend-campaign':
+        // ML-powered campaign recommendations
+        // This delegates to the campaign-optimizer ML module for actual recommendations
+        // The AI enhances the recommendations with natural language explanations
+        systemMessage = `You are Athena AI, an expert advertising strategist. You have received ML-generated campaign recommendations.
+        Your job is to explain these recommendations in natural, helpful language and add any additional insights.
+        Be specific and actionable. Reference the confidence scores and data quality.`;
+        prompt = buildCampaignRecommendationPrompt(data.adTraits, data.recommendations, data.goals);
+        break;
+
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+
     }
 
     const response = await fetch(NVIDIA_API_URL, {
@@ -1142,3 +1154,36 @@ Return JSON with matched node IDs ranked by relevance:
   "suggestedFilters": ["Additional suggestions for refining search"]
 }`;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildCampaignRecommendationPrompt(
+  adTraits: Record<string, unknown>,
+  recommendations: Record<string, unknown>,
+  goals: Record<string, unknown>
+): string {
+  return `You are Athena AI helping a user optimize their Facebook ad campaign settings.
+
+The user has provided ad traits for analysis:
+${JSON.stringify(adTraits, null, 2)}
+
+Their campaign goals:
+${JSON.stringify(goals || { targetROAS: 2.5, monthlyBudget: 5000 }, null, 2)}
+
+Our ML system has generated these recommendations:
+${JSON.stringify(recommendations, null, 2)}
+
+Please provide a natural language explanation of these recommendations. Structure your response as JSON:
+{
+  "summary": "A 2-3 sentence executive summary of the key recommendations",
+  "objectiveExplanation": "Why this objective is recommended for this ad content",
+  "budgetExplanation": "Why this budget range and structure (CBO/ABO) is optimal",
+  "targetingExplanation": "Why this targeting will work for this ad",
+  "timingExplanation": "Why this launch timing is recommended",
+  "additionalTips": ["Specific actionable tip 1", "Specific actionable tip 2", "Specific actionable tip 3"],
+  "warnings": ["Any concerns or things to watch out for"],
+  "confidence": "Your assessment of how confident we should be in these recommendations based on the data quality"
+}
+
+Be specific, reference the actual data (platforms, content types, etc.), and be helpful!`;
+}
+

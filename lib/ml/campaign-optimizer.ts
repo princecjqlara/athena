@@ -398,7 +398,7 @@ export function recommendTargeting(adTraits: ExtractedAdData): TargetingRecommen
         platforms: uniquePlatforms,
         confidence,
         reasoning,
-        segments: topSegments,
+        segments: topSegments.map(s => ({ id: s.segmentId, name: s.segmentName, score: s.score })),
     };
 }
 
