@@ -1,11 +1,12 @@
 /**
  * AlertCenter Component
  * Shows anomalies with severity badges and actions
+ * Now with AUTO-SCANNING support!
  */
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './AlertCenter.module.css';
 
 interface Anomaly {
@@ -30,6 +31,8 @@ interface AlertCenterProps {
     orgId: string;
     userId: string;
     maxItems?: number;
+    autoScanEnabled?: boolean;
+    autoScanIntervalMinutes?: number;
 }
 
 const SEVERITY_CONFIG = {
@@ -50,16 +53,73 @@ const TYPE_LABELS: Record<string, string> = {
     conversions_drop: 'Conversion Drop'
 };
 
-export default function AlertCenter({ orgId, userId, maxItems = 10 }: AlertCenterProps) {
+// Auto-scan interval options (in minutes)
+const SCAN_INTERVAL_OPTIONS = [
+    { value: 1, label: '1 min' },
+    { value: 5, label: '5 min' },
+    { value: 15, label: '15 min' },
+    { value: 30, label: '30 min' },
+    { value: 60, label: '1 hour' }
+];
+
+export default function AlertCenter({
+    orgId,
+    userId,
+    maxItems = 10,
+    autoScanEnabled: initialAutoScan = true,
+    autoScanIntervalMinutes: initialInterval = 5
+}: AlertCenterProps) {
     const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
     const [summary, setSummary] = useState({ critical: 0, high: 0, medium: 0, low: 0, total: 0 });
     const [loading, setLoading] = useState(true);
     const [detecting, setDetecting] = useState(false);
     const [filter, setFilter] = useState<'all' | 'critical' | 'high'>('all');
 
+    // Auto-scan state
+    const [autoScanActive, setAutoScanActive] = useState(initialAutoScan);
+    const [scanInterval, setScanInterval] = useState(initialInterval);
+    const [lastScanTime, setLastScanTime] = useState<Date | null>(null);
+    const [nextScanIn, setNextScanIn] = useState<number>(0);
+    const autoScanTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Fetch anomalies on mount
     useEffect(() => {
         fetchAnomalies();
     }, [orgId]);
+
+    // Setup auto-scan interval
+    useEffect(() => {
+        if (autoScanActive && orgId) {
+            // Run initial scan
+            runDetection(true);
+
+            // Setup interval
+            const intervalMs = scanInterval * 60 * 1000;
+            autoScanTimerRef.current = setInterval(() => {
+                runDetection(true);
+            }, intervalMs);
+
+            // Setup countdown
+            setNextScanIn(scanInterval * 60);
+            countdownTimerRef.current = setInterval(() => {
+                setNextScanIn(prev => {
+                    if (prev <= 1) return scanInterval * 60;
+                    return prev - 1;
+                });
+            }, 1000);
+
+            return () => {
+                if (autoScanTimerRef.current) clearInterval(autoScanTimerRef.current);
+                if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+            };
+        } else {
+            // Clear timers when auto-scan is disabled
+            if (autoScanTimerRef.current) clearInterval(autoScanTimerRef.current);
+            if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+            setNextScanIn(0);
+        }
+    }, [autoScanActive, scanInterval, orgId]);
 
     const fetchAnomalies = async () => {
         try {
@@ -78,7 +138,10 @@ export default function AlertCenter({ orgId, userId, maxItems = 10 }: AlertCente
         }
     };
 
-    const runDetection = async () => {
+    const runDetection = async (isAutoScan: boolean = false) => {
+        // Skip if already detecting
+        if (detecting) return;
+
         try {
             setDetecting(true);
 
@@ -95,12 +158,39 @@ export default function AlertCenter({ orgId, userId, maxItems = 10 }: AlertCente
                 });
             }
 
+            // Update last scan time
+            setLastScanTime(new Date());
+
+            // Reset countdown
+            if (autoScanActive) {
+                setNextScanIn(scanInterval * 60);
+            }
+
             fetchAnomalies();
         } catch (error) {
             console.error('Error running detection:', error);
         } finally {
             setDetecting(false);
         }
+    };
+
+    // Format countdown time
+    const formatCountdown = (seconds: number): string => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Format last scan time
+    const formatLastScan = (date: Date | null): string => {
+        if (!date) return 'Never';
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'Just now';
+        if (diffMins === 1) return '1 min ago';
+        if (diffMins < 60) return `${diffMins} mins ago`;
+        return date.toLocaleTimeString();
     };
 
     const handleAcknowledge = async (id: string) => {
@@ -176,11 +266,55 @@ export default function AlertCenter({ orgId, userId, maxItems = 10 }: AlertCente
                     </select>
                     <button
                         className={styles.detectBtn}
-                        onClick={runDetection}
+                        onClick={() => runDetection(false)}
                         disabled={detecting}
                     >
                         {detecting ? '🔍 Scanning...' : '🔍 Scan Now'}
                     </button>
+                </div>
+            </div>
+
+            {/* Auto-Scan Controls */}
+            <div className={styles.autoScanBar}>
+                <div className={styles.autoScanToggle}>
+                    <label className={styles.toggleLabel}>
+                        <input
+                            type="checkbox"
+                            checked={autoScanActive}
+                            onChange={(e) => setAutoScanActive(e.target.checked)}
+                            className={styles.toggleInput}
+                        />
+                        <span className={styles.toggleSlider}></span>
+                        <span className={styles.toggleText}>Auto-Scan</span>
+                    </label>
+                </div>
+
+                {autoScanActive && (
+                    <>
+                        <div className={styles.intervalSelector}>
+                            <span className={styles.intervalLabel}>Every:</span>
+                            <select
+                                value={scanInterval}
+                                onChange={(e) => setScanInterval(Number(e.target.value))}
+                                className={styles.intervalSelect}
+                            >
+                                {SCAN_INTERVAL_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className={styles.scanStatus}>
+                            <span className={styles.statusDot}></span>
+                            <span className={styles.nextScan}>
+                                Next: {formatCountdown(nextScanIn)}
+                            </span>
+                        </div>
+                    </>
+                )}
+
+                <div className={styles.lastScan}>
+                    Last: {formatLastScan(lastScanTime)}
                 </div>
             </div>
 

@@ -7,6 +7,7 @@ import './admin.css';
 interface User {
     id: string;
     full_name: string;
+    email?: string;
     role: string;
     status: string;
     created_at: string;
@@ -21,11 +22,29 @@ interface AccessRequest {
     created_at: string;
 }
 
+interface InviteCode {
+    id: string;
+    code: string;
+    code_type: string;
+    is_used: boolean;
+    used_by?: string;
+    expires_at: string;
+    created_at: string;
+}
+
 export default function AdminDashboard() {
     const [users, setUsers] = useState<User[]>([]);
     const [requests, setRequests] = useState<AccessRequest[]>([]);
+    const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'users' | 'requests' | 'logs'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'requests' | 'invites' | 'logs'>('users');
+
+    // Invite code generation state
+    const [selectedRole, setSelectedRole] = useState<'marketer' | 'client'>('marketer');
+    const [generatedCode, setGeneratedCode] = useState<string>('');
+    const [codeExpiry, setCodeExpiry] = useState<string>('');
+    const [generating, setGenerating] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -47,10 +66,30 @@ export default function AdminDashboard() {
                 const requestsData = await requestsRes.json();
                 setRequests(requestsData.data || []);
             }
+
+            // Fetch invite codes
+            await fetchInviteCodes();
         } catch (error) {
             console.error('Error fetching admin data:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchInviteCodes = async () => {
+        try {
+            const res = await fetch('/api/invite-codes', {
+                headers: {
+                    'x-user-role': 'admin',
+                    'x-user-id': localStorage.getItem('athena_user_id') || '',
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setInviteCodes(data.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching invite codes:', error);
         }
     };
 
@@ -86,13 +125,58 @@ export default function AdminDashboard() {
         }
     };
 
+    const generateInviteCode = async () => {
+        setGenerating(true);
+        setGeneratedCode('');
+        setCopied(false);
+
+        try {
+            const res = await fetch('/api/invite-codes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-role': 'admin',
+                    'x-user-id': localStorage.getItem('athena_user_id') || '',
+                },
+                body: JSON.stringify({
+                    roleType: selectedRole,
+                    userRole: 'admin'
+                }),
+            });
+
+            const data = await res.json();
+
+            if (data.success && data.code) {
+                setGeneratedCode(data.code);
+                setCodeExpiry(data.expiresAt);
+                // Refresh invite codes list
+                await fetchInviteCodes();
+            } else {
+                console.error('Failed to generate code:', data.error);
+            }
+        } catch (error) {
+            console.error('Error generating invite code:', error);
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    const copyCode = async () => {
+        if (generatedCode) {
+            await navigator.clipboard.writeText(generatedCode);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
     const pendingRequests = requests.filter(r => r.status === 'pending');
+    const activeInviteCodes = inviteCodes.filter(c => !c.is_used && new Date(c.expires_at) > new Date());
 
     return (
         <div className="admin-page">
             <div className="admin-header">
                 <h1>🛡️ Admin Dashboard</h1>
-                <p>Manage users, access requests, and organization settings</p>
+                <p>Manage users, invite team members, and organization settings</p>
             </div>
 
             <div className="admin-tabs">
@@ -101,6 +185,12 @@ export default function AdminDashboard() {
                     onClick={() => setActiveTab('users')}
                 >
                     👥 Users ({users.length})
+                </button>
+                <button
+                    className={`tab ${activeTab === 'invites' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('invites')}
+                >
+                    🎟️ Invite Codes {activeInviteCodes.length > 0 && <span className="badge">{activeInviteCodes.length}</span>}
                 </button>
                 <button
                     className={`tab ${activeTab === 'requests' ? 'active' : ''}`}
@@ -123,7 +213,10 @@ export default function AdminDashboard() {
                     <div className="users-list">
                         <h2>Organization Users</h2>
                         {users.length === 0 ? (
-                            <p className="no-data">No users found</p>
+                            <div className="no-data">
+                                <p>No users found</p>
+                                <p className="hint">Generate invite codes to add team members</p>
+                            </div>
                         ) : (
                             <table className="admin-table">
                                 <thead>
@@ -186,6 +279,92 @@ export default function AdminDashboard() {
                             </table>
                         )}
                     </div>
+                ) : activeTab === 'invites' ? (
+                    <div className="invites-section">
+                        <h2>Invite Team Members</h2>
+                        <p className="section-desc">Generate invite codes for marketers and clients to join your organization</p>
+
+                        <div className="invite-generator">
+                            <div className="role-selector">
+                                <label>Select Role:</label>
+                                <div className="role-options">
+                                    <button
+                                        className={`role-option ${selectedRole === 'marketer' ? 'selected' : ''}`}
+                                        onClick={() => setSelectedRole('marketer')}
+                                    >
+                                        <span className="role-icon">📊</span>
+                                        <span className="role-name">Marketer</span>
+                                        <span className="role-desc">Full access to ads, predictions, pipelines</span>
+                                    </button>
+                                    <button
+                                        className={`role-option ${selectedRole === 'client' ? 'selected' : ''}`}
+                                        onClick={() => setSelectedRole('client')}
+                                    >
+                                        <span className="role-icon">👤</span>
+                                        <span className="role-name">Client</span>
+                                        <span className="role-desc">View pipelines and analytics only</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button
+                                className="generate-btn"
+                                onClick={generateInviteCode}
+                                disabled={generating}
+                            >
+                                {generating ? 'Generating...' : `Generate ${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} Invite Code`}
+                            </button>
+
+                            {generatedCode && (
+                                <div className="generated-code">
+                                    <div className="code-display">
+                                        <span className="code">{generatedCode}</span>
+                                        <button className="copy-btn" onClick={copyCode}>
+                                            {copied ? '✓ Copied!' : '📋 Copy'}
+                                        </button>
+                                    </div>
+                                    <p className="code-expiry">
+                                        Expires: {new Date(codeExpiry).toLocaleString()}
+                                    </p>
+                                    <p className="code-instructions">
+                                        Share this code with your {selectedRole}. They'll use it during signup.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        {activeInviteCodes.length > 0 && (
+                            <div className="active-codes">
+                                <h3>Active Invite Codes</h3>
+                                <table className="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Role</th>
+                                            <th>Expires</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {activeInviteCodes.map(code => (
+                                            <tr key={code.id}>
+                                                <td className="code-cell">{code.code}</td>
+                                                <td>
+                                                    <span className={`role-badge ${code.code_type}`}>
+                                                        {code.code_type}
+                                                    </span>
+                                                </td>
+                                                <td>{new Date(code.expires_at).toLocaleString()}</td>
+                                                <td>
+                                                    <span className="status-badge active">Available</span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
                 ) : activeTab === 'requests' ? (
                     <div className="requests-list">
                         <h2>Access Requests</h2>
@@ -235,3 +414,4 @@ export default function AdminDashboard() {
         </div>
     );
 }
+

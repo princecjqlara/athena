@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { signUp } from '@/lib/auth';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured } from '@/lib/supabase';
+
+// Use service role key for privileged operations (bypasses RLS)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 /**
  * POST /api/auth/signup
@@ -35,7 +41,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate the invite code again
-        const { data: codeData, error: codeError } = await supabase
+        const { data: codeData, error: codeError } = await supabaseAdmin
             .from('invite_codes')
             .select('*')
             .eq('code', inviteCode.toUpperCase())
@@ -66,7 +72,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Mark invite code as used
-        await supabase
+        await supabaseAdmin
             .from('invite_codes')
             .update({
                 is_used: true,
@@ -77,7 +83,7 @@ export async function POST(request: NextRequest) {
 
         // Update user profile with role and org
         if (result.user) {
-            await supabase
+            await supabaseAdmin
                 .from('user_profiles')
                 .update({
                     role: role,

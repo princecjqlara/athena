@@ -508,18 +508,18 @@ export default function OrganizerDashboard() {
             const res = await fetch('/api/invite-codes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ roleType: selectedCodeRole })
+                body: JSON.stringify({ roleType: 'admin' }) // Organizers only create admins
             });
             const data = await res.json();
             console.log('Invite code response:', data);
 
             if (data.success && data.code) {
                 setInviteCode(data.code);
-                setGeneratedCodeType(data.codeType || selectedCodeRole);
+                setGeneratedCodeType('admin');
             } else if (data.code) {
                 // Handle case where success might not be set but code is returned
                 setInviteCode(data.code);
-                setGeneratedCodeType(data.codeType || selectedCodeRole);
+                setGeneratedCodeType('admin');
             } else {
                 setCodeError(data.error || 'Failed to generate code. Please try again.');
             }
@@ -631,36 +631,42 @@ export default function OrganizerDashboard() {
 
             {/* Invite Code Generator */}
             <div className="code-generator">
-                <h3>Generate Invite Codes</h3>
+                <h3>Generate Admin Invite Code</h3>
                 <p style={{ fontSize: '0.85rem', color: '#888', marginBottom: '12px' }}>
-                    Create invite codes for new users. Select the role to assign.
+                    Create invite codes for new <strong>Admins</strong>. Admins can then create their own marketers and clients.
                 </p>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <select
-                        value={selectedCodeRole}
-                        onChange={(e) => setSelectedCodeRole(e.target.value as 'admin' | 'marketer' | 'client')}
-                        style={{
-                            padding: '8px 16px',
-                            borderRadius: '8px',
-                            background: 'var(--bg-secondary, #1a1a2e)',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            color: 'inherit',
-                            fontSize: '0.95rem',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="admin" style={{ background: 'var(--bg-secondary, #1a1a2e)', color: 'inherit' }}>Admin (can create marketers)</option>
-                        <option value="marketer" style={{ background: 'var(--bg-secondary, #1a1a2e)', color: 'inherit' }}>Marketer (can create clients)</option>
-                        <option value="client" style={{ background: 'var(--bg-secondary, #1a1a2e)', color: 'inherit' }}>Client (end user)</option>
-                    </select>
+                    <div style={{
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        background: 'rgba(168, 85, 247, 0.2)',
+                        border: '1px solid rgba(168, 85, 247, 0.5)',
+                        color: '#a855f7',
+                        fontSize: '0.95rem',
+                        fontWeight: '500'
+                    }}>
+                        🛡️ Admin Role
+                    </div>
                     <button
                         onClick={generateInviteCode}
                         className="generate-btn"
                         disabled={isGeneratingCode}
                         style={{ opacity: isGeneratingCode ? 0.7 : 1 }}
                     >
-                        {isGeneratingCode ? 'Generating...' : 'Generate Code'}
+                        {isGeneratingCode ? 'Generating...' : 'Generate Admin Code'}
                     </button>
+                </div>
+
+                <div style={{
+                    marginTop: '12px',
+                    padding: '10px 16px',
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-secondary)'
+                }}>
+                    💡 <strong>Role Hierarchy:</strong> Organizer → Admin → Marketer → Client.
+                    Each level creates invite codes for the level below.
                 </div>
 
                 {/* Error display */}
@@ -699,15 +705,14 @@ export default function OrganizerDashboard() {
                                 {inviteCode}
                             </code>
                             <span style={{
-                                background: generatedCodeType === 'admin' ? '#8b5cf6' :
-                                    generatedCodeType === 'marketer' ? '#3b82f6' : '#10b981',
+                                background: '#8b5cf6',
                                 padding: '4px 10px',
                                 borderRadius: '12px',
                                 fontSize: '0.75rem',
                                 fontWeight: 'bold',
                                 textTransform: 'uppercase'
                             }}>
-                                {generatedCodeType}
+                                ADMIN
                             </span>
                             <button
                                 onClick={copyInviteCode}
@@ -728,6 +733,9 @@ export default function OrganizerDashboard() {
                         <span className="code-timer" style={{ display: 'block', marginTop: '8px', fontSize: '0.8rem', color: '#888' }}>
                             ⏱️ Expires in 10 minutes
                         </span>
+                        <p style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            Share this code with a new admin. After signup, they can create marketers and clients from their Admin Dashboard.
+                        </p>
                     </div>
                 )}
             </div>

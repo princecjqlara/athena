@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { isSupabaseConfigured } from '@/lib/supabase';
+
+// Use service role key for privileged operations (bypasses RLS)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 /**
  * POST /api/auth/validate-code
@@ -18,7 +24,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Find the code
-        const { data: inviteCode, error } = await supabase
+        const { data: inviteCode, error } = await supabaseAdmin
             .from('invite_codes')
             .select('*')
             .eq('code', code.toUpperCase())

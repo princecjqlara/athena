@@ -230,3 +230,179 @@
         align-items: flex-start;
     }
 }
+
+/* Invite Codes Section */
+.invites-section {
+    padding: 1rem 0;
+}
+
+.section-desc {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+}
+
+.invite-generator {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.role-selector {
+    margin-bottom: 1.5rem;
+}
+
+.role-selector label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+}
+
+.role-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.role-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.role-option:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--primary, #c8f560);
+}
+
+.role-option.selected {
+    background: rgba(200, 245, 96, 0.1);
+    border-color: var(--primary, #c8f560);
+}
+
+.role-option .role-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.role-option .role-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+}
+
+.role-option .role-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.generate-btn {
+    width: 100%;
+    padding: 1rem;
+    background: var(--primary, #c8f560);
+    color: #0a0a0a;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.generate-btn:hover:not(:disabled) {
+    background: #b3e050;
+    transform: translateY(-1px);
+}
+
+.generate-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.generated-code {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 12px;
+    text-align: center;
+}
+
+.code-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.code-display .code {
+    font-family: monospace;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary, #c8f560);
+    letter-spacing: 4px;
+}
+
+.copy-btn {
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.copy-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.code-expiry {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.code-instructions {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.active-codes {
+    margin-top: 2rem;
+}
+
+.active-codes h3 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+}
+
+.code-cell {
+    font-family: monospace;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.no-data .hint {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .role-options {
+        grid-template-columns: 1fr;
+    }
+}

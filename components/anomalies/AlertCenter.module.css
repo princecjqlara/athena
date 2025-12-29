@@ -288,3 +288,140 @@
     background: white;
     color: var(--text-primary);
 }
+
+/* Auto-Scan Bar */
+.autoScanBar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 12px 16px;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.03));
+    border-radius: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.autoScanToggle {
+    display: flex;
+    align-items: center;
+}
+
+.toggleLabel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.toggleInput {
+    display: none;
+}
+
+.toggleSlider {
+    width: 44px;
+    height: 24px;
+    background: rgba(107, 114, 128, 0.3);
+    border-radius: 12px;
+    position: relative;
+    transition: background 0.3s ease;
+}
+
+.toggleSlider::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: transform 0.3s ease;
+}
+
+.toggleInput:checked+.toggleSlider {
+    background: var(--primary, #c8f560);
+}
+
+.toggleInput:checked+.toggleSlider::after {
+    transform: translateX(20px);
+}
+
+.toggleText {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary, #ffffff);
+}
+
+.intervalSelector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.intervalLabel {
+    font-size: 0.8rem;
+    color: var(--text-muted, #718096);
+}
+
+.intervalSelect {
+    padding: 6px 10px;
+    background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    border-radius: 6px;
+    color: var(--text-primary, #ffffff);
+    font-size: 0.8rem;
+}
+
+.scanStatus {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.statusDot {
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    animation: dotPulse 2s infinite;
+}
+
+@keyframes dotPulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.6;
+        transform: scale(0.9);
+    }
+}
+
+.nextScan {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #a0aec0);
+    font-family: monospace;
+}
+
+.lastScan {
+    font-size: 0.75rem;
+    color: var(--text-muted, #718096);
+    margin-left: auto;
+}
+
+/* Light mode auto-scan styles */
+[data-theme="light"] .autoScanBar {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .toggleText {
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .intervalSelect {
+    background: white;
+    color: var(--text-primary);
+}
