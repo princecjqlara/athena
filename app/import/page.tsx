@@ -1687,17 +1687,17 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                     marginBottom: '8px'
                                                 }}>
                                                     {ad.metrics.impressions > 0 && (
-                                                        <span title="Total number of times your ad was shown" style={{ background: '#2a2a3e', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
+                                                        <span title="Total number of times your ad was shown" style={{ background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
                                                             <strong>{ad.metrics.impressions.toLocaleString()}</strong> impressions
                                                         </span>
                                                     )}
                                                     {(ad.metrics.reach ?? 0) > 0 && (
-                                                        <span title="Number of unique people who saw your ad" style={{ background: '#2a2a3e', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
+                                                        <span title="Number of unique people who saw your ad" style={{ background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
                                                             <strong>{ad.metrics.reach?.toLocaleString()}</strong> reach
                                                         </span>
                                                     )}
                                                     {ad.metrics.clicks > 0 && (
-                                                        <span title="Total clicks on your ad (all click types)" style={{ background: '#2a2a3e', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
+                                                        <span title="Total clicks on your ad (all click types)" style={{ background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
                                                             <strong>{ad.metrics.clicks.toLocaleString()}</strong> clicks
                                                         </span>
                                                     )}
@@ -1711,12 +1711,12 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                         </span>
                                                     )}
                                                     {ad.metrics.spend > 0 && (
-                                                        <span title="Total amount spent on this ad" style={{ background: '#2a2a3e', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
+                                                        <span title="Total amount spent on this ad" style={{ background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
                                                             <strong>₱{ad.metrics.spend.toFixed(2)}</strong> spent
                                                         </span>
                                                     )}
                                                     {(ad.metrics.frequency ?? 0) > 1 && (
-                                                        <span title="Average times each person saw your ad" style={{ background: '#2a2a3e', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
+                                                        <span title="Average times each person saw your ad" style={{ background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: '6px', cursor: 'help' }}>
                                                             <strong>{ad.metrics.frequency?.toFixed(2)}</strong> freq
                                                         </span>
                                                     )}
@@ -2068,7 +2068,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                                 gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
                                                                 gap: '4px',
                                                                 padding: '8px',
-                                                                background: '#1a1a2e',
+                                                                background: 'var(--bg-secondary)',
                                                                 borderRadius: '8px',
                                                                 marginTop: '4px',
                                                                 fontSize: '0.625rem'
@@ -2077,7 +2077,7 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                                     const costData = ad.metrics?.rawCostPerAction?.find(c => c.type === action.type);
                                                                     return (
                                                                         <div key={idx} style={{
-                                                                            background: '#2a2a3e',
+                                                                            background: 'var(--bg-tertiary)',
                                                                             padding: '4px 8px',
                                                                             borderRadius: '4px',
                                                                             display: 'flex',
@@ -2106,12 +2106,12 @@ ${fbAd.metrics.messagesStarted ? `• Messages Started: ${fbAd.metrics.messagesS
                                                         fontSize: '0.6875rem'
                                                     }}>
                                                         {(ad.byPlatform?.length ?? 0) > 0 && (
-                                                            <span style={{ background: '#1e1e2e', padding: '2px 8px', borderRadius: '4px', border: '1px solid #3a3a4e' }}>
+                                                            <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
                                                                 📱 {ad.byPlatform?.map((p) => p.platform).join(', ')}
                                                             </span>
                                                         )}
                                                         {(ad.byDevice?.length ?? 0) > 0 && (
-                                                            <span style={{ background: '#1e1e2e', padding: '2px 8px', borderRadius: '4px', border: '1px solid #3a3a4e' }}>
+                                                            <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}>
                                                                 💻 {ad.byDevice?.map((d) => d.device).join(', ')}
                                                             </span>
                                                         )}
