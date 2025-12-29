@@ -395,7 +395,13 @@ export function useFacebookSync(options?: UseFacebookSyncOptions): UseFacebookSy
             }
 
             const now = new Date();
-            console.log(`[AutoSync] ✅ Synced ${updatedCount} ads, updated ${predictionsUpdated} predictions`);
+            console.log(`[SmartSync] ✅ Synced ${updatedCount} ads, updated ${predictionsUpdated} predictions`);
+
+            // Save to cache
+            localStorage.setItem(SYNC_CACHE_KEY, JSON.stringify({
+                lastSyncedAt: now.toISOString(),
+                adsUpdated: updatedCount
+            }));
 
             if (mountedRef.current) {
                 setSyncState(prev => ({
@@ -403,7 +409,9 @@ export function useFacebookSync(options?: UseFacebookSyncOptions): UseFacebookSy
                     isSyncing: false,
                     lastSyncedAt: now,
                     lastSyncError: null,
-                    syncCount: prev.syncCount + 1
+                    syncCount: prev.syncCount + 1,
+                    adsUpdated: updatedCount,
+                    syncSkippedReason: null
                 }));
                 saveSettings({ lastSyncedAt: now });
             }
