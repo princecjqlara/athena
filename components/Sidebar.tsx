@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   // Load collapsed state and user session from localStorage
   useEffect(() => {
@@ -32,6 +34,28 @@ export function Sidebar() {
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
     return pathname?.startsWith(href);
+  };
+
+  // Handle user logout
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      // Call the signout API endpoint
+      await fetch('/api/auth/session', { method: 'DELETE' });
+
+      // Clear local storage
+      localStorage.removeItem('fb_user_name');
+      localStorage.removeItem('athena_user_email');
+      localStorage.removeItem('fb_access_token');
+      localStorage.removeItem('fb_user_id');
+      localStorage.removeItem('sidebar_collapsed');
+
+      // Redirect to login page
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -70,6 +94,21 @@ export function Sidebar() {
             <div className="status-dot"></div>
             <span>ML Model Active</span>
           </div>
+        )}
+        {user && (
+          <button
+            className="logout-btn"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            title={isCollapsed ? 'Logout' : undefined}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            {!isCollapsed && <span>{isLoggingOut ? 'Logging out...' : 'Logout'}</span>}
+          </button>
         )}
         <button className="collapse-btn" onClick={toggleCollapsed} title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -204,6 +243,43 @@ export function Sidebar() {
           width: 40px;
           height: 40px;
           padding: 0;
+        }
+
+        .logout-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--spacing-sm);
+          width: 100%;
+          padding: var(--spacing-sm);
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: var(--radius-md);
+          color: #ef4444;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-size: 0.875rem;
+          font-weight: 500;
+        }
+        
+        .logout-btn:hover:not(:disabled) {
+          background: rgba(239, 68, 68, 0.2);
+          border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .logout-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        
+        .collapsed .logout-btn {
+          width: 40px;
+          height: 40px;
+          padding: 0;
+        }
+
+        .collapsed .logout-btn span {
+          display: none;
         }
 
         /* Light Mode Sidebar */

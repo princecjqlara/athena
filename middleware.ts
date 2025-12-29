@@ -7,6 +7,7 @@ const PUBLIC_ROUTES = [
     '/login',
     '/api/auth/login',
     '/api/auth/signup',
+    '/api/auth/validate-code', // Invite code validation for signup
     '/api/auth/session',
     '/api/webhook/facebook', // Webhook must be public
     '/api/webhook/status',
