@@ -5,7 +5,7 @@ import styles from './page.module.css';
 import { DEFAULT_CATEGORIES } from '@/types/extended-ad';
 
 interface FacebookMetrics {
-    // Core
+    // Core Delivery & Reach
     impressions: number;
     reach: number;
     clicks: number;
@@ -21,12 +21,14 @@ interface FacebookMetrics {
     resultType?: string;
     results?: number;
     costPerResult?: number;
-    // Links
+    // Links & Landing Pages
     linkClicks?: number;
     uniqueLinkClicks?: number;
     inlineLinkClicks?: number;
     landingPageViews?: number;
+    uniqueLandingPageViews?: number;
     outboundClicks?: number;
+    uniqueOutboundClicks?: number;
     costPerLinkClick?: number;
     costPerLandingPageView?: number;
     // Engagement
@@ -34,19 +36,29 @@ interface FacebookMetrics {
     postEngagement?: number;
     inlinePostEngagement?: number;
     postReactions?: number;
+    likes?: number;
     postComments?: number;
     postShares?: number;
     postSaves?: number;
     pageLikes?: number;
-    // Messages
+    costPerEngagement?: number;
+    engagementRate?: number;
+    // Messages - Extended
     messages?: number;
     messagesStarted?: number;
     newMessagingContacts?: number;
     totalMessagingContacts?: number;
+    messagingReplies?: number;
+    messagingBlocked?: number;
+    messagingFirstReply?: number;
+    messagingConnections?: number;
+    messagingPurchases?: number;
+    messagingLeads?: number;
+    blockedConversations?: number;
     costPerMessage?: number;
     costPerMessageStarted?: number;
     costPerOutboundClick?: number;
-    // Conversions
+    // Conversions - Website Events
     leads?: number;
     purchases?: number;
     addToCart?: number;
@@ -54,30 +66,77 @@ interface FacebookMetrics {
     contentViews?: number;
     completeRegistration?: number;
     phoneCalls?: number;
+    subscribe?: number;
+    search?: number;
+    addPaymentInfo?: number;
+    contact?: number;
+    donate?: number;
+    customizeProduct?: number;
+    startTrial?: number;
+    submitApplication?: number;
+    schedule?: number;
+    findLocation?: number;
+    // Cost per conversion
     costPerLead?: number;
     costPerPurchase?: number;
     costPerAddToCart?: number;
     costPerContentView?: number;
-    purchaseRoas?: number;
-    // Video
+    costPerCompleteRegistration?: number;
+    // ROAS - All types
+    purchaseRoas?: number | null;
+    websitePurchaseRoas?: number | null;
+    mobileAppPurchaseRoas?: number | null;
+    conversionValue?: number;
+    costPerConversion?: number;
+    conversionRate?: number;
+    // App-Specific Metrics
+    appInstalls?: number;
+    costPerAppInstall?: number;
+    appLaunches?: number;
+    appEngagement?: number;
+    mobileAppPurchases?: number;
+    mobileAppPurchaseValue?: number;
+    appCustomEvents?: number;
+    appRetention?: number;
+    appOpens?: number;
+    // Lead Ads Specific
+    onFacebookLeads?: number;
+    leadFormOpens?: number;
+    leadFormSubmissions?: number;
+    completionRate?: number;
+    instantFormImpressions?: number;
+    // Video - Complete metrics
     videoViews?: number;
     videoPlays?: number;
     videoThruPlays?: number;
     video2SecViews?: number;
+    video3SecViews?: number;
+    video15SecViews?: number;
     video25Watched?: number;
     video50Watched?: number;
     video75Watched?: number;
     video95Watched?: number;
     video100Watched?: number;
     videoAvgWatchTime?: number;
+    videoPlayRate?: number;
     costPerThruPlay?: number;
+    costPer3SecView?: number;
+    videoRetention?: { p25: number; p50: number; p75: number; p100: number };
     // Quality Rankings
     qualityRanking?: string;
     engagementRateRanking?: string;
     conversionRateRanking?: string;
+    // Auction & Delivery
+    auctionCompetitiveness?: string | null;
+    auctionBid?: number | null;
+    auctionMaxCompetitorBid?: number | null;
+    adDelivery?: string;
     // Ad Recall
     estimatedAdRecallers?: number;
     estimatedAdRecallRate?: number;
+    costPerEstimatedAdRecallers?: number;
+    // Attribution
+    attributionSetting?: string;
     // Raw Facebook data for debugging
     rawActions?: { type: string; value: number }[];
     rawCostPerAction?: { type: string; cost: number }[];
@@ -119,6 +178,25 @@ interface FacebookAd {
         dailyBudget?: number | null;
         lifetimeBudget?: number | null;
     };
+    // Day-by-day historical metrics - automatically fetched
+    dailyMetrics?: Array<{
+        date: string;
+        impressions: number;
+        reach: number;
+        frequency: number;
+        spend: number;
+        clicks: number;
+        ctr: number;
+        cpc: number;
+        cpm: number;
+        results: number;
+        costPerResult: number;
+        linkClicks: number;
+        videoViews: number;
+        leads: number;
+        purchases: number;
+        messagesStarted: number;
+    }>;
 }
 
 interface StoredAd {

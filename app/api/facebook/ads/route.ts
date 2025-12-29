@@ -386,6 +386,104 @@ export async function GET(request: NextRequest) {
                         console.log('Platform breakdown not available');
                     }
 
+                    // ============================================
+                    // DAILY DATA FETCH - Automatic day-by-day import
+                    // ============================================
+                    let dailyMetrics: Array<{
+                        date: string;
+                        impressions: number;
+                        reach: number;
+                        frequency: number;
+                        spend: number;
+                        clicks: number;
+                        ctr: number;
+                        cpc: number;
+                        cpm: number;
+                        results: number;
+                        costPerResult: number;
+                        linkClicks: number;
+                        videoViews: number;
+                        leads: number;
+                        purchases: number;
+                        messagesStarted: number;
+                    }> = [];
+
+                    try {
+                        // Use time_increment=1 for daily breakdown, date_preset=maximum for all time data
+                        const dailyFields = 'impressions,reach,frequency,spend,clicks,ctr,cpc,cpm,actions,inline_link_clicks';
+                        const dailyUrl = `https://graph.facebook.com/v24.0/${ad.id}/insights?fields=${dailyFields}&time_increment=1&date_preset=maximum&access_token=${accessToken}`;
+                        const dailyResponse = await fetch(dailyUrl);
+                        const dailyData = await dailyResponse.json();
+
+                        if (dailyData.data && Array.isArray(dailyData.data)) {
+                            dailyMetrics = dailyData.data.map((day: {
+                                date_start: string;
+                                impressions?: string;
+                                reach?: string;
+                                frequency?: string;
+                                spend?: string;
+                                clicks?: string;
+                                ctr?: string;
+                                cpc?: string;
+                                cpm?: string;
+                                inline_link_clicks?: string;
+                                actions?: Array<{ action_type: string; value: string }>;
+                            }) => {
+                                const dayActions = day.actions || [];
+                                const getDayAction = (type: string) => {
+                                    const action = dayActions.find(a => a.action_type === type);
+                                    return action ? parseInt(action.value) || 0 : 0;
+                                };
+
+                                const dayLeads = getDayAction('lead') || getDayAction('onsite_conversion.lead_grouped');
+                                const dayPurchases = getDayAction('purchase');
+                                const dayMessages = getDayAction('onsite_conversion.messaging_conversation_started_7d');
+                                const dayVideoViews = getDayAction('video_view');
+
+                                // Determine primary result for this day
+                                let dayResults = 0;
+                                let dayCostPerResult = 0;
+                                const daySpend = parseFloat(day.spend || '0');
+
+                                if (dayLeads > 0) {
+                                    dayResults = dayLeads;
+                                    dayCostPerResult = daySpend > 0 ? daySpend / dayLeads : 0;
+                                } else if (dayPurchases > 0) {
+                                    dayResults = dayPurchases;
+                                    dayCostPerResult = daySpend > 0 ? daySpend / dayPurchases : 0;
+                                } else if (dayMessages > 0) {
+                                    dayResults = dayMessages;
+                                    dayCostPerResult = daySpend > 0 ? daySpend / dayMessages : 0;
+                                }
+
+                                return {
+                                    date: day.date_start,
+                                    impressions: parseInt(day.impressions || '0'),
+                                    reach: parseInt(day.reach || '0'),
+                                    frequency: parseFloat(day.frequency || '0'),
+                                    spend: daySpend,
+                                    clicks: parseInt(day.clicks || '0'),
+                                    ctr: parseFloat(day.ctr || '0'),
+                                    cpc: parseFloat(day.cpc || '0'),
+                                    cpm: parseFloat(day.cpm || '0'),
+                                    results: dayResults,
+                                    costPerResult: dayCostPerResult,
+                                    linkClicks: parseInt(day.inline_link_clicks || '0'),
+                                    videoViews: dayVideoViews,
+                                    leads: dayLeads,
+                                    purchases: dayPurchases,
+                                    messagesStarted: dayMessages
+                                };
+                            }).sort((a: { date: string }, b: { date: string }) =>
+                                new Date(a.date).getTime() - new Date(b.date).getTime()
+                            );
+
+                            console.log(`[Ad ${ad.id}] Fetched ${dailyMetrics.length} days of historical data`);
+                        }
+                    } catch (e) {
+                        console.log('Daily data fetch not available:', e);
+                    }
+
                     // Determine media type from creative
                     let mediaType = 'unknown';
                     let thumbnailUrl = ad.creative?.thumbnail_url || '';
@@ -504,8 +602,52 @@ export async function GET(request: NextRequest) {
                             costPerAddToCart,
                             costPerContentView,
 
-                            // ROAS
-                            purchaseRoas: parseFloat(insights.purchase_roas?.[0]?.value) || 0,
+                            // ROAS - All types
+                            purchaseRoas: purchaseRoasValue,
+                            websitePurchaseRoas,
+                            mobileAppPurchaseRoas,
+
+                            // App-specific metrics
+                            appInstalls,
+                            costPerAppInstall,
+                            appLaunches,
+                            appEngagement,
+                            mobileAppPurchases,
+                            appCustomEvents,
+
+                            // Extended messaging metrics
+                            messagingReplies,
+                            messagingBlocked,
+                            messagingFirstReply,
+
+                            // Lead form specific
+                            leadFormOpens,
+                            onFacebookLeads,
+
+                            // Website events
+                            subscribe,
+                            search,
+                            addPaymentInfo,
+                            contact,
+                            donate,
+                            customizeProduct,
+                            startTrial,
+                            submitApplication,
+                            schedule,
+                            findLocation,
+
+                            // Cost per
+                            costPerCompleteRegistration,
+                            costPerEngagement,
+
+                            // Auction and delivery metrics
+                            auctionCompetitiveness,
+                            auctionBid,
+                            auctionMaxCompetitorBid,
+
+                            // Video 3-sec and 15-sec views
+                            video3SecViews: insights.video_30_sec_watched_actions?.[0]?.value || 0,
+                            video15SecViews: insights.video_15_sec_watched_actions?.[0]?.value || 0,
 
                             // Raw data for debugging - all actions Facebook returned
                             rawActions: actions.map((a: { action_type: string; value: string }) => ({
@@ -537,7 +679,9 @@ export async function GET(request: NextRequest) {
                         placements,
                         regions,
                         byDevice,
-                        byPlatform
+                        byPlatform,
+                        // Day-by-day historical data - automatically imported
+                        dailyMetrics
                     };
                 } catch (err) {
                     console.error(`Error fetching insights for ad ${ad.id}:`, err);
