@@ -1036,24 +1036,27 @@ export default function OrganizerDashboard() {
                                                     {prompt.description || 'No description'}
                                                 </p>
                                             </div>
-                                            {!prompt.isDefault && (
-                                                <div style={{ display: 'flex', gap: '4px' }}>
-                                                    <button
-                                                        onClick={() => setEditingPrompt(prompt)}
-                                                        style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px 8px' }}
-                                                        title="Edit prompt"
-                                                    >
-                                                        ✏️
-                                                    </button>
-                                                    <button
-                                                        onClick={() => deletePrompt(prompt.id)}
-                                                        style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px 8px' }}
-                                                        title="Delete prompt"
-                                                    >
-                                                        🗑️
-                                                    </button>
-                                                </div>
-                                            )}
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <button
+                                                    onClick={() => setEditingPrompt(prompt)}
+                                                    style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px 8px' }}
+                                                    title="Edit prompt"
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        if (prompt.isDefault) {
+                                                            if (!confirm('This is a default prompt. Are you sure you want to delete it? This cannot be undone.')) return;
+                                                        }
+                                                        deletePrompt(prompt.id);
+                                                    }}
+                                                    style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px 8px' }}
+                                                    title="Delete prompt"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
                                         </div>
                                         <details style={{ marginTop: '12px' }}>
                                             <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: 'var(--primary)' }}>View Prompt Text</summary>

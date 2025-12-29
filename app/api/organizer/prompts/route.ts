@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 
 // Default prompts for photo and video analysis
-const DEFAULT_PROMPTS = [
+const ORIGINAL_DEFAULT_PROMPTS = [
     {
         id: 'default-video',
         name: 'Video Ad Analysis',
@@ -73,6 +73,17 @@ const DEFAULT_PROMPTS = [
     }
 ];
 
+// Track deleted default prompts and overridden defaults
+let deletedDefaultPrompts: Set<string> = new Set();
+let overriddenDefaultPrompts: Map<string, any> = new Map();
+
+// Get active default prompts (excluding deleted ones, using overridden versions)
+function getActiveDefaultPrompts() {
+    return ORIGINAL_DEFAULT_PROMPTS
+        .filter(p => !deletedDefaultPrompts.has(p.id))
+        .map(p => overriddenDefaultPrompts.has(p.id) ? { ...p, ...overriddenDefaultPrompts.get(p.id), isDefault: true } : p);
+}
+
 /**
  * GET /api/organizer/prompts
  * List all prompts (default + custom)
@@ -82,10 +93,11 @@ export async function GET() {
         // Get custom prompts from storage
         // In production, this would be from Supabase
         const customPrompts = getCustomPromptsFromStorage();
+        const activeDefaults = getActiveDefaultPrompts();
 
         return NextResponse.json({
             success: true,
-            prompts: [...DEFAULT_PROMPTS, ...customPrompts]
+            prompts: [...activeDefaults, ...customPrompts]
         });
     } catch (error) {
         console.error('[Prompts] GET error:', error);
@@ -145,11 +157,21 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'Prompt ID is required' }, { status: 400 });
         }
 
-        // Can't edit default prompts
+        // Handle editing default prompts
         if (id.startsWith('default-')) {
+            overriddenDefaultPrompts.set(id, {
+                name,
+                description,
+                mediaType,
+                schema,
+                promptText,
+                updatedAt: new Date().toISOString()
+            });
+
             return NextResponse.json({
-                error: 'Cannot edit default prompts. Create a custom prompt instead.'
-            }, { status: 403 });
+                success: true,
+                prompt: { id, name, description, mediaType, schema, promptText, isDefault: true }
+            });
         }
 
         const updatedPrompt = {
@@ -187,10 +209,14 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Prompt ID is required' }, { status: 400 });
         }
 
+        // Handle deleting default prompts
         if (id.startsWith('default-')) {
+            deletedDefaultPrompts.add(id);
+            overriddenDefaultPrompts.delete(id);
             return NextResponse.json({
-                error: 'Cannot delete default prompts'
-            }, { status: 403 });
+                success: true,
+                message: 'Default prompt deleted'
+            });
         }
 
         deleteCustomPrompt(id);
