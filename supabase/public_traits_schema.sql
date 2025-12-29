@@ -8,13 +8,13 @@ CREATE TABLE IF NOT EXISTS public_traits (
     emoji TEXT DEFAULT '✨',
     description TEXT,
     
-    -- Creator info
-    created_by UUID REFERENCES auth.users(id),
+    -- Creator info (using TEXT for flexibility, like other tables)
+    created_by TEXT,
     created_by_ai BOOLEAN DEFAULT false,
     
     -- Moderation
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-    reviewed_by UUID REFERENCES auth.users(id),
+    reviewed_by TEXT,
     reviewed_at TIMESTAMPTZ,
     
     -- Metadata
@@ -24,49 +24,18 @@ CREATE TABLE IF NOT EXISTS public_traits (
 );
 
 -- Indexes
-CREATE INDEX idx_public_traits_status ON public_traits(status);
-CREATE INDEX idx_public_traits_group ON public_traits(group_name);
-CREATE INDEX idx_public_traits_created_by ON public_traits(created_by);
-CREATE UNIQUE INDEX idx_public_traits_name_unique ON public_traits(LOWER(name));
+CREATE INDEX IF NOT EXISTS idx_public_traits_status ON public_traits(status);
+CREATE INDEX IF NOT EXISTS idx_public_traits_group ON public_traits(group_name);
+CREATE INDEX IF NOT EXISTS idx_public_traits_created_by ON public_traits(created_by);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_public_traits_name_unique ON public_traits(LOWER(name));
 
--- RLS Policies
+-- RLS Policies (using open policies like other tables, API uses service key)
 ALTER TABLE public_traits ENABLE ROW LEVEL SECURITY;
 
--- Anyone can read approved traits
-CREATE POLICY "Anyone can read approved traits"
-    ON public_traits FOR SELECT
-    USING (status = 'approved' OR auth.uid() = created_by);
-
--- Authenticated users can create traits
-CREATE POLICY "Authenticated users can create traits"
-    ON public_traits FOR INSERT
-    TO authenticated
-    WITH CHECK (auth.uid() = created_by);
-
--- Organizers can update any trait
-CREATE POLICY "Organizers can update traits"
-    ON public_traits FOR UPDATE
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_profiles 
-            WHERE user_id = auth.uid() 
-            AND role = 'organizer'
-        )
-        OR auth.uid() = created_by
-    );
-
--- Organizers can delete any trait
-CREATE POLICY "Organizers can delete traits"
-    ON public_traits FOR DELETE
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM user_profiles 
-            WHERE user_id = auth.uid() 
-            AND role = 'organizer'
-        )
-    );
+-- Allow all operations (API handles authorization)
+CREATE POLICY "Allow all operations on public_traits"
+    ON public_traits FOR ALL
+    USING (true) WITH CHECK (true);
 
 -- Trigger to update updated_at
 CREATE OR REPLACE FUNCTION update_public_traits_timestamp()
@@ -77,6 +46,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_public_traits_timestamp ON public_traits;
 CREATE TRIGGER update_public_traits_timestamp
     BEFORE UPDATE ON public_traits
     FOR EACH ROW
