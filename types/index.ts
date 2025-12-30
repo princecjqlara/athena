@@ -539,6 +539,11 @@ export interface AdEntry {
   hasResults: boolean;
   successScore?: number;
 
+  // Ad Connection - Link imported ads to uploaded ads
+  linkedAdId?: string;                    // ID of the connected ad
+  linkedAdType?: 'imported' | 'uploaded'; // Type of the linked ad
+  linkedAt?: string;                      // Timestamp when connection was made
+
   // Timestamps
   createdAt: string;
   updatedAt: string;

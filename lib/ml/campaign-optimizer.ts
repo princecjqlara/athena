@@ -33,9 +33,12 @@ export interface ObjectiveRecommendation {
 export interface BudgetRecommendation {
     dailyBudget: { min: number; max: number; optimal: number };
     lifetimeBudget: { min: number; max: number; optimal: number };
+    budgetType: 'daily' | 'lifetime';
+    budgetTypeReasoning: string;
     structure: 'CBO' | 'ABO';
     confidence: number;
     reasoning: string;
+    historicalBudgetData: { tier: string; avgROAS: number; sampleSize: number }[];
 }
 
 export interface TargetingRecommendation {
@@ -55,14 +58,57 @@ export interface TimingRecommendation {
     reasoning: string;
 }
 
+export interface PlacementRecommendation {
+    placements: string[];
+    excludedPlacements: string[];
+    automaticPlacements: boolean;
+    confidence: number;
+    reasoning: string;
+    placementBreakdown: { placement: string; score: number; reason: string }[];
+}
+
+export interface AdCopyRecommendation {
+    primaryText: string;
+    headline: string;
+    description: string;
+    callToAction: string;
+    confidence: number;
+    reasoning: string;
+    alternatives: {
+        primaryText: string;
+        headline: string;
+    }[];
+}
+
+export interface FlexibleAdsRecommendation {
+    useFlexibleAds: boolean;  // Advantage+ Creative
+    enhancements: {
+        textOptimization: boolean;
+        imageBrightness: boolean;
+        musicGeneration: boolean;
+        imageTemplates: boolean;
+    };
+    confidence: number;
+    reasoning: string;
+}
+
 export interface CampaignRecommendations {
     objective: ObjectiveRecommendation;
     budget: BudgetRecommendation;
     targeting: TargetingRecommendation;
     timing: TimingRecommendation;
+    placements: PlacementRecommendation;
+    adCopy: AdCopyRecommendation;
+    flexibleAds: FlexibleAdsRecommendation;
     overallConfidence: number;
     dataQuality: 'low' | 'medium' | 'high';
     warnings: string[];
+    dataPoints: {
+        totalAdsAnalyzed: number;
+        avgROAS: number;
+        avgCTR: number;
+        topPerformingTraits: string[];
+    };
 }
 
 // ===== OBJECTIVE PERFORMANCE MAPPING =====
@@ -289,24 +335,35 @@ export function recommendBudget(
     const range = tierRanges[bestTier];
 
     // Calculate optimal based on target ROAS and CPA
-    const estimatedConversions = monthlyBudget / targetCPA;
-    const estimatedRevenue = estimatedConversions * (targetCPA * targetROAS);
     const optimalDaily = Math.min(
         Math.max(range.min, Math.round(monthlyBudget / 30)),
         range.max
     );
 
     // Determine CBO vs ABO
-    // CBO is better for: multiple ad sets, testing phase
-    // ABO is better for: proven winners, scaling
     const hasEnoughData = historicalAds.length >= 10;
     const structure: 'CBO' | 'ABO' = hasEnoughData ? 'ABO' : 'CBO';
+
+    // Determine budget type (daily vs lifetime)
+    // Lifetime is better for: short campaigns, fixed duration promos
+    // Daily is better for: ongoing campaigns, flexible testing
+    const budgetType: 'daily' | 'lifetime' = monthlyBudget < 10000 ? 'daily' : 'lifetime';
+    const budgetTypeReasoning = budgetType === 'daily'
+        ? 'Daily budget recommended for flexibility and easier optimization. Allows you to adjust spend based on performance.'
+        : 'Lifetime budget recommended for larger campaigns. Facebook optimizes spend across the campaign duration for better results.';
 
     const confidence = Math.min(90, 40 + (Object.keys(budgetPerformance).length * 15));
 
     let reasoning = `Based on ${bestTier} budget tier performance`;
     if (bestROAS > 0) reasoning += ` (avg ROAS: ${Math.round(bestROAS * 100) / 100}x)`;
     reasoning += `. ${structure === 'CBO' ? 'Campaign Budget Optimization recommended for testing phase.' : 'Ad Set Budget Optimization recommended for scaling proven ads.'}`;
+
+    // Build historical data for display
+    const historicalBudgetData = Object.entries(budgetPerformance).map(([tier, data]) => ({
+        tier,
+        avgROAS: data.count > 0 ? Math.round((data.totalROAS / data.count) * 100) / 100 : 0,
+        sampleSize: data.count
+    })).sort((a, b) => b.avgROAS - a.avgROAS);
 
     return {
         dailyBudget: {
@@ -319,9 +376,12 @@ export function recommendBudget(
             max: range.max * 30,
             optimal: optimalDaily * 14,
         },
+        budgetType,
+        budgetTypeReasoning,
         structure,
         confidence,
         reasoning,
+        historicalBudgetData,
     };
 }
 
@@ -496,6 +556,206 @@ export function recommendTiming(): TimingRecommendation {
 }
 
 /**
+ * Recommend placements based on platform and content type
+ */
+export function recommendPlacements(adTraits: ExtractedAdData): PlacementRecommendation {
+    const platform = adTraits.platform || 'facebook';
+    const aspectRatio = adTraits.aspectRatio || '9:16';
+    const isVideo = adTraits.mediaType === 'video';
+
+    // All available Facebook placements
+    const allPlacements = [
+        'facebook_feed', 'facebook_stories', 'facebook_reels', 'facebook_right_column',
+        'instagram_feed', 'instagram_stories', 'instagram_reels', 'instagram_explore',
+        'audience_network', 'messenger_inbox', 'messenger_stories'
+    ];
+
+    // Score each placement
+    const placementScores: { placement: string; score: number; reason: string }[] = [];
+
+    allPlacements.forEach(placement => {
+        let score = 50;
+        let reason = '';
+
+        // Aspect ratio match
+        if (aspectRatio === '9:16' && (placement.includes('stories') || placement.includes('reels'))) {
+            score += 30;
+            reason = 'Vertical format optimized';
+        } else if (aspectRatio === '1:1' && placement.includes('feed')) {
+            score += 20;
+            reason = 'Square format works well';
+        } else if (aspectRatio === '16:9' && !placement.includes('stories')) {
+            score += 15;
+            reason = 'Horizontal format supported';
+        }
+
+        // Video bonus for reels/stories
+        if (isVideo && (placement.includes('reels') || placement.includes('stories'))) {
+            score += 20;
+            reason = reason ? `${reason}, video content optimal` : 'Video content optimal';
+        }
+
+        // UGC style bonus for certain placements
+        if (adTraits.isUGCStyle && (placement.includes('reels') || placement.includes('feed'))) {
+            score += 15;
+            reason = reason ? `${reason}, UGC performs well` : 'UGC performs well';
+        }
+
+        // Platform match bonus
+        if (platform === 'facebook' && placement.startsWith('facebook')) {
+            score += 10;
+        } else if (platform === 'instagram' && placement.startsWith('instagram')) {
+            score += 10;
+        }
+
+        placementScores.push({ placement, score, reason: reason || 'Standard placement' });
+    });
+
+    // Sort by score
+    placementScores.sort((a, b) => b.score - a.score);
+
+    // Top placements (score > 60)
+    const recommendedPlacements = placementScores.filter(p => p.score >= 60).map(p => p.placement);
+    const excludedPlacements = placementScores.filter(p => p.score < 40).map(p => p.placement);
+
+    // If vertical video, recommend automatic placements for stories/reels
+    const automaticPlacements = recommendedPlacements.length < 3;
+
+    const confidence = recommendedPlacements.length > 0 ? Math.min(85, 50 + recommendedPlacements.length * 10) : 50;
+
+    let reasoning = '';
+    if (recommendedPlacements.length > 0) {
+        reasoning = `Recommending ${recommendedPlacements.slice(0, 3).join(', ')} based on ${aspectRatio} aspect ratio and ${isVideo ? 'video' : 'image'} content.`;
+    } else {
+        reasoning = 'Using automatic placements. Facebook will optimize delivery across placements.';
+    }
+
+    return {
+        placements: recommendedPlacements.slice(0, 6),
+        excludedPlacements: excludedPlacements.slice(0, 4),
+        automaticPlacements,
+        confidence,
+        reasoning,
+        placementBreakdown: placementScores.slice(0, 8),
+    };
+}
+
+/**
+ * Recommend ad copy based on content traits
+ */
+export function recommendAdCopy(adTraits: ExtractedAdData): AdCopyRecommendation {
+    const contentCategory = adTraits.contentCategory || 'other';
+    const hookType = adTraits.hookType || 'curiosity';
+    const platform = adTraits.platform || 'facebook';
+
+    // CTA mapping based on objective affinity
+    const ctaMap: Record<string, string> = {
+        'ugc': 'SHOP_NOW',
+        'testimonial': 'LEARN_MORE',
+        'product_demo': 'SHOP_NOW',
+        'lifestyle': 'LEARN_MORE',
+        'educational': 'SIGN_UP',
+        'entertainment': 'WATCH_MORE',
+    };
+
+    // Hook-based primary text templates
+    const hookTemplates: Record<string, string[]> = {
+        'curiosity': [
+            '🤔 Ever wondered why everyone is talking about this?',
+            '👀 The secret that changed everything...',
+            '⚡ What happens when you finally try this?',
+        ],
+        'shock': [
+            '🔥 You won\'t believe this actually works!',
+            '😱 This completely changed my mind about...',
+            '💥 I never expected this result!',
+        ],
+        'question': [
+            '❓ Are you making this common mistake?',
+            '🤷 Why are so many people switching?',
+            '💭 Have you tried this yet?',
+        ],
+        'transformation': [
+            '✨ Before vs After: The results speak for themselves',
+            '🚀 See the transformation in just...',
+            '💯 Real results from real people',
+        ],
+    };
+
+    // Headline templates  
+    const headlineTemplates: Record<string, string[]> = {
+        'ugc': ['Try it for yourself', 'See why everyone loves this', 'Real people, real results'],
+        'testimonial': ['Hear their story', 'Join thousands of happy customers', 'See what they\'re saying'],
+        'product_demo': ['Watch how it works', 'See it in action', 'Discover the difference'],
+        'lifestyle': ['Live your best life', 'Transform your routine', 'Upgrade today'],
+    };
+
+    const hookTexts = hookTemplates[hookType] || hookTemplates['curiosity'];
+    const headlines = headlineTemplates[contentCategory] || ['Learn More', 'Shop Now', 'Get Started'];
+
+    const primaryText = hookTexts[0];
+    const headline = headlines[0];
+    const description = `Discover why ${platform} users are loving this. Limited time offer available.`;
+    const callToAction = ctaMap[contentCategory] || 'LEARN_MORE';
+
+    const alternatives = [
+        { primaryText: hookTexts[1] || hookTexts[0], headline: headlines[1] || headlines[0] },
+        { primaryText: hookTexts[2] || hookTexts[0], headline: headlines[2] || headlines[0] },
+    ];
+
+    const reasoning = `Primary text uses ${hookType} hook style which aligns with your content. Headline emphasizes ${contentCategory} content benefits. CTA optimized for conversion.`;
+
+    return {
+        primaryText,
+        headline,
+        description,
+        callToAction,
+        confidence: 70,
+        reasoning,
+        alternatives,
+    };
+}
+
+/**
+ * Recommend Flexible Ads (Advantage+ Creative) settings
+ */
+export function recommendFlexibleAds(adTraits: ExtractedAdData): FlexibleAdsRecommendation {
+    const isUGC = adTraits.isUGCStyle;
+    const isVideo = adTraits.mediaType === 'video';
+    const hasSubtitles = adTraits.hasSubtitles;
+    const historicalAds = getHistoricalAds();
+
+    // Advantage+ Creative is generally good for testing, but may hurt UGC authenticity
+    const useFlexibleAds = !isUGC && historicalAds.length < 20;
+
+    const enhancements = {
+        textOptimization: !isUGC, // Don't auto-optimize UGC text
+        imageBrightness: !isVideo, // Only for images
+        musicGeneration: isVideo && !hasSubtitles, // Only if no existing audio focus
+        imageTemplates: !isUGC && !isVideo, // Templates for static images
+    };
+
+    let reasoning = '';
+    if (useFlexibleAds) {
+        reasoning = 'Advantage+ Creative recommended for testing phase. Facebook will automatically test variations of your ad to find what works best.';
+    } else if (isUGC) {
+        reasoning = 'Advantage+ Creative disabled for UGC content. Authenticity is key - auto-enhancements may reduce trust.';
+    } else {
+        reasoning = 'Advantage+ Creative disabled. Your ad content is optimized and doesn\'t need automatic variations.';
+    }
+
+    const enabledCount = Object.values(enhancements).filter(Boolean).length;
+    const confidence = 65 + (enabledCount * 5);
+
+    return {
+        useFlexibleAds,
+        enhancements,
+        confidence,
+        reasoning,
+    };
+}
+
+/**
  * Get full campaign recommendations combining all analyses
  */
 export function getFullCampaignRecommendations(
@@ -506,13 +766,19 @@ export function getFullCampaignRecommendations(
     const budget = recommendBudget(objective.recommended, goals);
     const targeting = recommendTargeting(adTraits);
     const timing = recommendTiming();
+    const placements = recommendPlacements(adTraits);
+    const adCopy = recommendAdCopy(adTraits);
+    const flexibleAds = recommendFlexibleAds(adTraits);
 
     // Calculate overall confidence
     const overallConfidence = Math.round(
-        (objective.confidence * 0.3) +
-        (budget.confidence * 0.25) +
-        (targeting.confidence * 0.25) +
-        (timing.confidence * 0.2)
+        (objective.confidence * 0.2) +
+        (budget.confidence * 0.15) +
+        (targeting.confidence * 0.2) +
+        (timing.confidence * 0.1) +
+        (placements.confidence * 0.15) +
+        (adCopy.confidence * 0.1) +
+        (flexibleAds.confidence * 0.1)
     );
 
     // Determine data quality
@@ -521,6 +787,26 @@ export function getFullCampaignRecommendations(
     if (historicalAds.length >= 50) dataQuality = 'high';
     else if (historicalAds.length >= 20) dataQuality = 'medium';
     else dataQuality = 'low';
+
+    // Calculate aggregate stats
+    let totalROAS = 0;
+    let totalCTR = 0;
+    const traitCounts: Record<string, number> = {};
+
+    historicalAds.forEach(ad => {
+        if (ad.results) {
+            totalROAS += ad.results.roas || 0;
+            totalCTR += ad.results.ctr || 0;
+        }
+        // Count traits
+        if (ad.adData.hookType) traitCounts[ad.adData.hookType] = (traitCounts[ad.adData.hookType] || 0) + 1;
+        if (ad.adData.contentCategory) traitCounts[ad.adData.contentCategory] = (traitCounts[ad.adData.contentCategory] || 0) + 1;
+    });
+
+    const topPerformingTraits = Object.entries(traitCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([trait]) => trait);
 
     // Generate warnings
     const warnings: string[] = [];
@@ -533,15 +819,27 @@ export function getFullCampaignRecommendations(
     if (targeting.confidence < 50) {
         warnings.push('Targeting recommendation needs more data. Consider broad targeting initially.');
     }
+    if (placements.automaticPlacements) {
+        warnings.push('Using automatic placements. Monitor placement breakdown after launch.');
+    }
 
     return {
         objective,
         budget,
         targeting,
         timing,
+        placements,
+        adCopy,
+        flexibleAds,
         overallConfidence,
         dataQuality,
         warnings,
+        dataPoints: {
+            totalAdsAnalyzed: historicalAds.length,
+            avgROAS: historicalAds.length > 0 ? Math.round((totalROAS / historicalAds.length) * 100) / 100 : 0,
+            avgCTR: historicalAds.length > 0 ? Math.round((totalCTR / historicalAds.length) * 100) / 100 : 0,
+            topPerformingTraits,
+        },
     };
 }
 
@@ -551,5 +849,8 @@ export default {
     recommendBudget,
     recommendTargeting,
     recommendTiming,
+    recommendPlacements,
+    recommendAdCopy,
+    recommendFlexibleAds,
     getFullCampaignRecommendations,
 };

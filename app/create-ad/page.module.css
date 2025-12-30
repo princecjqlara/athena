@@ -1,0 +1,693 @@
+.page {
+    padding: var(--spacing-xl);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+}
+
+.title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: var(--spacing-xs);
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+/* Progress Steps */
+.progressSteps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-2xl);
+    flex-wrap: wrap;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    opacity: 0.5;
+    transition: all 0.3s ease;
+}
+
+.step.active {
+    opacity: 1;
+    color: var(--accent-primary);
+}
+
+.stepNumber {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.step.active .stepNumber {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.stepLine {
+    width: 40px;
+    height: 2px;
+    background: var(--border-color);
+}
+
+/* Error Banner */
+.errorBanner {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--error);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+}
+
+/* Step 1: Content Section */
+.contentSection {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: var(--spacing-xl);
+}
+
+@media (max-width: 900px) {
+    .contentSection {
+        grid-template-columns: 1fr;
+    }
+}
+
+.mediaCard {
+    padding: var(--spacing-lg);
+}
+
+.mediaCard h3 {
+    margin-bottom: var(--spacing-md);
+    font-size: 1.1rem;
+}
+
+.dropZone {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xl);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.dropZone:hover {
+    border-color: var(--accent-primary);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.dropZone svg {
+    color: var(--text-muted);
+}
+
+.dropZone p {
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.mediaPreview {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: var(--radius-sm);
+    object-fit: contain;
+}
+
+.descriptionCard {
+    padding: var(--spacing-lg);
+}
+
+.descriptionCard h3 {
+    margin-bottom: var(--spacing-xs);
+    font-size: 1.1rem;
+}
+
+.descriptionCard>p {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin-bottom: var(--spacing-md);
+}
+
+.textarea {
+    width: 100%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    resize: vertical;
+    font-family: inherit;
+}
+
+.textarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+/* Step 2: Recommendations */
+.recommendationsSection {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.overallCard {
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.overallHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-md);
+}
+
+.overallHeader h2 {
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-xs);
+}
+
+.overallHeader p {
+    color: var(--text-muted);
+}
+
+.confidenceScore {
+    text-align: right;
+}
+
+.confidenceNumber {
+    display: block;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.confidenceLabel {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.dataQuality {
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* Recommendation Cards Grid */
+.recGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+@media (max-width: 768px) {
+    .recGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.recCard {
+    padding: var(--spacing-lg);
+}
+
+.recHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.recIcon {
+    font-size: 1.5rem;
+}
+
+.recHeader h3 {
+    flex: 1;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.recConfidence {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.recValue {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.recReasoning {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.recAlternatives {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-color);
+}
+
+.recAlternatives small {
+    color: var(--text-muted);
+}
+
+.budgetRange {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-sm);
+}
+
+.structureBadge {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.structureBadge small {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.interestTags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+/* Warnings */
+.warningsCard {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.warningsCard h4 {
+    margin-bottom: var(--spacing-sm);
+    font-size: 0.9rem;
+}
+
+.warningsCard ul {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.warningsCard li {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* Actions */
+.recActions {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+/* Historical Data Display */
+.historicalData {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-color);
+}
+
+.historicalData small {
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: var(--spacing-xs);
+}
+
+.histTable {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.histRow {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    padding: 4px 0;
+}
+
+.histRow span:first-child {
+    flex: 1;
+    text-transform: capitalize;
+}
+
+.histRow span:not(:first-child) {
+    margin-left: var(--spacing-sm);
+    color: var(--text-muted);
+}
+
+/* Ad Copy Preview */
+.adCopyPreview {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.copyField {
+    margin-bottom: var(--spacing-sm);
+}
+
+.copyField:last-child {
+    margin-bottom: 0;
+}
+
+.copyField small {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+
+.copyField p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+/* Enhancements List */
+.enhancementsList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+/* Data Points Card */
+.dataPointsCard {
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+    background: rgba(34, 197, 94, 0.05);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.dataPointsCard h4 {
+    margin-bottom: var(--spacing-md);
+    font-size: 0.9rem;
+}
+
+.traitsList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+/* Step 3: Customize */
+.customizeSection {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.settingsCard {
+    padding: var(--spacing-xl);
+}
+
+.settingsCard h2 {
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-xs);
+}
+
+.settingsCard>p {
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-xl);
+}
+
+.settingsGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+@media (max-width: 600px) {
+    .settingsGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.formGroup label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.formGroup input,
+.formGroup select {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.formGroup input:focus,
+.formGroup select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.ageInputs {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.ageInputs input {
+    flex: 1;
+    width: 60px;
+}
+
+.ageInputs span {
+    color: var(--text-muted);
+}
+
+.launchOption {
+    margin-bottom: var(--spacing-xl);
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+}
+
+.checkbox input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-primary);
+}
+
+.checkbox span {
+    font-size: 0.9rem;
+}
+
+.settingsActions {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+/* Step 4: Creating */
+.creatingSection {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.creatingCard {
+    padding: var(--spacing-2xl);
+    text-align: center;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto var(--spacing-lg);
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.creatingCard h2 {
+    margin-bottom: var(--spacing-sm);
+}
+
+.creatingCard>p {
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-xl);
+}
+
+.creatingSteps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.creatingStep {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    justify-content: center;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.creatingIcon {
+    font-size: 1.25rem;
+}
+
+/* Step 5: Success */
+.successSection {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.successCard {
+    padding: var(--spacing-2xl);
+    text-align: center;
+}
+
+.successIcon {
+    font-size: 4rem;
+    margin-bottom: var(--spacing-lg);
+}
+
+.successCard h2 {
+    color: var(--success);
+    margin-bottom: var(--spacing-sm);
+}
+
+.successCard>p {
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-xl);
+}
+
+.createdIds {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    text-align: left;
+}
+
+.createdItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) 0;
+}
+
+.createdItem:not(:last-child) {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.createdItem span {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.createdItem code {
+    font-family: monospace;
+    font-size: 0.875rem;
+    background: var(--bg-secondary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+}
+
+.nextSteps {
+    text-align: left;
+    margin-bottom: var(--spacing-xl);
+}
+
+.nextSteps h4 {
+    margin-bottom: var(--spacing-sm);
+}
+
+.nextSteps ol {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.nextSteps li {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.successActions {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}

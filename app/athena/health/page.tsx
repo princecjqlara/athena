@@ -73,36 +73,67 @@ export default function HealthPage() {
     const calculateLocalHealth = () => {
         const ads = JSON.parse(localStorage.getItem('ads') || '[]');
 
-        let completeness = 100;
-        let freshness = 100;
-        let attribution = 80;
-        const schema = 100;
+        // Start with 0 baseline - scores are earned based on actual data
+        let completeness = 0;
+        let freshness = 0;
+        let attribution = 0;
+        let schema = 0;
 
         if (ads.length === 0) {
-            completeness = 50;
-            freshness = 50;
+            // No data = 0% for all scores
+            completeness = 0;
+            freshness = 0;
+            attribution = 0;
+            schema = 0;
         } else {
+            // Calculate completeness: % of ads with metrics
             const adsWithMetrics = ads.filter((a: { adInsights?: unknown }) => a.adInsights);
-            if (adsWithMetrics.length < ads.length * 0.8) completeness -= 20;
+            completeness = Math.round((adsWithMetrics.length / ads.length) * 100);
 
+            // Calculate freshness: % of ads uploaded within last 7 days
             const recentAds = ads.filter((a: { uploadedAt?: string }) => {
                 if (!a.uploadedAt) return false;
                 const daysAgo = (Date.now() - new Date(a.uploadedAt).getTime()) / (1000 * 60 * 60 * 24);
                 return daysAgo < 7;
             });
-            if (recentAds.length < ads.length * 0.5) freshness -= 30;
+            freshness = Math.round((recentAds.length / ads.length) * 100);
+
+            // Calculate attribution: % of ads with conversion data
+            const adsWithConversions = ads.filter((a: { adInsights?: { conversions?: unknown } }) =>
+                a.adInsights?.conversions !== undefined
+            );
+            attribution = Math.round((adsWithConversions.length / ads.length) * 100);
+
+            // Calculate schema: % of ads with required fields (name, status, etc.)
+            const adsWithSchema = ads.filter((a: { name?: string; status?: string }) =>
+                a.name && a.status
+            );
+            schema = Math.round((adsWithSchema.length / ads.length) * 100);
         }
 
         const overallHealth = Math.round((completeness + freshness + attribution + schema) / 4);
 
+        // Create a synthetic score entry with individual category scores
+        // so that the Health Breakdown section shows actual values instead of falling back to overallHealth
+        const syntheticScore: HealthScore = {
+            entity_type: 'local',
+            entity_id: 'local-calculation',
+            overall_score: overallHealth,
+            completeness_score: completeness,
+            freshness_score: freshness,
+            attribution_score: attribution,
+            schema_score: schema,
+            issues: []
+        };
+
         setHealthData({
             overallHealth,
-            scores: [],
+            scores: [syntheticScore],
             summary: {
                 total: ads.length,
-                healthy: Math.floor(ads.length * 0.7),
-                warning: Math.floor(ads.length * 0.2),
-                critical: Math.floor(ads.length * 0.1)
+                healthy: overallHealth >= 80 ? 1 : 0,
+                warning: overallHealth >= 60 && overallHealth < 80 ? 1 : 0,
+                critical: overallHealth < 60 ? 1 : 0
             }
         });
     };

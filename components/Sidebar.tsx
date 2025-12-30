@@ -71,14 +71,12 @@ export function Sidebar() {
 
       <nav className="sidebar-nav">
         <NavItem href="/" icon="dashboard" label="Dashboard" collapsed={isCollapsed} active={isActive('/')} />
-        <NavItem href="/upload" icon="upload" label="Upload Ad" collapsed={isCollapsed} active={isActive('/upload')} />
-        <NavItem href="/import" icon="download" label="Import from FB" collapsed={isCollapsed} active={isActive('/import')} />
-        <NavItem href="/results" icon="chart" label="Add Results" collapsed={isCollapsed} active={isActive('/results')} />
+        <NavItem href="/myads" icon="ads" label="Ads Hub" collapsed={isCollapsed} active={isActive('/myads')} />
+        <NavItem href="/results" icon="chart" label="Analytics" collapsed={isCollapsed} active={isActive('/results')} />
         <NavItem href="/mindmap" icon="mindmap" label="Algorithm" collapsed={isCollapsed} active={isActive('/mindmap')} />
         <NavItem href="/pipeline" icon="pipeline" label="Pipeline" collapsed={isCollapsed} active={isActive('/pipeline')} />
         <NavItem href="/marketplace" icon="marketplace" label="Marketplace" collapsed={isCollapsed} active={isActive('/marketplace')} />
         <NavItem href="/athena" icon="brain" label="Athena AI" collapsed={isCollapsed} active={isActive('/athena')} />
-        <NavItem href="/myads" icon="ads" label="My Ads" collapsed={isCollapsed} active={isActive('/myads')} />
         <NavItem href="/settings" icon="settings" label="Settings" collapsed={isCollapsed} active={isActive('/settings')} />
         <NavItem href="/organizer" icon="organizer" label="Organizer" collapsed={isCollapsed} active={isActive('/organizer')} />
       </nav>
@@ -338,6 +336,13 @@ function NavItem({ href, icon, label, collapsed, active }: { href: string; icon:
         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
         <polyline points="17 8 12 3 7 8" />
         <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+    ),
+    create: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="16" />
+        <line x1="8" y1="12" x2="16" y2="12" />
       </svg>
     ),
     download: (

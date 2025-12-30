@@ -6,6 +6,7 @@ import ChatBot from "@/components/ChatBot";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ToastProvider } from "@/components/Toast";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { BackgroundSyncProvider } from "@/components/BackgroundSyncProvider";
 import { useEffect, useState, useRef } from 'react';
 
 // Routes that should not show sidebar
@@ -206,13 +207,15 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
             <ToastProvider>
                 <ErrorBoundary>
                     <AuthGuard>
-                        <div className="app-wrapper">
-                            <Sidebar />
-                            <main className="main-content">
-                                <PageTransition>{children}</PageTransition>
-                            </main>
-                            <ChatBot />
-                        </div>
+                        <BackgroundSyncProvider>
+                            <div className="app-wrapper">
+                                <Sidebar />
+                                <main className="main-content">
+                                    <PageTransition>{children}</PageTransition>
+                                </main>
+                                <ChatBot />
+                            </div>
+                        </BackgroundSyncProvider>
                     </AuthGuard>
                 </ErrorBoundary>
             </ToastProvider>
