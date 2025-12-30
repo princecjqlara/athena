@@ -256,7 +256,8 @@ function deriveAudioVoice(data: ExtractedAdData): string[] {
     if (data.musicType && data.musicType !== 'no_music' && data.musicType !== 'voiceover_only') {
         facets.push('music');
     }
-    if (data.musicType === 'upbeat' || data.musicType === 'energetic') {
+    // Check for upbeat music type (energetic mood derived from upbeat type)
+    if (data.musicType === 'upbeat') {
         facets.push('energetic');
     }
     return facets;
