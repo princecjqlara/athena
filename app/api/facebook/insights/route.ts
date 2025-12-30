@@ -128,12 +128,56 @@ async function fetchInsightsWithBreakdown(
 
 // Helper: Fetch daily insights (day-by-day breakdown)
 async function fetchDailyInsights(adId: string, accessToken: string, fields: string) {
-    // Use time_increment=1 for daily breakdown, date_preset=maximum for all time data
-    const response = await fetch(
-        `https://graph.facebook.com/v24.0/${adId}/insights?fields=${fields},date_start,date_stop&time_increment=1&date_preset=maximum&access_token=${accessToken}`
-    );
-    const data = await response.json();
-    return data.data || [];
+    // Calculate date range: last 90 days (more reliable than date_preset=maximum)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 90);
+
+    const dateFormat = (d: Date) => d.toISOString().split('T')[0];
+    const since = dateFormat(startDate);
+    const until = dateFormat(endDate);
+
+    // Build URL with explicit date range - use v21.0 for better compatibility
+    const url = `https://graph.facebook.com/v21.0/${adId}/insights?fields=${fields},date_start,date_stop&time_increment=1&time_range={"since":"${since}","until":"${until}"}&access_token=${accessToken}`;
+
+    console.log('[FetchDailyInsights] Requesting daily breakdown:', { adId, since, until });
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        console.log('[FetchDailyInsights] Response:', {
+            hasData: !!data.data,
+            daysCount: data.data?.length || 0,
+            error: data.error?.message || null,
+            errorCode: data.error?.code || null
+        });
+
+        // If we got an error, try with simpler fields as fallback
+        if (data.error) {
+            console.error('[FetchDailyInsights] Facebook API Error:', data.error);
+
+            // Try with minimal fields as fallback
+            const fallbackUrl = `https://graph.facebook.com/v21.0/${adId}/insights?fields=impressions,reach,clicks,spend,ctr,cpc,cpm,date_start,date_stop&time_increment=1&time_range={"since":"${since}","until":"${until}"}&access_token=${accessToken}`;
+            console.log('[FetchDailyInsights] Trying fallback with minimal fields...');
+
+            const fallbackResponse = await fetch(fallbackUrl);
+            const fallbackData = await fallbackResponse.json();
+
+            console.log('[FetchDailyInsights] Fallback response:', {
+                hasData: !!fallbackData.data,
+                daysCount: fallbackData.data?.length || 0,
+                error: fallbackData.error?.message || null
+            });
+
+            return fallbackData.data || [];
+        }
+
+        return data.data || [];
+    } catch (error) {
+        console.error('[FetchDailyInsights] Fetch error:', error);
+        return [];
+    }
 }
 
 // Process basic metrics

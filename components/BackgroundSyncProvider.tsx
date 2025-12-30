@@ -7,6 +7,7 @@ const SYNC_SETTINGS_KEY = 'fb_sync_settings';
 const SYNC_CACHE_KEY = 'fb_sync_cache';
 const DEFAULT_SYNC_INTERVAL = 15; // 15 minutes
 const DEFAULT_MIN_SYNC_INTERVAL = 5; // Minimum 5 minutes between syncs
+const WEBHOOK_POLL_INTERVAL = 60 * 1000; // Check for webhook triggers every 60 seconds
 
 interface FacebookMetrics {
     impressions?: number;
@@ -72,6 +73,7 @@ interface StoredAd {
  */
 export function BackgroundSyncProvider({ children }: { children: React.ReactNode }) {
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const webhookPollRef = useRef<NodeJS.Timeout | null>(null);
     const mountedRef = useRef(true);
     const isSyncingRef = useRef(false);
 
@@ -122,6 +124,50 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
 
         return { skip: false, reason: null };
     }, [getSyncSettings]);
+
+    // Check for webhook trigger from Supabase
+    const checkForWebhookTrigger = useCallback(async (): Promise<boolean> => {
+        if (typeof window === 'undefined') return false;
+
+        try {
+            const adAccountId = localStorage.getItem('meta_ad_account_id');
+            if (!adAccountId) return false;
+
+            const response = await fetch(`/api/sync/check-trigger?accountId=${encodeURIComponent(adAccountId)}`);
+            const data = await response.json();
+
+            if (data.success && data.hasTrigger) {
+                console.log('[BackgroundSync] 🔔 Webhook trigger detected!', {
+                    changeType: data.triggerData?.changeType,
+                    lastChange: data.triggerData?.lastChange
+                });
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('[BackgroundSync] Error checking webhook trigger:', error);
+            return false;
+        }
+    }, []);
+
+    // Clear webhook trigger after sync
+    const clearWebhookTrigger = useCallback(async () => {
+        if (typeof window === 'undefined') return;
+
+        try {
+            const adAccountId = localStorage.getItem('meta_ad_account_id');
+            if (!adAccountId) return;
+
+            await fetch('/api/sync/check-trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accountId: adAccountId, action: 'clear' })
+            });
+            console.log('[BackgroundSync] Cleared webhook trigger');
+        } catch (error) {
+            console.error('[BackgroundSync] Error clearing webhook trigger:', error);
+        }
+    }, []);
 
     // Main background sync function
     const runBackgroundSync = useCallback(async () => {
@@ -326,6 +372,9 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
             }));
 
             // Dispatch custom event so other components can react
+            // Clear any webhook triggers after successful sync
+            await clearWebhookTrigger();
+
             window.dispatchEvent(new CustomEvent('facebook-sync-complete', {
                 detail: { updatedCount, predictionsUpdated, source: 'background' }
             }));
@@ -335,7 +384,42 @@ export function BackgroundSyncProvider({ children }: { children: React.ReactNode
         } finally {
             isSyncingRef.current = false;
         }
-    }, [getSyncSettings, shouldSkipSync]);
+    }, [getSyncSettings, shouldSkipSync, clearWebhookTrigger]);
+
+    // Webhook trigger polling - check every 60 seconds for new triggers
+    const pollForWebhookTrigger = useCallback(async () => {
+        if (typeof window === 'undefined') return;
+        if (isSyncingRef.current) return;
+
+        const settings = getSyncSettings();
+        if (!settings.autoSyncEnabled) return;
+
+        const hasTrigger = await checkForWebhookTrigger();
+        if (hasTrigger && mountedRef.current) {
+            console.log('[BackgroundSync] 🚀 Webhook trigger found, initiating sync...');
+            runBackgroundSync();
+        }
+    }, [checkForWebhookTrigger, getSyncSettings]);
+
+    // Set up webhook polling interval
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        // Set up webhook trigger polling every 60 seconds
+        webhookPollRef.current = setInterval(() => {
+            if (mountedRef.current) {
+                pollForWebhookTrigger();
+            }
+        }, WEBHOOK_POLL_INTERVAL);
+
+        console.log('[BackgroundSync] 🔄 Webhook trigger polling enabled (every 60s)');
+
+        return () => {
+            if (webhookPollRef.current) {
+                clearInterval(webhookPollRef.current);
+            }
+        };
+    }, [pollForWebhookTrigger]);
 
     // Set up the background sync interval
     useEffect(() => {

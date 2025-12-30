@@ -158,13 +158,39 @@ export function useFacebookSync(options?: UseFacebookSyncOptions): UseFacebookSy
             const adAccountId = localStorage.getItem('meta_ad_account_id');
             if (!adAccountId) return false;
 
-            // In a real implementation, this would check Supabase for webhook triggers
-            // For now, we'll return false (no pending triggers)
-            console.log('[SmartSync] Checking for webhook triggers...');
+            // Call the check-trigger API to see if there's a pending webhook trigger
+            const response = await fetch(`/api/sync/check-trigger?accountId=${encodeURIComponent(adAccountId)}`);
+            const data = await response.json();
+
+            if (data.success && data.hasTrigger) {
+                console.log('[SmartSync] 🔔 Webhook trigger detected!', {
+                    changeType: data.triggerData?.changeType,
+                    lastChange: data.triggerData?.lastChange
+                });
+                return true;
+            }
+
             return false;
         } catch (error) {
             console.error('[SmartSync] Error checking webhook triggers:', error);
             return false;
+        }
+    }, []);
+
+    // Clear webhook trigger after sync
+    const clearWebhookTrigger = useCallback(async () => {
+        try {
+            const adAccountId = localStorage.getItem('meta_ad_account_id');
+            if (!adAccountId) return;
+
+            await fetch('/api/sync/check-trigger', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accountId: adAccountId, action: 'clear' })
+            });
+            console.log('[SmartSync] Cleared webhook trigger');
+        } catch (error) {
+            console.error('[SmartSync] Error clearing webhook trigger:', error);
         }
     }, []);
 
@@ -421,6 +447,9 @@ export function useFacebookSync(options?: UseFacebookSyncOptions): UseFacebookSy
                 detail: { updatedCount, predictionsUpdated }
             }));
 
+            // Clear any webhook triggers that may have initiated this sync
+            await clearWebhookTrigger();
+
         } catch (error) {
             console.error('[AutoSync] ❌ Sync failed:', error);
             if (mountedRef.current) {
@@ -431,7 +460,7 @@ export function useFacebookSync(options?: UseFacebookSyncOptions): UseFacebookSy
                 }));
             }
         }
-    }, [saveSettings]);
+    }, [saveSettings, clearWebhookTrigger]);
 
     // Toggle auto-sync
     const toggleAutoSync = useCallback(() => {

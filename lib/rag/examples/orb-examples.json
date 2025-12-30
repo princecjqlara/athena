@@ -1,0 +1,379 @@
+{
+    "examples": {
+        "suggested_orb": {
+            "id": "orb-suggested-001",
+            "state": "suggested",
+            "parentOrbId": "orb-parent-123",
+            "createdFrom": "ai",
+            "derived": {
+                "facets": {
+                    "platform_placement": [
+                        "tiktok",
+                        "feed",
+                        "9:16"
+                    ],
+                    "media_format": [
+                        "video",
+                        "live_action"
+                    ],
+                    "visual_style": [
+                        "bright_palette"
+                    ],
+                    "audio_voice": [
+                        "voiceover",
+                        "music"
+                    ],
+                    "content_hook": [
+                        "curiosity",
+                        "hook_present"
+                    ],
+                    "text_features": [
+                        "subtitles"
+                    ],
+                    "talent_face": [
+                        "ugc_creator",
+                        "face_visible"
+                    ],
+                    "sentiment": [
+                        "upbeat"
+                    ],
+                    "brand": [
+                        "brand_present",
+                        "late_reveal"
+                    ],
+                    "cta": [
+                        "shop_now",
+                        "strong"
+                    ]
+                },
+                "embeddings": {
+                    "creative": [],
+                    "script": [],
+                    "visual": []
+                },
+                "embeddingVersion": "1.0.0",
+                "createdAt": "2024-12-30T08:00:00Z"
+            },
+            "spec": {
+                "platform": "tiktok",
+                "objective": "conversions",
+                "facets": {
+                    "platform_placement": [
+                        "tiktok",
+                        "feed",
+                        "9:16"
+                    ],
+                    "media_format": [
+                        "video",
+                        "live_action"
+                    ],
+                    "visual_style": [
+                        "bright_palette"
+                    ],
+                    "audio_voice": [
+                        "voiceover",
+                        "music"
+                    ],
+                    "content_hook": [
+                        "curiosity"
+                    ],
+                    "text_features": [
+                        "subtitles"
+                    ],
+                    "talent_face": [
+                        "ugc_creator"
+                    ],
+                    "sentiment": [
+                        "upbeat"
+                    ],
+                    "brand": [
+                        "late_reveal"
+                    ],
+                    "cta": [
+                        "shop_now"
+                    ]
+                },
+                "scriptOutline": [
+                    "Hook: Curiosity question about common problem",
+                    "Body: Show UGC creator using product",
+                    "Proof: Before/after transformation",
+                    "Close: Strong CTA with urgency"
+                ],
+                "notes": "Testing: Voiceover (Voiceover on vs off)"
+            },
+            "learningIntent": {
+                "experimentLever": "voiceover",
+                "reason": "Testing Voiceover: Voiceover on vs off. Current uncertainty: 65%",
+                "expectedInfoGain": 40,
+                "controlValues": {
+                    "audio_voice": false
+                },
+                "facetGroup": "audio_voice"
+            },
+            "prediction": {
+                "score": 72,
+                "confidence": 58,
+                "method": "hybrid",
+                "explanation": {
+                    "neighborEvidence": "Based on 15 similar ads with scores ranging from 45% to 88% (average: 68%), we predict 72% success.",
+                    "contrastiveAnalysis": "UGC style typically adds +12 points. Subtitles typically add +8 points.",
+                    "confidenceExplanation": "Medium confidence (58%). Good pattern match, some uncertainty remains. Based on 15 similar ads.",
+                    "dataGapSuggestions": "More data would help for: voiceover (3 examples), jingle (1 example)."
+                },
+                "topPositive": [
+                    {
+                        "trait": "ugc",
+                        "lift": 12.5,
+                        "confidence": 75
+                    },
+                    {
+                        "trait": "subtitles",
+                        "lift": 8.2,
+                        "confidence": 82
+                    }
+                ],
+                "topNegative": [],
+                "bounds": {
+                    "lower": 58,
+                    "upper": 82
+                },
+                "neighborCount": 15,
+                "avgSimilarity": 0.72,
+                "predictedAt": "2024-12-30T08:00:00Z"
+            },
+            "createdAt": "2024-12-30T08:00:00Z"
+        },
+        "draft_orb": {
+            "id": "orb-draft-002",
+            "state": "draft",
+            "parentOrbId": "orb-suggested-001",
+            "createdFrom": "ai",
+            "derived": {
+                "facets": {
+                    "platform_placement": [
+                        "tiktok",
+                        "feed"
+                    ],
+                    "media_format": [
+                        "video"
+                    ],
+                    "visual_style": [
+                        "bright_palette"
+                    ],
+                    "audio_voice": [
+                        "voiceover"
+                    ],
+                    "content_hook": [
+                        "curiosity"
+                    ],
+                    "text_features": [
+                        "subtitles"
+                    ],
+                    "talent_face": [
+                        "ugc_creator"
+                    ],
+                    "sentiment": [
+                        "upbeat"
+                    ],
+                    "brand": [
+                        "late_reveal"
+                    ],
+                    "cta": [
+                        "shop_now"
+                    ]
+                },
+                "embeddings": {
+                    "creative": [],
+                    "script": [],
+                    "visual": []
+                },
+                "embeddingVersion": "1.0.0",
+                "createdAt": "2024-12-30T08:05:00Z"
+            },
+            "spec": {
+                "platform": "tiktok",
+                "objective": "conversions",
+                "facets": {
+                    "platform_placement": [
+                        "tiktok",
+                        "feed"
+                    ],
+                    "media_format": [
+                        "video"
+                    ],
+                    "visual_style": [
+                        "bright_palette"
+                    ],
+                    "audio_voice": [
+                        "voiceover"
+                    ],
+                    "content_hook": [
+                        "curiosity"
+                    ],
+                    "text_features": [
+                        "subtitles"
+                    ],
+                    "talent_face": [
+                        "ugc_creator"
+                    ],
+                    "sentiment": [
+                        "upbeat"
+                    ],
+                    "brand": [
+                        "late_reveal"
+                    ],
+                    "cta": [
+                        "shop_now"
+                    ]
+                }
+            },
+            "learningIntent": {
+                "experimentLever": "voiceover",
+                "reason": "Testing Voiceover: Voiceover on vs off",
+                "expectedInfoGain": 40
+            },
+            "createdAt": "2024-12-30T08:00:00Z",
+            "updatedAt": "2024-12-30T08:05:00Z"
+        },
+        "observed_orb": {
+            "id": "orb-observed-003",
+            "state": "observed",
+            "parentOrbId": "orb-draft-002",
+            "createdFrom": "ai",
+            "derived": {
+                "facets": {
+                    "platform_placement": [
+                        "tiktok",
+                        "feed"
+                    ],
+                    "media_format": [
+                        "video"
+                    ],
+                    "visual_style": [
+                        "bright_palette"
+                    ],
+                    "audio_voice": [
+                        "voiceover"
+                    ],
+                    "content_hook": [
+                        "curiosity"
+                    ],
+                    "text_features": [
+                        "subtitles"
+                    ],
+                    "talent_face": [
+                        "ugc_creator"
+                    ],
+                    "sentiment": [
+                        "upbeat"
+                    ],
+                    "brand": [
+                        "late_reveal"
+                    ],
+                    "cta": [
+                        "shop_now"
+                    ]
+                },
+                "embeddings": {
+                    "creative": [],
+                    "script": [],
+                    "visual": []
+                },
+                "embeddingVersion": "1.0.0",
+                "createdAt": "2024-12-30T08:05:00Z"
+            },
+            "spec": {
+                "platform": "tiktok",
+                "objective": "conversions",
+                "facets": {
+                    "platform_placement": [
+                        "tiktok",
+                        "feed"
+                    ],
+                    "media_format": [
+                        "video"
+                    ],
+                    "visual_style": [
+                        "bright_palette"
+                    ],
+                    "audio_voice": [
+                        "voiceover"
+                    ],
+                    "content_hook": [
+                        "curiosity"
+                    ],
+                    "text_features": [
+                        "subtitles"
+                    ],
+                    "talent_face": [
+                        "ugc_creator"
+                    ],
+                    "sentiment": [
+                        "upbeat"
+                    ],
+                    "brand": [
+                        "late_reveal"
+                    ],
+                    "cta": [
+                        "shop_now"
+                    ]
+                }
+            },
+            "learningIntent": {
+                "experimentLever": "voiceover",
+                "reason": "Testing Voiceover: Voiceover on vs off",
+                "expectedInfoGain": 40
+            },
+            "results": {
+                "successScore": 78,
+                "roas": 2.4,
+                "ctr": 4.2,
+                "conversions": 45,
+                "impressions": 25000,
+                "clicks": 1050,
+                "adSpend": 500,
+                "revenue": 1200,
+                "fetchedAt": "2024-12-30T12:00:00Z"
+            },
+            "createdAt": "2024-12-30T08:00:00Z",
+            "updatedAt": "2024-12-30T12:00:00Z"
+        },
+        "suggested_orb_score": {
+            "predictedScore": 72,
+            "confidence": 58,
+            "explanation": {
+                "whatsProven": [
+                    "Top similar ads average 75% success",
+                    "UGC style adds +12 points",
+                    "Subtitles add +8 points"
+                ],
+                "whatsTested": "voiceover: Testing Voiceover: Voiceover on vs off. Current uncertainty: 65%",
+                "whySuggested": "Expected to reduce uncertainty by 40%"
+            },
+            "evidence": {
+                "neighbors": 15,
+                "avgSimilarity": 0.72,
+                "traitEffects": [
+                    {
+                        "trait": "ugc",
+                        "lift": 12.5,
+                        "confidence": 75,
+                        "n_with": 10,
+                        "n_without": 5,
+                        "isSignificant": true,
+                        "recommendation": "use"
+                    }
+                ],
+                "platforms": [
+                    "tiktok",
+                    "instagram"
+                ],
+                "dateRange": {
+                    "oldest": "2024-11-01T00:00:00Z",
+                    "newest": "2024-12-28T00:00:00Z"
+                }
+            },
+            "scoredAt": "2024-12-30T08:00:00Z"
+        }
+    }
+}

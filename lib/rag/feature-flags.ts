@@ -24,6 +24,23 @@ export interface RAGFeatureFlags {
 
     /** Enable hybrid blending with legacy (default: true when RAG enabled) */
     enableHybridBlend: boolean;
+
+    // ========== SUGGESTED ORBS ==========
+
+    /** Enable AI-generated suggested orbs (default: false) */
+    enableSuggestedOrbs: boolean;
+
+    /** Maximum suggestions to generate per trigger (default: 3) */
+    maxSuggestionsPerTrigger: number;
+
+    /** Minimum confidence before generating suggestions (default: 80) */
+    minConfidenceForNoSuggestion: number;
+
+    /** Block auto-publish of ads (SAFETY: always true) */
+    autoPublishDisabled: boolean;
+
+    /** Block embedding exposure to users (SAFETY: always true) */
+    embeddingExposureBlocked: boolean;
 }
 
 // ============================================
@@ -36,6 +53,15 @@ const DEFAULT_FLAGS: RAGFeatureFlags = {
     enableMarketplaceHints: false,
     enableDebugLogging: false,
     enableHybridBlend: true,
+
+    // Suggested orbs defaults (OFF by default)
+    enableSuggestedOrbs: false,
+    maxSuggestionsPerTrigger: 3,
+    minConfidenceForNoSuggestion: 80,
+
+    // Safety flags (always on, cannot be disabled)
+    autoPublishDisabled: true,
+    embeddingExposureBlocked: true,
 };
 
 const STORAGE_KEY = 'rag_feature_flags';
@@ -155,4 +181,52 @@ export function isMarketplaceEnabled(): boolean {
 export function isDebugLoggingEnabled(): boolean {
     const flags = getFlags();
     return flags.enableDebugLogging;
+}
+
+/**
+ * Check if suggested orbs are enabled
+ */
+export function isSuggestedOrbsEnabled(): boolean {
+    const flags = getFlags();
+    return flags.enableSuggestedOrbs;
+}
+
+/**
+ * Generic feature flag check
+ */
+export function isFeatureEnabled(feature: string): boolean {
+    const flags = getFlags();
+
+    switch (feature) {
+        case 'SUGGESTED_ORBS_ENABLED':
+            return flags.enableSuggestedOrbs;
+        case 'RAG_ENABLED':
+            return flags.enableRAG;
+        case 'CONTRASTIVE_ENABLED':
+            return flags.enableRAG && flags.enableContrastive;
+        case 'MARKETPLACE_ENABLED':
+            return flags.enableRAG && flags.enableMarketplaceHints;
+        case 'AUTO_PUBLISH_DISABLED':
+            return flags.autoPublishDisabled; // Always true for safety
+        case 'EMBEDDING_EXPOSURE_BLOCKED':
+            return flags.embeddingExposureBlocked; // Always true for safety
+        default:
+            return false;
+    }
+}
+
+/**
+ * Get feature value (for numeric/configurable settings)
+ */
+export function getFeatureValue<T>(feature: string, defaultValue: T): T {
+    const flags = getFlags();
+
+    switch (feature) {
+        case 'MAX_SUGGESTIONS_PER_TRIGGER':
+            return flags.maxSuggestionsPerTrigger as unknown as T;
+        case 'MIN_CONFIDENCE_FOR_NO_SUGGESTION':
+            return flags.minConfidenceForNoSuggestion as unknown as T;
+        default:
+            return defaultValue;
+    }
 }

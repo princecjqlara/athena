@@ -7,6 +7,7 @@ import DailyReportsViewer from '@/components/DailyReportsViewer';
 import SyncIndicator from '@/components/SyncIndicator';
 import { useFacebookSync } from '@/hooks/useFacebookSync';
 import dynamic from 'next/dynamic';
+import AdAnalyticsPanel from '@/components/AdAnalyticsPanel';
 
 // Lazy load tab content components
 const UploadPage = dynamic(() => import('../upload/page'), { ssr: false });
@@ -199,6 +200,9 @@ export default function MyAdsPage() {
     const [connectingAd, setConnectingAd] = useState<Ad | null>(null);  // Ad currently being connected
     const [connectionSearchQuery, setConnectionSearchQuery] = useState('');  // Search filter for connection modal
 
+    // Analytics Panel State
+    const [selectedAdForAnalytics, setSelectedAdForAnalytics] = useState<Ad | null>(null);
+
     // Facebook Auto-Sync Hook
     const {
         syncState,
@@ -217,21 +221,33 @@ export default function MyAdsPage() {
         try {
             const accessToken = localStorage.getItem('fb_access_token');
             if (!accessToken || !ad.facebookAdId) {
-                console.log('No access token or Facebook ID');
+                console.log('[DailyReport] Missing:', { hasToken: !!accessToken, adId: ad.facebookAdId });
                 setIsLoadingReport(false);
                 return;
             }
 
+            console.log('[DailyReport] Fetching for ad:', ad.facebookAdId);
             const response = await fetch(
                 `/api/facebook/insights?adId=${ad.facebookAdId}&accessToken=${accessToken}`
             );
             const data = await response.json();
 
+            console.log('[DailyReport] API Response:', {
+                success: data.success,
+                hasDailyReport: !!data.data?.dailyReport,
+                daysCount: data.data?.dailyReport?.days?.length || 0,
+                rawDaily: data.data?._raw?.daily || 'none'
+            });
+
             if (data.success && data.data?.dailyReport) {
                 setDailyReportData(data.data.dailyReport);
+            } else if (data.success) {
+                // API succeeded but no daily data - could be too new or no data available
+                console.log('[DailyReport] No daily breakdown data available from Facebook');
+                setDailyReportData({ days: [], summary: { totalDays: 0 } });
             }
         } catch (error) {
-            console.error('Error fetching daily report:', error);
+            console.error('[DailyReport] Error:', error);
         } finally {
             setIsLoadingReport(false);
         }
@@ -934,8 +950,13 @@ Ad description: ${adDescription}`,
                                                                     padding: 'var(--spacing-sm) var(--spacing-md)',
                                                                     background: 'var(--bg-tertiary)',
                                                                     borderRadius: 'var(--radius-md)',
-                                                                    border: '1px solid var(--border)'
+                                                                    border: '1px solid var(--border)',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s'
                                                                 }}
+                                                                onClick={() => setSelectedAdForAnalytics(ad)}
+                                                                onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
+                                                                onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
                                                             >
                                                                 {/* Ad Header */}
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
@@ -1020,7 +1041,12 @@ Ad description: ${adDescription}`,
                         /* Grid View (existing) */
                         <div className={styles.videoGrid}>
                             {filteredAds.map(ad => (
-                                <div key={ad.id} className={`glass-card ${styles.videoCard}`}>
+                                <div
+                                    key={ad.id}
+                                    className={`glass-card ${styles.videoCard}`}
+                                    onClick={() => setSelectedAdForAnalytics(ad)}
+                                    style={{ cursor: 'pointer' }}
+                                >
                                     <div className={styles.videoThumbnail}>
                                         {ad.thumbnailUrl ? (
                                             <img src={ad.thumbnailUrl} alt={getAdName(ad)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1642,6 +1668,15 @@ Ad description: ${adDescription}`,
                         </div>
                     )}
                 </>
+            )}
+
+            {/* Analytics Panel */}
+            {selectedAdForAnalytics && (
+                <AdAnalyticsPanel
+                    ad={selectedAdForAnalytics}
+                    allAds={ads}
+                    onClose={() => setSelectedAdForAnalytics(null)}
+                />
             )}
         </div>
     );

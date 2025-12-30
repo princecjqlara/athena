@@ -322,30 +322,44 @@ function buildTraitExtractionPrompt(description: string): string {
 
 "${description}"
 
-Analyze the description and identify all relevant ad traits. Make reasonable inferences based on context clues.
+**CRITICAL ANTI-HALLUCINATION RULES:**
+1. If the description is VAGUE, MEANINGLESS, or LACKS SPECIFIC DETAILS about an ad (e.g., "etc etc", "test", "asdf", random words), you MUST:
+   - Set confidence to 20 or lower
+   - Set insufficientInput to true
+   - Set reasoning to explain that the input lacks meaningful information
+   - Use null for fields you cannot determine
+   - DO NOT make up or invent specific traits
 
-Return a JSON object with exactly this structure (use the most appropriate value for each field):
+2. Only extract traits that are ACTUALLY DESCRIBED or STRONGLY IMPLIED by the text
+3. Do NOT default to "common high-performing traits" when input is unclear
+4. If you cannot determine a trait from the description, use null instead of guessing
+
+Analyze the description and identify ONLY the ad traits that are explicitly mentioned or clearly implied.
+
+Return a JSON object with exactly this structure:
 {
-  "hookType": "curiosity" | "shock" | "before_after" | "question" | "story",
-  "editingStyle": "raw_authentic" | "fast_cuts" | "dynamic" | "cinematic",
-  "contentCategory": "ugc" | "testimonial" | "lifestyle" | "product_demo",
-  "platform": "tiktok" | "instagram" | "youtube" | "facebook",
-  "hasSubtitles": true | false,
-  "hasTextOverlays": true | false,
-  "isUGCStyle": true | false,
-  "hasVoiceover": true | false,
-  "musicType": "trending" | "upbeat" | "emotional" | "voiceover_only" | "original",
-  "colorScheme": "vibrant" | "muted" | "dark" | "bright" | "natural",
-  "numberOfActors": <number>,
-  "confidence": <0-100 how confident you are in the extraction>,
-  "reasoning": "<brief explanation of your analysis>"
+  "hookType": "curiosity" | "shock" | "before_after" | "question" | "story" | null,
+  "editingStyle": "raw_authentic" | "fast_cuts" | "dynamic" | "cinematic" | null,
+  "contentCategory": "ugc" | "testimonial" | "lifestyle" | "product_demo" | null,
+  "platform": "tiktok" | "instagram" | "youtube" | "facebook" | null,
+  "hasSubtitles": true | false | null,
+  "hasTextOverlays": true | false | null,
+  "isUGCStyle": true | false | null,
+  "hasVoiceover": true | false | null,
+  "musicType": "trending" | "upbeat" | "emotional" | "voiceover_only" | "original" | null,
+  "colorScheme": "vibrant" | "muted" | "dark" | "bright" | "natural" | null,
+  "numberOfActors": <number> | null,
+  "confidence": <0-100 how confident you are - USE 20 OR BELOW for vague/meaningless input>,
+  "reasoning": "<explanation - be HONEST if input lacks detail>",
+  "insufficientInput": <true if the description is too vague to extract meaningful traits, false otherwise>
 }
 
-Important guidelines:
+Field definitions:
 - "hookType": What grabs attention first (curiosity = makes viewer want to know more, shock = surprising/unexpected, before_after = transformation, question = asks a question, story = narrative-driven)
 - "editingStyle": How the video is cut (raw_authentic = minimal editing, fast_cuts = quick transitions, dynamic = energetic with effects, cinematic = polished/professional)
 - "contentCategory": Type of content (ugc = user-generated content, testimonial = customer review/story, lifestyle = aspirational, product_demo = showing how product works)
-- Default to common high-performing traits if unclear (tiktok, ugc, curiosity, raw_authentic, subtitles: true)`;
+
+Remember: It is BETTER to return null fields with low confidence than to HALLUCINATE traits that weren't described!`;
 }
 
 function buildPatternPrompt(videos: Array<{

@@ -82,6 +82,31 @@ export const SAFETY_CONFIG = {
 
     /** Cache TTL for prediction results (ms) */
     predictionCacheTTL: 5 * 60 * 1000, // 5 minutes
+
+    // ========== SUGGESTED ORBS SAFETY ==========
+    /** Maximum suggestions to generate per trigger */
+    maxSuggestions: 3,
+
+    /** Minimum neighbors required for suggestion generation */
+    minNeighborsForSuggestion: 5,
+
+    /** Minimum uncertainty for experimental lever selection */
+    minUncertaintyForExperiment: 40,
+
+    /** Minimum confidence before no suggestions needed */
+    minConfidenceForNoSuggestion: 80,
+
+    /** Never auto-publish (IMMUTABLE SAFETY RULE) */
+    neverAutoPublish: true,
+
+    /** Never expose embeddings to users (IMMUTABLE SAFETY RULE) */
+    neverExposeEmbeddings: true,
+
+    /** Never overwrite user content (IMMUTABLE SAFETY RULE) */
+    neverOverwriteUserContent: true,
+
+    /** Always allow fallback prediction (IMMUTABLE SAFETY RULE) */
+    alwaysAllowFallback: true,
 } as const;
 
 // ============================================
