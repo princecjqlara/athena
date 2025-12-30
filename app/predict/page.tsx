@@ -52,6 +52,13 @@ export default function PredictPage() {
             return;
         }
 
+        // Quick validation - require minimum meaningful input
+        const wordCount = adDescription.trim().split(/\s+/).length;
+        if (wordCount < 3 || adDescription.trim().length < 15) {
+            setParseError('Please provide more detail about your ad (at least a few words describing the content, style, or platform)');
+            return;
+        }
+
         setIsParsing(true);
         setParseError(null);
 
@@ -71,6 +78,17 @@ export default function PredictPage() {
 
             if (result.success && result.data) {
                 const traits = result.data;
+                
+                // Check if AI detected insufficient input
+                if (traits.insufficientInput || traits.confidence < 30) {
+                    setParseError(
+                        traits.reasoning || 
+                        'Your description is too vague. Please provide more specific details about your ad (e.g., platform, style, hook type, features).'
+                    );
+                    setIsParsing(false);
+                    return;
+                }
+                
                 setParsedTraits({
                     hookType: traits.hookType || 'curiosity',
                     editingStyle: traits.editingStyle || 'raw_authentic',

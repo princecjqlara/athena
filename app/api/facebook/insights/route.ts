@@ -137,8 +137,8 @@ async function fetchDailyInsights(adId: string, accessToken: string, fields: str
     const since = dateFormat(startDate);
     const until = dateFormat(endDate);
 
-    // Build URL with explicit date range - use v21.0 for better compatibility
-    const url = `https://graph.facebook.com/v21.0/${adId}/insights?fields=${fields},date_start,date_stop&time_increment=1&time_range={"since":"${since}","until":"${until}"}&access_token=${accessToken}`;
+    // Build URL with explicit date range
+    const url = `https://graph.facebook.com/v24.0/${adId}/insights?fields=${fields},date_start,date_stop&time_increment=1&time_range={"since":"${since}","until":"${until}"}&access_token=${accessToken}`;
 
     console.log('[FetchDailyInsights] Requesting daily breakdown:', { adId, since, until });
 
@@ -158,7 +158,7 @@ async function fetchDailyInsights(adId: string, accessToken: string, fields: str
             console.error('[FetchDailyInsights] Facebook API Error:', data.error);
 
             // Try with minimal fields as fallback
-            const fallbackUrl = `https://graph.facebook.com/v21.0/${adId}/insights?fields=impressions,reach,clicks,spend,ctr,cpc,cpm,date_start,date_stop&time_increment=1&time_range={"since":"${since}","until":"${until}"}&access_token=${accessToken}`;
+            const fallbackUrl = `https://graph.facebook.com/v24.0/${adId}/insights?fields=impressions,reach,clicks,spend,ctr,cpc,cpm,date_start,date_stop&time_increment=1&time_range={"since":"${since}","until":"${until}"}&access_token=${accessToken}`;
             console.log('[FetchDailyInsights] Trying fallback with minimal fields...');
 
             const fallbackResponse = await fetch(fallbackUrl);
