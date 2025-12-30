@@ -19,12 +19,20 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Not configured' }, { status: 500 });
     }
 
-    // Use admin client to get current user and bypass RLS
-    const { data: { user: authUser }, error: authUserError } = await supabaseAdmin.auth.getUser();
+    // Extract access token from cookies
+    const accessToken = request.cookies.get('sb-access-token')?.value;
+
+    if (!accessToken) {
+        console.error('[Organizer] No access token in cookies');
+        return NextResponse.json({ error: 'Unauthorized - not logged in' }, { status: 401 });
+    }
+
+    // Validate token and get user using admin client
+    const { data: { user: authUser }, error: authUserError } = await supabaseAdmin.auth.getUser(accessToken);
 
     if (authUserError || !authUser) {
         console.error('[Organizer] Auth error:', authUserError);
-        return NextResponse.json({ error: 'Unauthorized - not logged in' }, { status: 401 });
+        return NextResponse.json({ error: 'Unauthorized - invalid session' }, { status: 401 });
     }
 
     // Get user profile with admin client (bypasses RLS)
