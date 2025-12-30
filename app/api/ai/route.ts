@@ -233,7 +233,11 @@ Be conversational, helpful, and reference their actual data. You have FULL CONTR
           { role: 'user', content: prompt }
         ],
         temperature: 0.3,
-        max_tokens: 1024,
+        // Dynamic token allocation based on action type
+        // parse-content needs 4096 for extracting 15-30+ traits from rich video metadata JSON
+        // chat needs 3072 for detailed responses with action parsing
+        // other actions need 2048 for standard responses
+        max_tokens: action === 'parse-content' ? 4096 : (action === 'chat' ? 3072 : 2048),
       }),
     });
 

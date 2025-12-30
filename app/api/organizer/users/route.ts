@@ -24,26 +24,26 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // Get all user profiles
-        const { data: profiles, error } = await supabase
+        // Get all user profiles - use supabaseAdmin to bypass RLS
+        const { data: profiles, error } = await supabaseAdmin
             .from('user_profiles')
             .select('*')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
 
-        // Get auth user emails
-        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
+        // Get auth user emails - use supabaseAdmin for admin access
+        const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers();
         const emailMap = new Map(authUsers?.map(u => [u.id, u.email]) || []);
 
-        // Get organization names
-        const { data: orgs } = await supabase
+        // Get organization names - use supabaseAdmin to bypass RLS
+        const { data: orgs } = await supabaseAdmin
             .from('organizations')
             .select('id, name');
         const orgMap = new Map(orgs?.map(o => [o.id, o.name]) || []);
 
-        // Get ads count per user
-        const { data: adsStats } = await supabase
+        // Get ads count per user - use supabaseAdmin to bypass RLS
+        const { data: adsStats } = await supabaseAdmin
             .from('ads')
             .select('user_id');
 
