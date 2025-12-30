@@ -176,25 +176,69 @@ export default function PipelineDetailPage() {
                                 };
                             });
 
-                            // Merge: real leads from Supabase + placeholders that haven't been replaced
+                            // Merge: real leads from Supabase + local leads that haven't been replaced
+                            const supabaseLeadIds = new Set(supabaseLeads.map((l: Lead) => l.id));
                             const supabaseAdIds = new Set(supabaseLeads.map((l: Lead) => l.sourceAdId).filter(Boolean));
 
-                            // Keep placeholders that don't have matching real leads
-                            const remainingPlaceholders = localLeads.filter(local => {
-                                // Keep if it's not a placeholder
-                                if (!local.isPlaceholder) return true;
-                                // Keep placeholder if there's no Supabase lead from the same ad
-                                return !supabaseAdIds.has(local.sourceAdId);
+                            // Keep local leads that:
+                            // 1. Don't have the same ID as any Supabase lead
+                            // 2. If placeholder, don't have matching Supabase lead from the same ad
+                            const remainingLocalLeads = localLeads.filter(local => {
+                                // Skip if same ID already exists in Supabase leads
+                                if (supabaseLeadIds.has(local.id)) return false;
+                                // For placeholders, skip if there's a real lead from the same ad
+                                if (local.isPlaceholder && local.sourceAdId && supabaseAdIds.has(local.sourceAdId)) {
+                                    return false;
+                                }
+                                return true;
                             });
 
-                            // Combine: Supabase leads first (real), then remaining placeholders
-                            const mergedLeads = [...supabaseLeads, ...remainingPlaceholders];
+                            // Combine: Supabase leads first (real), then remaining local leads
+                            const mergedLeads = [...supabaseLeads, ...remainingLocalLeads];
 
-                            console.log(`[Pipeline] Merged ${supabaseLeads.length} real leads + ${remainingPlaceholders.filter(l => l.isPlaceholder).length} placeholders`);
+                            console.log(`[Pipeline] Merged ${supabaseLeads.length} real leads + ${remainingLocalLeads.length} local leads (${remainingLocalLeads.filter(l => l.isPlaceholder).length} placeholders)`);
                             setLeads(mergedLeads);
+
+                            // Update pipeline lead count in localStorage to stay in sync
+                            const savedPipelinesStr = localStorage.getItem('pipelines');
+                            if (savedPipelinesStr) {
+                                const allPipelines = JSON.parse(savedPipelinesStr);
+                                const pipelineIdx = allPipelines.findIndex((p: Pipeline) => p.id === params.id);
+                                if (pipelineIdx !== -1) {
+                                    // Update stage counts
+                                    const updatedStages = allPipelines[pipelineIdx].stages.map((stage: Stage) => ({
+                                        ...stage,
+                                        leadCount: mergedLeads.filter(l => l.stageId === stage.id).length
+                                    }));
+                                    allPipelines[pipelineIdx].stages = updatedStages;
+                                    allPipelines[pipelineIdx].leadCount = mergedLeads.length;
+                                    localStorage.setItem('pipelines', JSON.stringify(allPipelines));
+                                    // Also update local pipeline state
+                                    setPipeline({ ...found, stages: updatedStages, leadCount: mergedLeads.length });
+                                    console.log(`[Pipeline] Updated pipeline lead count to ${mergedLeads.length}`);
+                                }
+                            }
                         } else {
                             // No Supabase contacts, use local only
                             setLeads(localLeads);
+                            // Update pipeline lead count for local leads too
+                            if (localLeads.length > 0) {
+                                const savedPipelinesStr = localStorage.getItem('pipelines');
+                                if (savedPipelinesStr) {
+                                    const allPipelines = JSON.parse(savedPipelinesStr);
+                                    const pipelineIdx = allPipelines.findIndex((p: Pipeline) => p.id === params.id);
+                                    if (pipelineIdx !== -1 && allPipelines[pipelineIdx].leadCount !== localLeads.length) {
+                                        const updatedStages = allPipelines[pipelineIdx].stages.map((stage: Stage) => ({
+                                            ...stage,
+                                            leadCount: localLeads.filter(l => l.stageId === stage.id).length
+                                        }));
+                                        allPipelines[pipelineIdx].stages = updatedStages;
+                                        allPipelines[pipelineIdx].leadCount = localLeads.length;
+                                        localStorage.setItem('pipelines', JSON.stringify(allPipelines));
+                                        setPipeline({ ...found, stages: updatedStages, leadCount: localLeads.length });
+                                    }
+                                }
+                            }
                         }
                     })
                     .catch(err => {
