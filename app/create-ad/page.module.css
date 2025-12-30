@@ -691,3 +691,83 @@
     gap: var(--spacing-md);
     flex-wrap: wrap;
 }
+
+/* ========== CAMPAIGN BUILDER ========== */
+.builderSection {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.adSetsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+/* ========== MODALS ========== */
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: var(--spacing-lg);
+}
+
+.modal {
+    padding: var(--spacing-xl);
+    max-width: 400px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalIn 0.2s ease;
+}
+
+.modal h3 {
+    margin-bottom: var(--spacing-lg);
+    font-size: 1.25rem;
+}
+
+.modal textarea {
+    width: 100%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    resize: vertical;
+    font-family: inherit;
+}
+
+.modal textarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+@keyframes modalIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Responsive adjustments for builder */
+@media (max-width: 768px) {
+    .builderSection {
+        padding: 0;
+    }
+
+    .modal {
+        max-width: 100%;
+        margin: var(--spacing-md);
+    }
+}

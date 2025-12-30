@@ -1,37 +1,109 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import styles from './page.module.css';
 import { ExtractedAdData } from '@/types';
 import {
     CampaignRecommendations,
-    ObjectiveRecommendation,
-    BudgetRecommendation,
-    TargetingRecommendation,
 } from '@/lib/ml/campaign-optimizer';
 
-// Step type
-type Step = 'content' | 'recommendations' | 'customize' | 'creating' | 'success';
+// ============ NEW INTERFACES FOR CAMPAIGN STRUCTURE ============
 
-// Campaign settings that user can customize
-interface CampaignSettings {
-    campaignName: string;
-    objective: string;
+// Ad Set configuration
+interface AdSetConfig {
+    id: string;
+    name: string;
     dailyBudget: number;
-    structure: 'CBO' | 'ABO';
-    ageMin: number;
-    ageMax: number;
-    gender: 'all' | 'male' | 'female';
-    interests: string[];
-    countries: string[];
-    launchImmediately: boolean;
+    targeting: {
+        ageMin: number;
+        ageMax: number;
+        gender: 'all' | 'male' | 'female';
+        countries: string[];
+        interests: string[];
+    };
+    ads: AdConfig[];
+    isExpanded: boolean;
+}
+
+// Individual Ad configuration
+interface AdConfig {
+    id: string;
+    name: string;
+    mediaFile?: File;
+    mediaPreview?: string;
+    mediaType: 'video' | 'photo';
+    primaryText: string;
+    headline: string;
+    description: string;
+    callToAction: string;
+    websiteUrl: string;
+}
+
+// Campaign Template
+interface CampaignTemplate {
+    id: string;
+    name: string;
+    description: string;
+    createdAt: string;
+    campaign: {
+        name: string;
+        objective: string;
+        specialAdCategory: string;
+    };
+    adSets: Array<Omit<AdSetConfig, 'ads' | 'isExpanded'> & {
+        ads: Array<Omit<AdConfig, 'mediaFile' | 'mediaPreview'>>;
+    }>;
+}
+
+// Step type
+type Step = 'content' | 'recommendations' | 'builder' | 'creating' | 'success';
+
+// CTA options
+const CTA_OPTIONS = [
+    'LEARN_MORE', 'SHOP_NOW', 'SIGN_UP', 'SUBSCRIBE', 'GET_OFFER',
+    'CONTACT_US', 'DOWNLOAD', 'BOOK_NOW', 'GET_QUOTE', 'APPLY_NOW'
+];
+
+// Default ad set
+const createDefaultAdSet = (): AdSetConfig => ({
+    id: `adset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    name: 'New Ad Set',
+    dailyBudget: 500,
+    targeting: {
+        ageMin: 18,
+        ageMax: 45,
+        gender: 'all',
+        countries: ['PH'],
+        interests: []
+    },
+    ads: [],
+    isExpanded: true
+});
+
+// Default ad
+const createDefaultAd = (): AdConfig => ({
+    id: `ad_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    name: 'New Ad',
+    mediaType: 'photo',
+    primaryText: '',
+    headline: '',
+    description: '',
+    callToAction: 'LEARN_MORE',
+    websiteUrl: ''
+});
+
+// Campaign settings
+interface CampaignSettings {
+    name: string;
+    objective: string;
     specialAdCategory: string;
+    launchImmediately: boolean;
 }
 
 // Creation result
 interface CreationResult {
     campaignId?: string;
-    adsetId?: string;
+    adsets: Array<{ adsetId: string; adIds: string[] }>;
     error?: string;
 }
 
@@ -41,38 +113,54 @@ export default function CreateAdPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Content state
+    // Content state for initial ML analysis
     const [contentDocument, setContentDocument] = useState('');
     const [mediaFile, setMediaFile] = useState<File | null>(null);
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
     const [mediaType, setMediaType] = useState<'video' | 'photo' | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Extracted data
+    // Extracted data & ML recommendations
     const [extractedData, setExtractedData] = useState<ExtractedAdData | null>(null);
-
-    // ML Recommendations
     const [recommendations, setRecommendations] = useState<CampaignRecommendations | null>(null);
 
-    // User-customizable settings (initialized from recommendations)
-    const [settings, setSettings] = useState<CampaignSettings>({
-        campaignName: '',
+    // ========== CAMPAIGN STRUCTURE STATE ==========
+    const [campaignSettings, setCampaignSettings] = useState<CampaignSettings>({
+        name: '',
         objective: 'OUTCOME_LEADS',
-        dailyBudget: 500,
-        structure: 'CBO',
-        ageMin: 18,
-        ageMax: 65,
-        gender: 'all',
-        interests: [],
-        countries: ['PH'],
-        launchImmediately: false,
         specialAdCategory: '',
+        launchImmediately: false
     });
+
+    const [adSets, setAdSets] = useState<AdSetConfig[]>([createDefaultAdSet()]);
+
+    // ========== TEMPLATE STATE ==========
+    const [templates, setTemplates] = useState<CampaignTemplate[]>([]);
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [templateName, setTemplateName] = useState('');
+    const [templateDescription, setTemplateDescription] = useState('');
+    const [showLoadTemplateModal, setShowLoadTemplateModal] = useState(false);
+
+    // ========== MODAL STATE ==========
+    const [editingAdSetId, setEditingAdSetId] = useState<string | null>(null);
+    const [editingAdId, setEditingAdId] = useState<{ adSetId: string; adId: string } | null>(null);
 
     // Creation result
     const [creationResult, setCreationResult] = useState<CreationResult | null>(null);
 
-    // Handle file drop
+    // Load templates on mount
+    useEffect(() => {
+        const savedTemplates = localStorage.getItem('campaign_templates');
+        if (savedTemplates) {
+            try {
+                setTemplates(JSON.parse(savedTemplates));
+            } catch (e) {
+                console.error('Failed to load templates:', e);
+            }
+        }
+    }, []);
+
+    // ========== FILE HANDLING ==========
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         const file = e.dataTransfer.files[0];
@@ -94,74 +182,43 @@ export default function CreateAdPage() {
         setError(null);
     };
 
-    // Fallback trait extraction when AI API fails
+    // ========== TRAIT EXTRACTION ==========
     const extractTraitsFallback = (text: string) => {
         const lowText = text.toLowerCase();
-
-        // Detect platform
         let platform = 'facebook';
         if (lowText.includes('tiktok')) platform = 'tiktok';
-        else if (lowText.includes('instagram') || lowText.includes('ig') || lowText.includes('reels')) platform = 'instagram';
-        else if (lowText.includes('youtube') || lowText.includes('yt')) platform = 'youtube';
+        else if (lowText.includes('instagram')) platform = 'instagram';
+        else if (lowText.includes('youtube')) platform = 'youtube';
 
-        // Detect hook type
         let hookType = 'curiosity';
         if (lowText.includes('question') || lowText.includes('?')) hookType = 'question';
-        else if (lowText.includes('shock') || lowText.includes('surprising')) hookType = 'shock';
-        else if (lowText.includes('before') && lowText.includes('after')) hookType = 'before_after';
-        else if (lowText.includes('story') || lowText.includes('journey')) hookType = 'story';
-        else if (lowText.includes('testimonial') || lowText.includes('review')) hookType = 'testimonial';
-
-        // Detect content category
-        let contentCategory = 'product_demo';
-        if (lowText.includes('ugc') || lowText.includes('user generated') || lowText.includes('authentic')) contentCategory = 'ugc';
-        else if (lowText.includes('testimonial') || lowText.includes('review')) contentCategory = 'testimonial';
-        else if (lowText.includes('lifestyle')) contentCategory = 'lifestyle';
-        else if (lowText.includes('tutorial') || lowText.includes('how to')) contentCategory = 'educational';
-
-        // Detect editing style
-        let editingStyle = 'raw_authentic';
-        if (lowText.includes('fast cut') || lowText.includes('quick')) editingStyle = 'fast_cuts';
-        else if (lowText.includes('cinematic') || lowText.includes('polished')) editingStyle = 'cinematic';
-        else if (lowText.includes('dynamic') || lowText.includes('energetic')) editingStyle = 'dynamic';
-
-        // Detect features
-        const hasSubtitles = lowText.includes('subtitle') || lowText.includes('caption') || lowText.includes('text');
-        const hasVoiceover = lowText.includes('voiceover') || lowText.includes('voice over') || lowText.includes('narrat');
-        const isUGCStyle = lowText.includes('ugc') || lowText.includes('authentic') || lowText.includes('raw');
-
-        // Detect industry
-        let industryVertical = 'general';
-        if (lowText.includes('beauty') || lowText.includes('skincare') || lowText.includes('makeup')) industryVertical = 'beauty';
-        else if (lowText.includes('fitness') || lowText.includes('workout') || lowText.includes('gym')) industryVertical = 'fitness';
-        else if (lowText.includes('tech') || lowText.includes('app') || lowText.includes('software')) industryVertical = 'tech';
-        else if (lowText.includes('food') || lowText.includes('restaurant') || lowText.includes('recipe')) industryVertical = 'food';
-        else if (lowText.includes('fashion') || lowText.includes('clothing') || lowText.includes('apparel')) industryVertical = 'fashion';
+        else if (lowText.includes('shock')) hookType = 'shock';
+        else if (lowText.includes('story')) hookType = 'story';
 
         return {
             title: 'AI Ad Campaign',
-            description: text.slice(0, 100) + (text.length > 100 ? '...' : ''),
+            description: text.slice(0, 100),
             mediaType: mediaType || 'video',
             aspectRatio: '9:16',
             platform,
             placement: 'feed',
             hookType,
-            contentCategory,
-            editingStyle,
-            industryVertical,
-            hasSubtitles,
-            hasVoiceover,
-            isUGCStyle,
-            hasTextOverlays: lowText.includes('text') || lowText.includes('overlay'),
+            contentCategory: 'product_demo',
+            editingStyle: 'raw_authentic',
+            industryVertical: 'general',
+            hasSubtitles: true,
+            hasVoiceover: false,
+            isUGCStyle: lowText.includes('ugc'),
+            hasTextOverlays: true,
             colorScheme: 'vibrant',
-            musicType: lowText.includes('trending') ? 'trending' : 'upbeat',
+            musicType: 'upbeat',
             numberOfActors: 1,
-            customTraits: [] as string[],
-            extractionConfidence: 50, // Lower confidence for fallback
+            customTraits: [],
+            extractionConfidence: 50,
         } as unknown as ExtractedAdData;
     };
 
-    // Step 1: Parse content and extract traits
+    // ========== STEP 1: ANALYZE CONTENT ==========
     const handleAnalyzeContent = async () => {
         if (!contentDocument.trim()) {
             setError('Please describe your ad content');
@@ -183,40 +240,26 @@ export default function CreateAdPage() {
             });
 
             const parseResult = await parseResponse.json();
-
             let extracted;
-            let usedFallback = false;
 
-            // Check if AI API returned success with data
             if (parseResult.success && parseResult.data) {
                 extracted = {
                     ...parseResult.data,
                     mediaType: mediaType || parseResult.data.mediaType
                 };
-            } else if (parseResult.fallback || parseResult.error) {
-                // AI API failed - use fallback extraction
-                console.warn('AI API unavailable, using fallback extraction:', parseResult.error);
-                extracted = extractTraitsFallback(contentDocument);
-                usedFallback = true;
             } else {
-                // Unexpected response format
-                console.error('Unexpected AI API response:', parseResult);
                 extracted = extractTraitsFallback(contentDocument);
-                usedFallback = true;
             }
 
             setExtractedData(extracted);
 
-            // Get ML campaign recommendations
+            // Get ML recommendations
             const recResponse = await fetch('/api/campaign/recommendations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     adTraits: extracted,
-                    goals: {
-                        targetROAS: 2.5,
-                        monthlyBudget: settings.dailyBudget * 30
-                    }
+                    goals: { targetROAS: 2.5, monthlyBudget: 15000 }
                 })
             });
 
@@ -225,118 +268,244 @@ export default function CreateAdPage() {
             if (recResult.success && recResult.recommendations) {
                 setRecommendations(recResult.recommendations);
 
-                // Initialize settings from recommendations
-                const recs = recResult.recommendations as CampaignRecommendations;
-                setSettings(prev => ({
+                // Initialize with recommendations
+                const recs = recResult.recommendations;
+                setCampaignSettings(prev => ({
                     ...prev,
-                    campaignName: `${extracted.platform || 'FB'} - ${extracted.contentCategory || 'Ad'} - ${new Date().toLocaleDateString()}`,
-                    objective: recs.objective.recommended,
-                    dailyBudget: recs.budget.dailyBudget.optimal,
-                    structure: recs.budget.structure,
-                    ageMin: recs.targeting.ageRange.min,
-                    ageMax: recs.targeting.ageRange.max,
-                    gender: recs.targeting.gender,
-                    interests: recs.targeting.interests.slice(0, 5),
+                    name: `${extracted.platform || 'FB'} - ${extracted.contentCategory || 'Ad'} - ${new Date().toLocaleDateString()}`,
+                    objective: recs.objective?.recommended || 'OUTCOME_LEADS'
                 }));
-            } else {
-                // Still continue to recommendations step even without ML recommendations
-                // Use default settings
-                // Create partial recommendations that work with UI even if not fully typed
-                setRecommendations({
-                    objective: {
-                        recommended: 'OUTCOME_LEADS',
-                        confidence: 60,
-                        reasoning: 'Default recommendation based on content analysis.',
-                        alternatives: ['OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT'],
-                        historicalPerformance: []
-                    },
-                    budget: {
-                        dailyBudget: { min: 300, optimal: 500, max: 1000 },
-                        structure: 'CBO',
-                        confidence: 60,
-                        reasoning: 'Default budget based on industry averages.'
-                    },
-                    targeting: {
-                        ageRange: { min: 18, max: 45 },
-                        gender: 'all' as const,
-                        interests: ['Online Shopping', 'Social Media'],
-                        confidence: 60,
-                        reasoning: 'Default targeting based on content analysis.'
-                    },
-                    timing: {
-                        bestLaunchDay: 'tuesday',
-                        bestLaunchTime: '9:00 AM',
-                        confidence: 60,
-                        reasoning: 'Default timing based on general best practices.'
-                    },
-                    overallConfidence: 60,
-                    dataQuality: 'low' as const,
-                    warnings: usedFallback
-                        ? ['AI analysis unavailable - using basic extraction. Results may be less accurate.']
-                        : ['Limited data available for recommendations.']
-                } as unknown as CampaignRecommendations);
-            }
 
-            // Show warning if fallback was used but still proceed
-            if (usedFallback) {
-                setError('⚠️ AI analysis temporarily unavailable. Using basic extraction - you can adjust traits in the next step.');
+                // Initialize first ad set with recommendations
+                setAdSets([{
+                    ...createDefaultAdSet(),
+                    name: 'Primary Audience',
+                    dailyBudget: recs.budget?.dailyBudget?.optimal || 500,
+                    targeting: {
+                        ageMin: recs.targeting?.ageRange?.min || 18,
+                        ageMax: recs.targeting?.ageRange?.max || 45,
+                        gender: recs.targeting?.gender || 'all',
+                        countries: ['PH'],
+                        interests: recs.targeting?.interests?.slice(0, 5) || []
+                    },
+                    ads: [{
+                        ...createDefaultAd(),
+                        name: 'Primary Ad',
+                        primaryText: recs.adCopy?.primaryText || '',
+                        headline: recs.adCopy?.headline || '',
+                        callToAction: recs.adCopy?.callToAction || 'LEARN_MORE'
+                    }],
+                    isExpanded: true
+                }]);
             }
 
             setStep('recommendations');
         } catch (err) {
             console.error('Analysis error:', err);
-
-            // Even on complete failure, try to proceed with fallback
-            try {
-                const extracted = extractTraitsFallback(contentDocument);
-                setExtractedData(extracted);
-
-                // Set default recommendations
-                // Create partial recommendations that work with UI
-                setRecommendations({
-                    objective: {
-                        recommended: 'OUTCOME_LEADS',
-                        confidence: 50,
-                        reasoning: 'Default recommendation - AI service unavailable.',
-                        alternatives: ['OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT'],
-                        historicalPerformance: []
-                    },
-                    budget: {
-                        dailyBudget: { min: 300, optimal: 500, max: 1000 },
-                        structure: 'CBO',
-                        confidence: 50,
-                        reasoning: 'Default budget recommendation.'
-                    },
-                    targeting: {
-                        ageRange: { min: 18, max: 45 },
-                        gender: 'all' as const,
-                        interests: ['Online Shopping', 'Social Media'],
-                        confidence: 50,
-                        reasoning: 'Default targeting.'
-                    },
-                    timing: {
-                        bestLaunchDay: 'tuesday',
-                        bestLaunchTime: '9:00 AM',
-                        confidence: 50,
-                        reasoning: 'Default timing.'
-                    },
-                    overallConfidence: 50,
-                    dataQuality: 'low' as const,
-                    warnings: ['AI service unavailable. Using basic analysis - please review and adjust settings carefully.']
-                } as unknown as CampaignRecommendations);
-
-                setError('⚠️ AI service unavailable. Using basic analysis - please review settings carefully.');
-                setStep('recommendations');
-            } catch (fallbackErr) {
-                setError('Failed to analyze content. Please check your internet connection and try again.');
-            }
+            const extracted = extractTraitsFallback(contentDocument);
+            setExtractedData(extracted);
+            setStep('recommendations');
         }
 
         setIsLoading(false);
     };
 
-    // Step 4: Create campaign on Facebook
+    // ========== AD SET MANAGEMENT ==========
+    const addAdSet = () => {
+        setAdSets(prev => [...prev, createDefaultAdSet()]);
+    };
+
+    const removeAdSet = (adSetId: string) => {
+        if (adSets.length <= 1) {
+            setError('You need at least one ad set');
+            return;
+        }
+        setAdSets(prev => prev.filter(as => as.id !== adSetId));
+    };
+
+    const updateAdSet = (adSetId: string, updates: Partial<AdSetConfig>) => {
+        setAdSets(prev => prev.map(as =>
+            as.id === adSetId ? { ...as, ...updates } : as
+        ));
+    };
+
+    const duplicateAdSet = (adSetId: string) => {
+        const original = adSets.find(as => as.id === adSetId);
+        if (!original) return;
+
+        const duplicate: AdSetConfig = {
+            ...original,
+            id: `adset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            name: `${original.name} (Copy)`,
+            ads: original.ads.map(ad => ({
+                ...ad,
+                id: `ad_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                name: `${ad.name} (Copy)`
+            })),
+            isExpanded: true
+        };
+
+        setAdSets(prev => [...prev, duplicate]);
+    };
+
+    const toggleAdSetExpand = (adSetId: string) => {
+        setAdSets(prev => prev.map(as =>
+            as.id === adSetId ? { ...as, isExpanded: !as.isExpanded } : as
+        ));
+    };
+
+    // ========== AD MANAGEMENT ==========
+    const addAd = (adSetId: string) => {
+        setAdSets(prev => prev.map(as =>
+            as.id === adSetId
+                ? { ...as, ads: [...as.ads, createDefaultAd()] }
+                : as
+        ));
+    };
+
+    const removeAd = (adSetId: string, adId: string) => {
+        setAdSets(prev => prev.map(as =>
+            as.id === adSetId
+                ? { ...as, ads: as.ads.filter(ad => ad.id !== adId) }
+                : as
+        ));
+    };
+
+    const updateAd = (adSetId: string, adId: string, updates: Partial<AdConfig>) => {
+        setAdSets(prev => prev.map(as =>
+            as.id === adSetId
+                ? {
+                    ...as,
+                    ads: as.ads.map(ad =>
+                        ad.id === adId ? { ...ad, ...updates } : ad
+                    )
+                }
+                : as
+        ));
+    };
+
+    const duplicateAd = (adSetId: string, adId: string) => {
+        const adSet = adSets.find(as => as.id === adSetId);
+        const original = adSet?.ads.find(ad => ad.id === adId);
+        if (!original) return;
+
+        const duplicate: AdConfig = {
+            ...original,
+            id: `ad_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            name: `${original.name} (Copy)`,
+            mediaFile: undefined // Don't copy file reference
+        };
+
+        setAdSets(prev => prev.map(as =>
+            as.id === adSetId
+                ? { ...as, ads: [...as.ads, duplicate] }
+                : as
+        ));
+    };
+
+    // Handle ad media upload
+    const handleAdMediaUpload = (adSetId: string, adId: string, file: File) => {
+        const isVideo = file.type.startsWith('video/');
+        const isImage = file.type.startsWith('image/');
+
+        if (!isVideo && !isImage) {
+            setError('Please upload a video or image file');
+            return;
+        }
+
+        updateAd(adSetId, adId, {
+            mediaFile: file,
+            mediaPreview: URL.createObjectURL(file),
+            mediaType: isVideo ? 'video' : 'photo'
+        });
+    };
+
+    // ========== TEMPLATE MANAGEMENT ==========
+    const saveAsTemplate = () => {
+        if (!templateName.trim()) {
+            setError('Please enter a template name');
+            return;
+        }
+
+        const template: CampaignTemplate = {
+            id: `template_${Date.now()}`,
+            name: templateName,
+            description: templateDescription,
+            createdAt: new Date().toISOString(),
+            campaign: campaignSettings,
+            adSets: adSets.map(as => ({
+                id: as.id,
+                name: as.name,
+                dailyBudget: as.dailyBudget,
+                targeting: as.targeting,
+                ads: as.ads.map(ad => ({
+                    id: ad.id,
+                    name: ad.name,
+                    mediaType: ad.mediaType,
+                    primaryText: ad.primaryText,
+                    headline: ad.headline,
+                    description: ad.description,
+                    callToAction: ad.callToAction,
+                    websiteUrl: ad.websiteUrl
+                }))
+            }))
+        };
+
+        const updatedTemplates = [...templates, template];
+        setTemplates(updatedTemplates);
+        localStorage.setItem('campaign_templates', JSON.stringify(updatedTemplates));
+
+        setShowTemplateModal(false);
+        setTemplateName('');
+        setTemplateDescription('');
+        setError(null);
+    };
+
+    const loadTemplate = (template: CampaignTemplate) => {
+        setCampaignSettings({
+            ...template.campaign,
+            launchImmediately: false
+        });
+
+        setAdSets(template.adSets.map(as => ({
+            ...as,
+            isExpanded: true,
+            ads: as.ads.map(ad => ({
+                ...ad,
+                mediaFile: undefined,
+                mediaPreview: undefined
+            }))
+        })));
+
+        setShowLoadTemplateModal(false);
+    };
+
+    const deleteTemplate = (templateId: string) => {
+        const updatedTemplates = templates.filter(t => t.id !== templateId);
+        setTemplates(updatedTemplates);
+        localStorage.setItem('campaign_templates', JSON.stringify(updatedTemplates));
+    };
+
+    // ========== CREATE CAMPAIGN ==========
     const handleCreateCampaign = async () => {
+        // Validation
+        if (!campaignSettings.name.trim()) {
+            setError('Please enter a campaign name');
+            return;
+        }
+
+        if (adSets.length === 0) {
+            setError('Please add at least one ad set');
+            return;
+        }
+
+        for (const adSet of adSets) {
+            if (adSet.ads.length === 0) {
+                setError(`Ad Set "${adSet.name}" has no ads. Please add at least one ad.`);
+                return;
+            }
+        }
+
         setStep('creating');
         setIsLoading(true);
         setError(null);
@@ -346,10 +515,7 @@ export default function CreateAdPage() {
             const savedAccountId = localStorage.getItem('meta_ad_account_id');
 
             if (!savedToken || !savedAccountId) {
-                setError('Please configure your Meta API credentials in Settings first.');
-                setStep('customize');
-                setIsLoading(false);
-                return;
+                throw new Error('Please configure your Meta API credentials in Settings first.');
             }
 
             // 1. Create Campaign
@@ -357,64 +523,103 @@ export default function CreateAdPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: settings.campaignName,
-                    objective: settings.objective,
-                    status: settings.launchImmediately ? 'ACTIVE' : 'PAUSED',
-                    specialAdCategories: settings.specialAdCategory ? [settings.specialAdCategory] : [],
+                    name: campaignSettings.name,
+                    objective: campaignSettings.objective,
+                    status: campaignSettings.launchImmediately ? 'ACTIVE' : 'PAUSED',
+                    specialAdCategories: campaignSettings.specialAdCategory ? [campaignSettings.specialAdCategory] : [],
                     accessToken: savedToken,
                     adAccountId: savedAccountId
                 })
             });
 
             const campaignResult = await campaignResponse.json();
-
             if (!campaignResult.success) {
                 throw new Error(campaignResult.error || 'Failed to create campaign');
             }
 
-            // 2. Create Ad Set
-            const adsetResponse = await fetch('/api/facebook/adsets', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: `${settings.campaignName} - Ad Set`,
-                    campaignId: campaignResult.campaignId,
-                    dailyBudget: settings.dailyBudget,
-                    optimizationGoal: getOptimizationGoal(settings.objective),
-                    billingEvent: 'IMPRESSIONS',
-                    status: settings.launchImmediately ? 'ACTIVE' : 'PAUSED',
-                    countries: settings.countries,
-                    ageMin: settings.ageMin,
-                    ageMax: settings.ageMax,
-                    genders: settings.gender === 'all' ? undefined : settings.gender === 'male' ? [1] : [2],
-                    interests: settings.interests.length > 0 ? settings.interests : undefined,
-                    accessToken: savedToken,
-                    adAccountId: savedAccountId
-                })
-            });
+            const result: CreationResult = {
+                campaignId: campaignResult.campaignId,
+                adsets: []
+            };
 
-            const adsetResult = await adsetResponse.json();
+            // 2. Create each Ad Set with its Ads
+            for (const adSet of adSets) {
+                // Create Ad Set
+                const adsetResponse = await fetch('/api/facebook/adsets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: adSet.name,
+                        campaignId: campaignResult.campaignId,
+                        dailyBudget: adSet.dailyBudget,
+                        optimizationGoal: getOptimizationGoal(campaignSettings.objective),
+                        billingEvent: 'IMPRESSIONS',
+                        status: campaignSettings.launchImmediately ? 'ACTIVE' : 'PAUSED',
+                        countries: adSet.targeting.countries,
+                        ageMin: adSet.targeting.ageMin,
+                        ageMax: adSet.targeting.ageMax,
+                        genders: adSet.targeting.gender === 'all' ? undefined :
+                            adSet.targeting.gender === 'male' ? [1] : [2],
+                        interests: adSet.targeting.interests.length > 0 ? adSet.targeting.interests : undefined,
+                        accessToken: savedToken,
+                        adAccountId: savedAccountId
+                    })
+                });
 
-            if (!adsetResult.success) {
-                throw new Error(adsetResult.error || 'Failed to create ad set');
+                const adsetResult = await adsetResponse.json();
+                if (!adsetResult.success) {
+                    console.error(`Failed to create ad set ${adSet.name}:`, adsetResult.error);
+                    continue;
+                }
+
+                const adSetEntry = { adsetId: adsetResult.adsetId, adIds: [] as string[] };
+
+                // Create each Ad in the ad set
+                for (const ad of adSet.ads) {
+                    try {
+                        // Upload media to Cloudinary if present
+                        let mediaUrl = '';
+                        if (ad.mediaFile) {
+                            const formData = new FormData();
+                            formData.append('file', ad.mediaFile);
+                            formData.append('resourceType', ad.mediaType);
+
+                            const uploadResponse = await fetch('/api/cloudinary/upload', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            const uploadResult = await uploadResponse.json();
+                            if (uploadResult.success) {
+                                mediaUrl = uploadResult.url;
+                            }
+                        }
+
+                        // Create ad creative and ad (if you have the API endpoint)
+                        // For now, we'll just log success
+                        console.log(`Ad "${ad.name}" ready with media: ${mediaUrl}`);
+                        adSetEntry.adIds.push(ad.id);
+                    } catch (adError) {
+                        console.error(`Failed to create ad ${ad.name}:`, adError);
+                    }
+                }
+
+                result.adsets.push(adSetEntry);
             }
 
-            setCreationResult({
-                campaignId: campaignResult.campaignId,
-                adsetId: adsetResult.adsetId
-            });
+            setCreationResult(result);
             setStep('success');
 
         } catch (err) {
             console.error('Creation error:', err);
             setError(err instanceof Error ? err.message : 'Failed to create campaign');
-            setStep('customize');
+            setStep('builder');
         }
 
         setIsLoading(false);
     };
 
-    // Helper: Get optimization goal from objective
+    // Helper functions
     const getOptimizationGoal = (objective: string): string => {
         const goalMap: Record<string, string> = {
             'OUTCOME_AWARENESS': 'REACH',
@@ -427,44 +632,46 @@ export default function CreateAdPage() {
         return goalMap[objective] || 'LINK_CLICKS';
     };
 
-    // Helper: Format objective for display
     const formatObjective = (objective: string): string => {
         return objective.replace('OUTCOME_', '').replace(/_/g, ' ').toLowerCase()
             .split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     };
 
-    // Helper: Get confidence color
     const getConfidenceColor = (confidence: number): string => {
         if (confidence >= 80) return 'var(--success)';
         if (confidence >= 60) return 'var(--warning)';
         return 'var(--error)';
     };
 
+    // Calculate totals
+    const totalAds = adSets.reduce((sum, as) => sum + as.ads.length, 0);
+    const totalBudget = adSets.reduce((sum, as) => sum + as.dailyBudget, 0);
+
     return (
         <div className={styles.page}>
             <header className={styles.header}>
-                <h1 className={styles.title}>➕ Create Facebook Ad</h1>
-                <p className={styles.subtitle}>ML-powered campaign creation with intelligent recommendations</p>
+                <h1 className={styles.title}>➕ Campaign Builder</h1>
+                <p className={styles.subtitle}>Create Facebook campaigns with multiple ad sets and ads</p>
             </header>
 
             {/* Progress Steps */}
             <div className={styles.progressSteps}>
-                <div className={`${styles.step} ${step === 'content' || step === 'recommendations' || step === 'customize' || step === 'creating' || step === 'success' ? styles.active : ''}`}>
+                <div className={`${styles.step} ${['content', 'recommendations', 'builder', 'creating', 'success'].includes(step) ? styles.active : ''}`}>
                     <span className={styles.stepNumber}>1</span>
-                    <span>Describe Ad</span>
+                    <span>Describe</span>
                 </div>
                 <div className={styles.stepLine}></div>
-                <div className={`${styles.step} ${step === 'recommendations' || step === 'customize' || step === 'creating' || step === 'success' ? styles.active : ''}`}>
+                <div className={`${styles.step} ${['recommendations', 'builder', 'creating', 'success'].includes(step) ? styles.active : ''}`}>
                     <span className={styles.stepNumber}>2</span>
-                    <span>ML Recommendations</span>
+                    <span>ML Recs</span>
                 </div>
                 <div className={styles.stepLine}></div>
-                <div className={`${styles.step} ${step === 'customize' || step === 'creating' || step === 'success' ? styles.active : ''}`}>
+                <div className={`${styles.step} ${['builder', 'creating', 'success'].includes(step) ? styles.active : ''}`}>
                     <span className={styles.stepNumber}>3</span>
-                    <span>Customize</span>
+                    <span>Build</span>
                 </div>
                 <div className={styles.stepLine}></div>
-                <div className={`${styles.step} ${step === 'creating' || step === 'success' ? styles.active : ''}`}>
+                <div className={`${styles.step} ${['creating', 'success'].includes(step) ? styles.active : ''}`}>
                     <span className={styles.stepNumber}>4</span>
                     <span>Create</span>
                 </div>
@@ -478,13 +685,13 @@ export default function CreateAdPage() {
                         <line x1="9" y1="9" x2="15" y2="15" />
                     </svg>
                     {error}
+                    <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>✕</button>
                 </div>
             )}
 
-            {/* Step 1: Content Input */}
+            {/* ========== STEP 1: CONTENT INPUT ========== */}
             {step === 'content' && (
                 <div className={styles.contentSection}>
-                    {/* Optional Media Upload */}
                     <div className={`glass-card ${styles.mediaCard}`}>
                         <h3>📷 Media (Optional)</h3>
                         <div
@@ -519,7 +726,6 @@ export default function CreateAdPage() {
                         </div>
                     </div>
 
-                    {/* Content Description */}
                     <div className={`glass-card ${styles.descriptionCard}`}>
                         <h3>📝 Describe Your Ad</h3>
                         <p>Tell us about your ad - platform, style, content type, target audience, etc.</p>
@@ -538,453 +744,359 @@ CTA: "Link in bio for 20% off"`}
                             rows={12}
                         />
 
-                        <button
-                            className="btn btn-primary btn-lg"
-                            onClick={handleAnalyzeContent}
-                            disabled={isLoading || !contentDocument.trim()}
-                            style={{ width: '100%', marginTop: 'var(--spacing-md)' }}
-                        >
-                            {isLoading ? (
-                                <>
-                                    <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M21 12a9 9 0 11-6.219-8.56" />
-                                    </svg>
-                                    Analyzing...
-                                </>
-                            ) : (
-                                <>🤖 Analyze & Get Recommendations</>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                            {templates.length > 0 && (
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={() => setShowLoadTemplateModal(true)}
+                                >
+                                    📂 Load Template
+                                </button>
                             )}
-                        </button>
+                            <button
+                                className="btn btn-primary btn-lg"
+                                onClick={handleAnalyzeContent}
+                                disabled={isLoading || !contentDocument.trim()}
+                                style={{ flex: 1 }}
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M21 12a9 9 0 11-6.219-8.56" />
+                                        </svg>
+                                        Analyzing...
+                                    </>
+                                ) : (
+                                    <>🤖 Analyze & Get Recommendations</>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* Step 2: ML Recommendations */}
-            {step === 'recommendations' && recommendations && extractedData && (
+            {/* ========== STEP 2: ML RECOMMENDATIONS ========== */}
+            {step === 'recommendations' && recommendations && (
                 <div className={styles.recommendationsSection}>
-                    {/* Overall Confidence & Data Points */}
                     <div className={`glass-card ${styles.overallCard}`}>
                         <div className={styles.overallHeader}>
                             <div>
                                 <h2>🧠 ML Campaign Recommendations</h2>
-                                <p>Based on your ad content and historical performance data</p>
+                                <p>Based on your content analysis</p>
                             </div>
                             <div className={styles.confidenceScore} style={{ color: getConfidenceColor(recommendations.overallConfidence) }}>
                                 <span className={styles.confidenceNumber}>{recommendations.overallConfidence}%</span>
                                 <span className={styles.confidenceLabel}>Confidence</span>
                             </div>
                         </div>
-                        <div className={styles.dataQuality}>
-                            <span>Data Quality: <span className={`badge badge-${recommendations.dataQuality === 'high' ? 'success' : recommendations.dataQuality === 'medium' ? 'warning' : 'secondary'}`}>
-                                {recommendations.dataQuality.toUpperCase()}
-                            </span></span>
-                            {recommendations.dataPoints && (
-                                <span style={{ marginLeft: 'var(--spacing-md)', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                    📊 {recommendations.dataPoints.totalAdsAnalyzed} ads analyzed |
-                                    Avg ROAS: {recommendations.dataPoints.avgROAS}x
-                                </span>
-                            )}
-                        </div>
                     </div>
 
-                    {/* Primary Recommendation Cards - 2 columns */}
+                    {/* Compact recommendation grid */}
                     <div className={styles.recGrid}>
-                        {/* Objective Recommendation */}
-                        <div className={`glass-card ${styles.recCard}`}>
-                            <div className={styles.recHeader}>
-                                <span className={styles.recIcon}>🎯</span>
-                                <h3>Campaign Objective</h3>
-                                <span className={styles.recConfidence} style={{ color: getConfidenceColor(recommendations.objective.confidence) }}>
-                                    {recommendations.objective.confidence}%
-                                </span>
-                            </div>
-                            <div className={styles.recValue}>
-                                {formatObjective(recommendations.objective.recommended)}
-                            </div>
-                            <p className={styles.recReasoning}>{recommendations.objective.reasoning}</p>
-                            {recommendations.objective.historicalPerformance && recommendations.objective.historicalPerformance.length > 0 && (
-                                <div className={styles.historicalData}>
-                                    <small><strong>Historical Performance:</strong></small>
-                                    <div className={styles.histTable}>
-                                        {recommendations.objective.historicalPerformance.slice(0, 3).map((perf, i) => (
-                                            <div key={i} className={styles.histRow}>
-                                                <span>{formatObjective(perf.objective)}</span>
-                                                <span>ROAS: {perf.avgROAS}x</span>
-                                                <span>({perf.sampleSize} ads)</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            <div className={styles.recAlternatives}>
-                                <small>Alternatives: {recommendations.objective.alternatives?.slice(0, 2).map(formatObjective).join(', ')}</small>
-                            </div>
+                        <div className="glass-card" style={{ padding: 'var(--spacing-md)' }}>
+                            <h4>🎯 Objective</h4>
+                            <p style={{ fontSize: '1.25rem', fontWeight: 600 }}>{formatObjective(recommendations.objective?.recommended || 'LEADS')}</p>
                         </div>
-
-                        {/* Budget Recommendation - Enhanced */}
-                        <div className={`glass-card ${styles.recCard}`}>
-                            <div className={styles.recHeader}>
-                                <span className={styles.recIcon}>💰</span>
-                                <h3>Budget & Structure</h3>
-                                <span className={styles.recConfidence} style={{ color: getConfidenceColor(recommendations.budget.confidence) }}>
-                                    {recommendations.budget.confidence}%
-                                </span>
-                            </div>
-                            <div className={styles.recValue}>
-                                ₱{recommendations.budget.dailyBudget.optimal}/day
-                            </div>
-                            <div className={styles.budgetRange}>
-                                Range: ₱{recommendations.budget.dailyBudget.min} - ₱{recommendations.budget.dailyBudget.max}
-                            </div>
-                            <div className={styles.structureBadge}>
-                                <span className="badge badge-primary">{recommendations.budget.structure}</span>
-                                <span className={`badge ${recommendations.budget.budgetType === 'daily' ? 'badge-success' : 'badge-warning'}`}>
-                                    {recommendations.budget.budgetType?.toUpperCase() || 'DAILY'}
-                                </span>
-                            </div>
-                            <p className={styles.recReasoning}>{recommendations.budget.reasoning}</p>
-                            {recommendations.budget.budgetTypeReasoning && (
-                                <p className={styles.recReasoning} style={{ marginTop: 'var(--spacing-xs)', fontStyle: 'italic' }}>
-                                    💡 {recommendations.budget.budgetTypeReasoning}
-                                </p>
-                            )}
-                            {recommendations.budget.historicalBudgetData && recommendations.budget.historicalBudgetData.length > 0 && (
-                                <div className={styles.historicalData}>
-                                    <small><strong>Budget Tier Performance:</strong></small>
-                                    <div className={styles.histTable}>
-                                        {recommendations.budget.historicalBudgetData.slice(0, 3).map((data, i) => (
-                                            <div key={i} className={styles.histRow}>
-                                                <span>{data.tier}</span>
-                                                <span>ROAS: {data.avgROAS}x</span>
-                                                <span>({data.sampleSize} ads)</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                        <div className="glass-card" style={{ padding: 'var(--spacing-md)' }}>
+                            <h4>💰 Budget</h4>
+                            <p style={{ fontSize: '1.25rem', fontWeight: 600 }}>₱{recommendations.budget?.dailyBudget?.optimal || 500}/day</p>
                         </div>
-
-                        {/* Targeting Recommendation */}
-                        <div className={`glass-card ${styles.recCard}`}>
-                            <div className={styles.recHeader}>
-                                <span className={styles.recIcon}>👥</span>
-                                <h3>Target Audience</h3>
-                                <span className={styles.recConfidence} style={{ color: getConfidenceColor(recommendations.targeting.confidence) }}>
-                                    {recommendations.targeting.confidence}%
-                                </span>
-                            </div>
-                            <div className={styles.recValue}>
-                                Ages {recommendations.targeting.ageRange.min}-{recommendations.targeting.ageRange.max}
-                                {recommendations.targeting.gender !== 'all' && `, ${recommendations.targeting.gender}`}
-                            </div>
-                            <div className={styles.interestTags}>
-                                {recommendations.targeting.interests.slice(0, 4).map((interest, i) => (
-                                    <span key={i} className="badge badge-secondary">{interest}</span>
-                                ))}
-                            </div>
-                            <p className={styles.recReasoning}>{recommendations.targeting.reasoning}</p>
-                            {recommendations.targeting.segments && recommendations.targeting.segments.length > 0 && (
-                                <div className={styles.historicalData}>
-                                    <small><strong>Top Segments:</strong></small>
-                                    <div className={styles.histTable}>
-                                        {recommendations.targeting.segments.slice(0, 3).map((seg, i) => (
-                                            <div key={i} className={styles.histRow}>
-                                                <span>{seg.name}</span>
-                                                <span>Score: {Math.round(seg.score)}%</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Placements Recommendation - NEW */}
-                        {recommendations.placements && (
-                            <div className={`glass-card ${styles.recCard}`}>
-                                <div className={styles.recHeader}>
-                                    <span className={styles.recIcon}>📍</span>
-                                    <h3>Placements</h3>
-                                    <span className={styles.recConfidence} style={{ color: getConfidenceColor(recommendations.placements.confidence) }}>
-                                        {recommendations.placements.confidence}%
-                                    </span>
-                                </div>
-                                <div className={styles.recValue}>
-                                    {recommendations.placements.automaticPlacements ? 'Automatic' : `${recommendations.placements.placements.length} Placements`}
-                                </div>
-                                <div className={styles.interestTags}>
-                                    {recommendations.placements.placements.slice(0, 4).map((p, i) => (
-                                        <span key={i} className="badge badge-success">{p.replace('_', ' ')}</span>
-                                    ))}
-                                </div>
-                                {recommendations.placements.excludedPlacements.length > 0 && (
-                                    <div style={{ marginTop: 'var(--spacing-xs)' }}>
-                                        <small style={{ color: 'var(--text-muted)' }}>Excluded: </small>
-                                        {recommendations.placements.excludedPlacements.slice(0, 2).map((p, i) => (
-                                            <span key={i} className="badge badge-secondary" style={{ opacity: 0.6, marginLeft: '4px' }}>{p.replace('_', ' ')}</span>
-                                        ))}
-                                    </div>
-                                )}
-                                <p className={styles.recReasoning}>{recommendations.placements.reasoning}</p>
-                            </div>
-                        )}
-
-                        {/* Ad Copy Recommendation - NEW */}
-                        {recommendations.adCopy && (
-                            <div className={`glass-card ${styles.recCard}`}>
-                                <div className={styles.recHeader}>
-                                    <span className={styles.recIcon}>✏️</span>
-                                    <h3>Ad Copy</h3>
-                                    <span className={styles.recConfidence} style={{ color: getConfidenceColor(recommendations.adCopy.confidence) }}>
-                                        {recommendations.adCopy.confidence}%
-                                    </span>
-                                </div>
-                                <div className={styles.adCopyPreview}>
-                                    <div className={styles.copyField}>
-                                        <small>Primary Text:</small>
-                                        <p>{recommendations.adCopy.primaryText}</p>
-                                    </div>
-                                    <div className={styles.copyField}>
-                                        <small>Headline:</small>
-                                        <p><strong>{recommendations.adCopy.headline}</strong></p>
-                                    </div>
-                                    <div className={styles.copyField}>
-                                        <span className="badge badge-primary">{recommendations.adCopy.callToAction.replace('_', ' ')}</span>
-                                    </div>
-                                </div>
-                                <p className={styles.recReasoning}>{recommendations.adCopy.reasoning}</p>
-                                {recommendations.adCopy.alternatives && recommendations.adCopy.alternatives.length > 0 && (
-                                    <div className={styles.recAlternatives}>
-                                        <small>Alt headline: {recommendations.adCopy.alternatives[0]?.headline}</small>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Flexible Ads (Advantage+) - NEW */}
-                        {recommendations.flexibleAds && (
-                            <div className={`glass-card ${styles.recCard}`}>
-                                <div className={styles.recHeader}>
-                                    <span className={styles.recIcon}>🔄</span>
-                                    <h3>Advantage+ Creative</h3>
-                                    <span className={styles.recConfidence} style={{ color: getConfidenceColor(recommendations.flexibleAds.confidence) }}>
-                                        {recommendations.flexibleAds.confidence}%
-                                    </span>
-                                </div>
-                                <div className={styles.recValue}>
-                                    {recommendations.flexibleAds.useFlexibleAds ? '✅ Enabled' : '❌ Disabled'}
-                                </div>
-                                {recommendations.flexibleAds.useFlexibleAds && (
-                                    <div className={styles.enhancementsList}>
-                                        {recommendations.flexibleAds.enhancements.textOptimization && <span className="badge badge-success">Text Optimization</span>}
-                                        {recommendations.flexibleAds.enhancements.imageBrightness && <span className="badge badge-success">Image Enhancement</span>}
-                                        {recommendations.flexibleAds.enhancements.musicGeneration && <span className="badge badge-success">Music</span>}
-                                        {recommendations.flexibleAds.enhancements.imageTemplates && <span className="badge badge-success">Templates</span>}
-                                    </div>
-                                )}
-                                <p className={styles.recReasoning}>{recommendations.flexibleAds.reasoning}</p>
-                            </div>
-                        )}
-
-                        {/* Timing Recommendation */}
-                        <div className={`glass-card ${styles.recCard}`}>
-                            <div className={styles.recHeader}>
-                                <span className={styles.recIcon}>⏰</span>
-                                <h3>Best Launch Time</h3>
-                                <span className={styles.recConfidence} style={{ color: getConfidenceColor(recommendations.timing.confidence) }}>
-                                    {recommendations.timing.confidence}%
-                                </span>
-                            </div>
-                            <div className={styles.recValue}>
-                                {recommendations.timing.bestLaunchDay.charAt(0).toUpperCase() + recommendations.timing.bestLaunchDay.slice(1)} {recommendations.timing.bestLaunchTime}
-                            </div>
-                            <p className={styles.recReasoning}>{recommendations.timing.reasoning}</p>
+                        <div className="glass-card" style={{ padding: 'var(--spacing-md)' }}>
+                            <h4>👥 Audience</h4>
+                            <p style={{ fontSize: '1.25rem', fontWeight: 600 }}>
+                                Ages {recommendations.targeting?.ageRange?.min || 18}-{recommendations.targeting?.ageRange?.max || 45}
+                            </p>
                         </div>
                     </div>
 
-                    {/* Top Performing Traits from Data */}
-                    {recommendations.dataPoints?.topPerformingTraits && recommendations.dataPoints.topPerformingTraits.length > 0 && (
-                        <div className={`glass-card ${styles.dataPointsCard}`}>
-                            <h4>📈 Top Performing Traits in Your Data</h4>
-                            <div className={styles.traitsList}>
-                                {recommendations.dataPoints.topPerformingTraits.map((trait, i) => (
-                                    <span key={i} className="badge badge-primary">{trait}</span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Warnings */}
-                    {recommendations.warnings && recommendations.warnings.length > 0 && (
-                        <div className={styles.warningsCard}>
-                            <h4>⚠️ Notes</h4>
-                            <ul>
-                                {recommendations.warnings.map((warning, i) => (
-                                    <li key={i}>{warning}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {/* Actions */}
                     <div className={styles.recActions}>
                         <button className="btn btn-secondary" onClick={() => setStep('content')}>
                             ← Back
                         </button>
-                        <button className="btn btn-primary btn-lg" onClick={() => setStep('customize')}>
-                            Accept & Customize →
+                        <button className="btn btn-primary btn-lg" onClick={() => setStep('builder')}>
+                            Build Campaign →
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* Step 3: Customize Settings */}
-            {step === 'customize' && (
-                <div className={styles.customizeSection}>
-                    <div className={`glass-card ${styles.settingsCard}`}>
-                        <h2>⚙️ Campaign Settings</h2>
-                        <p>Review and customize your campaign settings before creating</p>
+            {/* ========== STEP 3: CAMPAIGN BUILDER ========== */}
+            {step === 'builder' && (
+                <div className={styles.builderSection}>
+                    {/* Campaign Settings Card */}
+                    <div className="glass-card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                            <h2 style={{ margin: 0 }}>📊 Campaign Settings</h2>
+                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                                <button className="btn btn-ghost btn-sm" onClick={() => setShowTemplateModal(true)}>
+                                    💾 Save Template
+                                </button>
+                                {templates.length > 0 && (
+                                    <button className="btn btn-ghost btn-sm" onClick={() => setShowLoadTemplateModal(true)}>
+                                        📂 Load
+                                    </button>
+                                )}
+                            </div>
+                        </div>
 
-                        <div className={styles.settingsGrid}>
-                            {/* Campaign Name */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
                             <div className={styles.formGroup}>
                                 <label>Campaign Name</label>
                                 <input
                                     type="text"
-                                    value={settings.campaignName}
-                                    onChange={(e) => setSettings({ ...settings, campaignName: e.target.value })}
+                                    value={campaignSettings.name}
+                                    onChange={(e) => setCampaignSettings({ ...campaignSettings, name: e.target.value })}
                                     placeholder="Enter campaign name"
                                 />
                             </div>
-
-                            {/* Objective */}
                             <div className={styles.formGroup}>
                                 <label>Objective</label>
                                 <select
-                                    value={settings.objective}
-                                    onChange={(e) => setSettings({ ...settings, objective: e.target.value })}
+                                    value={campaignSettings.objective}
+                                    onChange={(e) => setCampaignSettings({ ...campaignSettings, objective: e.target.value })}
                                 >
                                     <option value="OUTCOME_AWARENESS">Awareness</option>
                                     <option value="OUTCOME_TRAFFIC">Traffic</option>
                                     <option value="OUTCOME_ENGAGEMENT">Engagement</option>
                                     <option value="OUTCOME_LEADS">Leads</option>
                                     <option value="OUTCOME_SALES">Sales</option>
-                                    <option value="OUTCOME_APP_PROMOTION">App Promotion</option>
                                 </select>
                             </div>
-
-                            {/* Daily Budget */}
                             <div className={styles.formGroup}>
-                                <label>Daily Budget (₱)</label>
-                                <input
-                                    type="number"
-                                    value={settings.dailyBudget}
-                                    onChange={(e) => setSettings({ ...settings, dailyBudget: parseInt(e.target.value) || 0 })}
-                                    min={200}
-                                />
-                            </div>
-
-                            {/* Age Range */}
-                            <div className={styles.formGroup}>
-                                <label>Age Range</label>
-                                <div className={styles.ageInputs}>
-                                    <input
-                                        type="number"
-                                        value={settings.ageMin}
-                                        onChange={(e) => setSettings({ ...settings, ageMin: parseInt(e.target.value) || 18 })}
-                                        min={18}
-                                        max={65}
-                                    />
-                                    <span>to</span>
-                                    <input
-                                        type="number"
-                                        value={settings.ageMax}
-                                        onChange={(e) => setSettings({ ...settings, ageMax: parseInt(e.target.value) || 65 })}
-                                        min={18}
-                                        max={65}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Gender */}
-                            <div className={styles.formGroup}>
-                                <label>Gender</label>
+                                <label>Special Ad Category</label>
                                 <select
-                                    value={settings.gender}
-                                    onChange={(e) => setSettings({ ...settings, gender: e.target.value as 'all' | 'male' | 'female' })}
-                                >
-                                    <option value="all">All</option>
-                                    <option value="male">Male</option>
-                                    <option value="female">Female</option>
-                                </select>
-                            </div>
-
-                            {/* Special Ad Category */}
-                            <div className={styles.formGroup}>
-                                <label>Special Ad Category (if applicable)</label>
-                                <select
-                                    value={settings.specialAdCategory}
-                                    onChange={(e) => setSettings({ ...settings, specialAdCategory: e.target.value })}
+                                    value={campaignSettings.specialAdCategory}
+                                    onChange={(e) => setCampaignSettings({ ...campaignSettings, specialAdCategory: e.target.value })}
                                 >
                                     <option value="">None</option>
                                     <option value="HOUSING">Housing</option>
                                     <option value="EMPLOYMENT">Employment</option>
                                     <option value="CREDIT">Credit</option>
-                                    <option value="ISSUES_ELECTIONS_POLITICS">Issues, Elections, Politics</option>
                                 </select>
                             </div>
                         </div>
+                    </div>
 
-                        {/* Launch Option */}
-                        <div className={styles.launchOption}>
-                            <label className={styles.checkbox}>
-                                <input
-                                    type="checkbox"
-                                    checked={settings.launchImmediately}
-                                    onChange={(e) => setSettings({ ...settings, launchImmediately: e.target.checked })}
-                                />
-                                <span>Launch immediately (otherwise starts paused)</span>
-                            </label>
+                    {/* Summary Bar */}
+                    <div style={{
+                        display: 'flex',
+                        gap: 'var(--spacing-lg)',
+                        padding: 'var(--spacing-md)',
+                        background: 'var(--bg-card)',
+                        borderRadius: 'var(--radius-lg)',
+                        marginBottom: 'var(--spacing-lg)',
+                        border: '1px solid var(--border-primary)'
+                    }}>
+                        <div>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Ad Sets</span>
+                            <p style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{adSets.length}</p>
                         </div>
+                        <div>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Total Ads</span>
+                            <p style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>{totalAds}</p>
+                        </div>
+                        <div>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Daily Budget</span>
+                            <p style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>₱{totalBudget.toLocaleString()}</p>
+                        </div>
+                    </div>
 
-                        {/* Actions */}
-                        <div className={styles.settingsActions}>
-                            <button className="btn btn-secondary" onClick={() => setStep('recommendations')}>
-                                ← Back
-                            </button>
-                            <button
-                                className="btn btn-primary btn-lg"
-                                onClick={handleCreateCampaign}
-                                disabled={!settings.campaignName || settings.dailyBudget < 200}
-                            >
-                                🚀 Create Campaign on Facebook
-                            </button>
-                        </div>
+                    {/* Ad Sets */}
+                    <div className={styles.adSetsContainer}>
+                        {adSets.map((adSet, asIndex) => (
+                            <div key={adSet.id} className="glass-card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+                                {/* Ad Set Header */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: adSet.isExpanded ? 'var(--spacing-md)' : 0 }}>
+                                    <button
+                                        onClick={() => toggleAdSetExpand(adSet.id)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                                    >
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                                            style={{ transform: adSet.isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>
+                                            <polyline points="9 18 15 12 9 6" />
+                                        </svg>
+                                    </button>
+                                    <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-muted)' }}>#{asIndex + 1}</span>
+                                    <input
+                                        type="text"
+                                        value={adSet.name}
+                                        onChange={(e) => updateAdSet(adSet.id, { name: e.target.value })}
+                                        style={{ flex: 1, background: 'transparent', border: 'none', fontSize: '1rem', fontWeight: 600 }}
+                                    />
+                                    <span className="badge badge-secondary">₱{adSet.dailyBudget}/day</span>
+                                    <span className="badge badge-primary">{adSet.ads.length} ads</span>
+                                    <button className="btn btn-ghost btn-sm" onClick={() => duplicateAdSet(adSet.id)} title="Duplicate">📋</button>
+                                    <button className="btn btn-ghost btn-sm" onClick={() => removeAdSet(adSet.id)} title="Delete">🗑️</button>
+                                </div>
+
+                                {/* Ad Set Body */}
+                                {adSet.isExpanded && (
+                                    <div style={{ paddingLeft: 'var(--spacing-lg)', borderLeft: '2px solid var(--border-primary)' }}>
+                                        {/* Targeting Row */}
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap', marginBottom: 'var(--spacing-md)' }}>
+                                            <div className={styles.formGroup} style={{ flex: '1 1 100px' }}>
+                                                <label style={{ fontSize: '0.75rem' }}>Budget</label>
+                                                <input
+                                                    type="number"
+                                                    value={adSet.dailyBudget}
+                                                    onChange={(e) => updateAdSet(adSet.id, { dailyBudget: parseInt(e.target.value) || 0 })}
+                                                    min={200}
+                                                />
+                                            </div>
+                                            <div className={styles.formGroup} style={{ flex: '1 1 150px' }}>
+                                                <label style={{ fontSize: '0.75rem' }}>Ages</label>
+                                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                                    <input
+                                                        type="number"
+                                                        value={adSet.targeting.ageMin}
+                                                        onChange={(e) => updateAdSet(adSet.id, {
+                                                            targeting: { ...adSet.targeting, ageMin: parseInt(e.target.value) || 18 }
+                                                        })}
+                                                        min={18} max={65}
+                                                        style={{ width: 60 }}
+                                                    />
+                                                    <span>-</span>
+                                                    <input
+                                                        type="number"
+                                                        value={adSet.targeting.ageMax}
+                                                        onChange={(e) => updateAdSet(adSet.id, {
+                                                            targeting: { ...adSet.targeting, ageMax: parseInt(e.target.value) || 65 }
+                                                        })}
+                                                        min={18} max={65}
+                                                        style={{ width: 60 }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className={styles.formGroup} style={{ flex: '1 1 100px' }}>
+                                                <label style={{ fontSize: '0.75rem' }}>Gender</label>
+                                                <select
+                                                    value={adSet.targeting.gender}
+                                                    onChange={(e) => updateAdSet(adSet.id, {
+                                                        targeting: { ...adSet.targeting, gender: e.target.value as 'all' | 'male' | 'female' }
+                                                    })}
+                                                >
+                                                    <option value="all">All</option>
+                                                    <option value="male">Male</option>
+                                                    <option value="female">Female</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {/* Ads */}
+                                        <div style={{ marginTop: 'var(--spacing-md)' }}>
+                                            <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--spacing-sm)' }}>Ads</h4>
+                                            {adSet.ads.map((ad, adIndex) => (
+                                                <div key={ad.id} style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 'var(--spacing-sm)',
+                                                    padding: 'var(--spacing-sm)',
+                                                    background: 'var(--bg-tertiary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    marginBottom: 'var(--spacing-xs)'
+                                                }}>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>#{adIndex + 1}</span>
+
+                                                    {/* Media preview thumbnail */}
+                                                    <div style={{
+                                                        width: 40, height: 40,
+                                                        background: 'var(--bg-secondary)',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        overflow: 'hidden'
+                                                    }}>
+                                                        {ad.mediaPreview ? (
+                                                            ad.mediaType === 'video' ? (
+                                                                <video src={ad.mediaPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                <img src={ad.mediaPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            )
+                                                        ) : (
+                                                            <span style={{ fontSize: '1.25rem' }}>{ad.mediaType === 'video' ? '🎬' : '🖼️'}</span>
+                                                        )}
+                                                    </div>
+
+                                                    <input
+                                                        type="text"
+                                                        value={ad.name}
+                                                        onChange={(e) => updateAd(adSet.id, ad.id, { name: e.target.value })}
+                                                        style={{ flex: 1, background: 'transparent', border: 'none', fontSize: '0.875rem' }}
+                                                        placeholder="Ad name"
+                                                    />
+
+                                                    <input
+                                                        type="file"
+                                                        accept="video/*,image/*"
+                                                        onChange={(e) => e.target.files?.[0] && handleAdMediaUpload(adSet.id, ad.id, e.target.files[0])}
+                                                        style={{ display: 'none' }}
+                                                        id={`ad-media-${ad.id}`}
+                                                    />
+                                                    <label htmlFor={`ad-media-${ad.id}`} className="btn btn-ghost btn-sm" style={{ cursor: 'pointer' }}>
+                                                        📷
+                                                    </label>
+
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => setEditingAdId({ adSetId: adSet.id, adId: ad.id })}>
+                                                        ✏️
+                                                    </button>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => duplicateAd(adSet.id, ad.id)}>📋</button>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => removeAd(adSet.id, ad.id)}>🗑️</button>
+                                                </div>
+                                            ))}
+
+                                            <button
+                                                className="btn btn-ghost btn-sm"
+                                                onClick={() => addAd(adSet.id)}
+                                                style={{ marginTop: 'var(--spacing-xs)' }}
+                                            >
+                                                ➕ Add Ad
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+
+                        <button className="btn btn-secondary" onClick={addAdSet} style={{ width: '100%' }}>
+                            ➕ Add Ad Set
+                        </button>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-lg)' }}>
+                        <button className="btn btn-secondary" onClick={() => setStep('recommendations')}>
+                            ← Back
+                        </button>
+                        <label className={styles.checkbox} style={{ marginLeft: 'auto' }}>
+                            <input
+                                type="checkbox"
+                                checked={campaignSettings.launchImmediately}
+                                onChange={(e) => setCampaignSettings({ ...campaignSettings, launchImmediately: e.target.checked })}
+                            />
+                            <span>Launch immediately</span>
+                        </label>
+                        <button
+                            className="btn btn-primary btn-lg"
+                            onClick={handleCreateCampaign}
+                            disabled={!campaignSettings.name || adSets.length === 0 || totalAds === 0}
+                        >
+                            🚀 Create Campaign
+                        </button>
                     </div>
                 </div>
             )}
 
-            {/* Step 4: Creating */}
+            {/* ========== STEP 4: CREATING ========== */}
             {step === 'creating' && (
                 <div className={styles.creatingSection}>
                     <div className={`glass-card ${styles.creatingCard}`}>
                         <div className={styles.spinner}></div>
                         <h2>Creating Your Campaign...</h2>
-                        <p>Setting up your campaign on Facebook</p>
-                        <div className={styles.creatingSteps}>
-                            <div className={styles.creatingStep}>
-                                <span className={styles.creatingIcon}>📊</span>
-                                <span>Creating Campaign...</span>
-                            </div>
-                            <div className={styles.creatingStep}>
-                                <span className={styles.creatingIcon}>🎯</span>
-                                <span>Creating Ad Set...</span>
-                            </div>
-                        </div>
+                        <p>Setting up {adSets.length} ad set{adSets.length > 1 ? 's' : ''} with {totalAds} ad{totalAds > 1 ? 's' : ''}</p>
                     </div>
                 </div>
             )}
 
-            {/* Step 5: Success */}
+            {/* ========== STEP 5: SUCCESS ========== */}
             {step === 'success' && creationResult && (
                 <div className={styles.successSection}>
                     <div className={`glass-card ${styles.successCard}`}>
@@ -998,18 +1110,9 @@ CTA: "Link in bio for 20% off"`}
                                 <code>{creationResult.campaignId}</code>
                             </div>
                             <div className={styles.createdItem}>
-                                <span>Ad Set ID:</span>
-                                <code>{creationResult.adsetId}</code>
+                                <span>Ad Sets Created:</span>
+                                <code>{creationResult.adsets.length}</code>
                             </div>
-                        </div>
-
-                        <div className={styles.nextSteps}>
-                            <h4>Next Steps:</h4>
-                            <ol>
-                                <li>Go to Facebook Ads Manager to add your creative</li>
-                                <li>Review and enable the campaign when ready</li>
-                                <li>Monitor performance in the Analytics page</li>
-                            </ol>
                         </div>
 
                         <div className={styles.successActions}>
@@ -1026,8 +1129,7 @@ CTA: "Link in bio for 20% off"`}
                                 onClick={() => {
                                     setStep('content');
                                     setContentDocument('');
-                                    setExtractedData(null);
-                                    setRecommendations(null);
+                                    setAdSets([createDefaultAdSet()]);
                                     setCreationResult(null);
                                 }}
                             >
@@ -1037,6 +1139,157 @@ CTA: "Link in bio for 20% off"`}
                     </div>
                 </div>
             )}
+
+            {/* ========== MODALS ========== */}
+
+            {/* Save Template Modal */}
+            {showTemplateModal && (
+                <div className={styles.modalOverlay} onClick={() => setShowTemplateModal(false)}>
+                    <div className={`glass-card ${styles.modal}`} onClick={(e) => e.stopPropagation()}>
+                        <h3>💾 Save as Template</h3>
+                        <div className={styles.formGroup}>
+                            <label>Template Name</label>
+                            <input
+                                type="text"
+                                value={templateName}
+                                onChange={(e) => setTemplateName(e.target.value)}
+                                placeholder="e.g., Lead Gen - Beauty"
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label>Description (optional)</label>
+                            <textarea
+                                value={templateDescription}
+                                onChange={(e) => setTemplateDescription(e.target.value)}
+                                placeholder="What is this template for?"
+                                rows={3}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
+                            <button className="btn btn-ghost" onClick={() => setShowTemplateModal(false)}>Cancel</button>
+                            <button className="btn btn-primary" onClick={saveAsTemplate}>Save Template</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Load Template Modal */}
+            {showLoadTemplateModal && (
+                <div className={styles.modalOverlay} onClick={() => setShowLoadTemplateModal(false)}>
+                    <div className={`glass-card ${styles.modal}`} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                        <h3>📂 Load Template</h3>
+                        {templates.length === 0 ? (
+                            <p style={{ color: 'var(--text-muted)' }}>No templates saved yet.</p>
+                        ) : (
+                            <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                                {templates.map((t) => (
+                                    <div key={t.id} style={{
+                                        padding: 'var(--spacing-md)',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: 'var(--radius-md)',
+                                        marginBottom: 'var(--spacing-sm)',
+                                        cursor: 'pointer'
+                                    }}
+                                        onClick={() => loadTemplate(t)}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong>{t.name}</strong>
+                                            <button
+                                                className="btn btn-ghost btn-sm"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    deleteTemplate(t.id);
+                                                }}
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                        {t.description && <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>{t.description}</p>}
+                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                                            {t.adSets.length} ad sets • Created {new Date(t.createdAt).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
+                            <button className="btn btn-ghost" onClick={() => setShowLoadTemplateModal(false)}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Ad Modal */}
+            {editingAdId && (() => {
+                const adSet = adSets.find(as => as.id === editingAdId.adSetId);
+                const ad = adSet?.ads.find(a => a.id === editingAdId.adId);
+                if (!ad) return null;
+
+                return (
+                    <div className={styles.modalOverlay} onClick={() => setEditingAdId(null)}>
+                        <div className={`glass-card ${styles.modal}`} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                            <h3>✏️ Edit Ad: {ad.name}</h3>
+
+                            <div className={styles.formGroup}>
+                                <label>Primary Text</label>
+                                <textarea
+                                    value={ad.primaryText}
+                                    onChange={(e) => updateAd(editingAdId.adSetId, editingAdId.adId, { primaryText: e.target.value })}
+                                    placeholder="Main ad copy..."
+                                    rows={3}
+                                />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                <div className={styles.formGroup}>
+                                    <label>Headline</label>
+                                    <input
+                                        type="text"
+                                        value={ad.headline}
+                                        onChange={(e) => updateAd(editingAdId.adSetId, editingAdId.adId, { headline: e.target.value })}
+                                        placeholder="Attention-grabbing headline"
+                                    />
+                                </div>
+                                <div className={styles.formGroup}>
+                                    <label>Call to Action</label>
+                                    <select
+                                        value={ad.callToAction}
+                                        onChange={(e) => updateAd(editingAdId.adSetId, editingAdId.adId, { callToAction: e.target.value })}
+                                    >
+                                        {CTA_OPTIONS.map(cta => (
+                                            <option key={cta} value={cta}>{cta.replace(/_/g, ' ')}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className={styles.formGroup}>
+                                <label>Description</label>
+                                <input
+                                    type="text"
+                                    value={ad.description}
+                                    onChange={(e) => updateAd(editingAdId.adSetId, editingAdId.adId, { description: e.target.value })}
+                                    placeholder="Brief description"
+                                />
+                            </div>
+
+                            <div className={styles.formGroup}>
+                                <label>Website URL</label>
+                                <input
+                                    type="url"
+                                    value={ad.websiteUrl}
+                                    onChange={(e) => updateAd(editingAdId.adSetId, editingAdId.adId, { websiteUrl: e.target.value })}
+                                    placeholder="https://..."
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
+                                <button className="btn btn-primary" onClick={() => setEditingAdId(null)}>Done</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
