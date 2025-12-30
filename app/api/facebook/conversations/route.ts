@@ -355,7 +355,7 @@ export async function POST(request: NextRequest) {
                 source_ad_id: contact.isFromAd ? 'messenger_ad' : undefined,
                 source_ad_name: contact.isFromAd ? 'Messenger Ad' : 'Organic',
                 pipeline_id: pipelineId,
-                stage_id: stageId || 'new-lead',
+                stage_id: stageId || 'inquiry',
                 last_message_at: contact.lastMessageAt,
             });
 

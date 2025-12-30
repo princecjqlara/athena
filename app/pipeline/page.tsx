@@ -191,7 +191,7 @@ export default function PipelinePage() {
                 sourceAdId: contact.isFromAd ? 'messenger_ad' : undefined,
                 source: contact.isFromAd ? 'ad' as const : 'organic' as const,
                 pipelineId: pipelineId,
-                stageId: stageId || 'new-lead',
+                stageId: stageId || 'inquiry',
                 messages: contact.messages?.map(m => ({
                     id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     contactId: '',
@@ -720,7 +720,7 @@ export default function PipelinePage() {
                                     className="form-select"
                                     onChange={(e) => {
                                         if (e.target.value) {
-                                            handleImportContacts(fetchedContacts, e.target.value, 'new-lead');
+                                            handleImportContacts(fetchedContacts, e.target.value, 'inquiry');
                                         }
                                     }}
                                     defaultValue=""

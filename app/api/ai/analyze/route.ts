@@ -142,57 +142,25 @@ export async function POST(request: NextRequest) {
             leadScore = Math.max(0, Math.min(100, leadScore));
 
             // Map stage to actual pipeline stage ID
-            // Enhanced: Now also considers stage descriptions for smarter matching
-            let suggestedStageId = 'new-lead';
+            // Pipeline stages: inquiry, interested, scheduled, completed, lost
+            let suggestedStageId = 'inquiry'; // Default to first stage
 
-            // Helper function to match against stage name OR description
-            const findStageByKeywords = (keywords: string[]) => {
-                return stagesToUse.find((s: any) => {
-                    const nameMatch = keywords.some(k => s.name.toLowerCase().includes(k));
-                    const descMatch = s.description && keywords.some(k => s.description.toLowerCase().includes(k));
-                    return nameMatch || descMatch;
-                });
-            };
-
-            // Map detected stage to comprehensive funnel using name + description matching
+            // Map detected stage to actual pipeline stage IDs
             if (stage === 'ready') {
-                const match = findStageByKeywords(['ready', 'closed', 'won', 'purchase', 'converted', 'sale', 'deal']);
-                suggestedStageId = match?.id || 'ready-to-buy';
+                // Ready to buy → closest is 'scheduled' (confirmed intent) or 'completed' if very strong
+                suggestedStageId = hasBuyingSignal ? 'scheduled' : 'interested';
             } else if (stage === 'negotiating') {
-                const match = findStageByKeywords(['negotiat', 'considering', 'quote', 'proposal', 'pricing', 'discount']);
-                suggestedStageId = match?.id || 'negotiating';
+                // Negotiating price → 'interested' stage (intent expressed, discussing details)
+                suggestedStageId = 'interested';
             } else if (stage === 'interested') {
-                // Check if they know about the product
-                const knowsProduct = customerText.includes('price') ||
-                    customerText.includes('cost') ||
-                    customerText.includes('magkano') ||
-                    customerText.includes('presyo');
-                if (knowsProduct) {
-                    const match = findStageByKeywords(['product', 'aware', 'informed', 'pricing', 'quote']);
-                    suggestedStageId = match?.id || 'product-aware';
-                } else {
-                    const match = findStageByKeywords(['qualified', 'interest', 'engaged', 'warm']);
-                    suggestedStageId = match?.id || 'qualified';
-                }
+                // Showing interest → 'interested' stage
+                suggestedStageId = 'interested';
             } else if (stage === 'contacted') {
-                // Check if customer engaged (responded) or just contacted
-                if (customerMsgCount >= 2) {
-                    const match = findStageByKeywords(['engaged', 'qualified', 'response', 'replied']);
-                    suggestedStageId = match?.id || 'engaged';
-                } else if (customerMsgCount >= 1) {
-                    const match = findStageByKeywords(['contacted', 'engaged', 'respond', 'replied', 'inquiry']);
-                    suggestedStageId = match?.id || 'contacted';
-                }
+                // Has responded → 'inquiry' stage (first contact established)
+                suggestedStageId = 'inquiry';
             } else {
-                // Default for Messenger leads: they've been contacted since we have a conversation
-                // Only use 'new-lead' if there are truly no customer messages
-                if (customerMsgCount > 0) {
-                    const match = findStageByKeywords(['contacted', 'initial', 'inquiry']);
-                    suggestedStageId = match?.id || 'contacted';
-                } else {
-                    // No customer messages - still new lead
-                    suggestedStageId = 'new-lead';
-                }
+                // Default: 'inquiry' for new leads
+                suggestedStageId = 'inquiry';
             }
 
             // Generate summary

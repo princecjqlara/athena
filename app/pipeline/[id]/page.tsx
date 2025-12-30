@@ -142,7 +142,27 @@ export default function PipelineDetailPage() {
                 setPipeline(found);
                 // Load leads for this pipeline from localStorage
                 const savedLeads = localStorage.getItem(`leads_${params.id}`);
-                const localLeads: Lead[] = savedLeads ? JSON.parse(savedLeads) : [];
+                let localLeads: Lead[] = savedLeads ? JSON.parse(savedLeads) : [];
+
+                // Validate and fix local leads with invalid stageIds
+                const validStageIds = found.stages.map((s: Stage) => s.id);
+                const firstStageId = found.stages[0]?.id || 'inquiry';
+                let needsSave = false;
+
+                localLeads = localLeads.map(lead => {
+                    if (!lead.stageId || !validStageIds.includes(lead.stageId)) {
+                        console.log(`[Pipeline] Fixing invalid stageId "${lead.stageId}" for lead "${lead.name}" → "${firstStageId}"`);
+                        needsSave = true;
+                        return { ...lead, stageId: firstStageId };
+                    }
+                    return lead;
+                });
+
+                // Save fixed leads back to localStorage if any were corrected
+                if (needsSave) {
+                    localStorage.setItem(`leads_${params.id}`, JSON.stringify(localLeads));
+                    console.log(`[Pipeline] Saved ${localLeads.length} leads with fixed stageIds`);
+                }
 
                 // Also fetch contacts from Supabase (from webhooks)
                 fetch(`/api/contacts?pipelineId=${params.id}`)
