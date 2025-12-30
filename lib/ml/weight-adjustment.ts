@@ -1,13 +1,49 @@
 // Weight Adjustment System
 // Adjusts feature weights based on prediction errors
+//
+// ⚠️ ADVISORY SYSTEM - Weight learning in FALLBACK_ONLY mode by default
+// Part of the unified pipeline simplification.
+// Weights are used only when RAG similarity fails.
+// Set mode to 'active' to enable continuous learning.
 
 import { FeatureWeight, WeightAdjustmentEvent, PredictionRecord, ExtractedAdData } from '@/types';
 
 const WEIGHTS_KEY = 'ml_feature_weights';
 const ADJUSTMENTS_KEY = 'ml_weight_adjustments';
+const WEIGHT_MODE_KEY = 'ml_weight_mode';
 
 // Flag to prevent circular imports - recalculation import is dynamic
 let recalculationEnabled = true;
+
+// ============================================
+// WEIGHT MODE CONFIGURATION
+// ============================================
+
+/**
+ * Weight adjustment modes:
+ * - 'active': Continuously update weights from prediction errors (legacy behavior)
+ * - 'fallback_only': Log adjustments but don't apply (default for simplification)
+ * - 'frozen': No adjustments at all
+ */
+export type WeightMode = 'active' | 'fallback_only' | 'frozen';
+
+/**
+ * Get current weight mode (default: fallback_only)
+ */
+export function getWeightMode(): WeightMode {
+    if (typeof window === 'undefined') return 'fallback_only';
+    const stored = localStorage.getItem(WEIGHT_MODE_KEY) as WeightMode | null;
+    return stored || 'fallback_only'; // Default: fallback_only (was implicitly 'active')
+}
+
+/**
+ * Set weight mode
+ */
+export function setWeightMode(mode: WeightMode): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(WEIGHT_MODE_KEY, mode);
+    console.log(`[WEIGHTS] Mode set to: ${mode}`);
+}
 
 // Default feature weights
 const DEFAULT_WEIGHTS: FeatureWeight[] = [

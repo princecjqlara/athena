@@ -295,3 +295,94 @@ export function adjustPredictionWithMetrics(
         generatedAt: new Date().toISOString(),
     };
 }
+
+// ============================================
+// RAG-ENHANCED PREDICTION (OPTIONAL)
+// ============================================
+
+/**
+ * Generate prediction using RAG-based similarity + contrastive analysis
+ * Falls back to legacy ML if RAG has insufficient data
+ * 
+ * This wraps the RAG prediction and converts to AdPrediction format
+ */
+export async function generateAdPredictionWithRAG(ad: Record<string, unknown>): Promise<AdPrediction & {
+    ragDetails?: {
+        method: 'rag' | 'hybrid' | 'legacy';
+        neighborCount: number;
+        avgSimilarity: number;
+        traitEffects: Array<{
+            trait: string;
+            lift: number;
+            confidence: number;
+            recommendation: string;
+        }>;
+        explanation: string;
+        ragScore?: number;
+        legacyScore?: number;
+        blendAlpha?: number;
+    };
+}> {
+    try {
+        // Dynamic import to avoid circular dependencies
+        const { predictWithRAG } = await import('./rag');
+
+        // Ensure ad has required shape
+        const adEntry = {
+            id: (ad.id as string) || `temp-${Date.now()}`,
+            mediaUrl: (ad.mediaUrl as string) || (ad.thumbnailUrl as string) || '',
+            thumbnailUrl: (ad.thumbnailUrl as string) || '',
+            mediaType: (ad.mediaType as 'video' | 'photo') || 'video',
+            name: (ad.name as string) || '',
+            contentDocument: (ad.contentDocument as string) || '',
+            extractedContent: buildExtractedAdData(ad),
+            extractedResults: ad.extractedResults as Record<string, unknown> | undefined,
+            hasResults: Boolean(ad.hasResults || ad.extractedResults),
+            createdAt: (ad.createdAt as string) || new Date().toISOString(),
+            updatedAt: (ad.updatedAt as string) || new Date().toISOString(),
+        };
+
+        // Get RAG prediction (type assertion since we control the shape)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ragResult = await predictWithRAG(adEntry as any);
+
+        // Convert to AdPrediction format with RAG details
+        return {
+            predictedScore: ragResult.successProbability,
+            confidence: ragResult.confidence,
+            riskAssessment: null,
+            predictionDetails: {
+                globalScore: ragResult.successProbability,
+                bestSegment: null,
+                segmentScores: [],
+                confidence: ragResult.confidence,
+                keyFactors: ragResult.traitEffects.slice(0, 5).map(e => ({
+                    factor: `${e.trait}=${e.traitValue}`,
+                    impact: e.lift > 0 ? 'positive' as const : e.lift < 0 ? 'negative' as const : 'neutral' as const,
+                    weight: Math.min(1, Math.abs(e.lift) / 20),
+                })),
+                recommendations: ragResult.recommendations.slice(0, 5),
+            },
+            generatedAt: ragResult.generatedAt,
+            ragDetails: {
+                method: ragResult.method,
+                neighborCount: ragResult.neighborCount,
+                avgSimilarity: ragResult.avgNeighborSimilarity,
+                traitEffects: ragResult.traitEffects.map(e => ({
+                    trait: e.trait,
+                    lift: e.lift,
+                    confidence: e.confidence,
+                    recommendation: e.recommendation,
+                })),
+                explanation: ragResult.explanation,
+                ragScore: ragResult.ragScore,
+                legacyScore: ragResult.legacyScore,
+                blendAlpha: ragResult.blendAlpha,
+            },
+        };
+    } catch (error) {
+        console.warn('RAG prediction failed, falling back to legacy:', error);
+        // Fall back to legacy prediction
+        return generateAdPrediction(ad);
+    }
+}

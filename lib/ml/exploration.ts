@@ -1,5 +1,9 @@
 // Exploration System (Epsilon-Greedy Strategy)
 // Recommends wildcards to prevent self-fulfilling prophecies
+//
+// ⚠️ ADVISORY SYSTEM - Disabled by default
+// Part of the unified pipeline simplification.
+// Enable via PipelineConfig.enableExploration or call generateExplicitExperiments() directly.
 
 import { ExplorationConfig, AdEntry, ExtractedAdData } from '@/types';
 import { getFeatureWeights, calculateWeightedScore } from './weight-adjustment';
@@ -7,12 +11,13 @@ import { getFeatureWeights, calculateWeightedScore } from './weight-adjustment';
 const CONFIG_KEY = 'ml_exploration_config';
 
 // Default exploration configuration
+// ⚠️ DISABLED BY DEFAULT - enables when confidence is low
 const DEFAULT_CONFIG: ExplorationConfig = {
-    enabled: true,
-    explorationRate: 0.1, // 10% wildcards
+    enabled: false,               // OFF by default (was true)
+    explorationRate: 0,           // No random wildcards (was 0.1)
     wildcardCount: 1,
-    minScoreForWildcard: 20, // Don't recommend truly terrible ideas
-    maxScoreForWildcard: 50, // Wildcards should be "surprising" choices
+    minScoreForWildcard: 20,
+    maxScoreForWildcard: 50,
 };
 
 // Get exploration config

@@ -107,9 +107,20 @@ export async function POST(request: NextRequest) {
             }, { status: 500 });
         }
 
+        // Derive toggle values from participation mode for the response
+        const receivePublicData = participationMode !== 'private';
+        const autoShareData = participationMode === 'contribute_receive';
+        const blendRatio = calculateBlendRatio(updated.local_data_points || 0);
+
         return NextResponse.json({
             success: true,
-            data: updated,
+            data: {
+                ...updated,
+                blend_ratio: blendRatio,
+                collective_influence: Math.round((1 - blendRatio) * 100),
+                receive_public_data: receivePublicData,
+                auto_share_data: autoShareData,
+            },
             message: optedIn
                 ? 'You are now contributing to collective intelligence!'
                 : 'Collective intelligence disabled',

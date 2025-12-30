@@ -1,9 +1,36 @@
 // Feature Discovery System
 // Discovers new patterns from surprise successes using AI
+//
+// ⚠️ ADVISORY SYSTEM - Auto-discovery DISABLED by default
+// Part of the unified pipeline simplification.
+// Discovered features are treated as METADATA, not predictors.
+// Enable via PipelineConfig.enableAutoDiscovery or call with forceDiscovery: true.
 
 import { DiscoveredMLFeature, AdEntry, ExtractedAdData } from '@/types';
 
 const FEATURES_KEY = 'ml_discovered_features';
+const AUTO_DISCOVERY_KEY = 'ml_auto_discovery_enabled';
+
+// ============================================
+// AUTO-DISCOVERY CONFIGURATION
+// ============================================
+
+/**
+ * Check if auto-discovery is enabled (default: false)
+ */
+export function isAutoDiscoveryEnabled(): boolean {
+    if (typeof window === 'undefined') return false;
+    const stored = localStorage.getItem(AUTO_DISCOVERY_KEY);
+    return stored === 'true'; // Default: disabled
+}
+
+/**
+ * Enable or disable auto-discovery
+ */
+export function setAutoDiscoveryEnabled(enabled: boolean): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(AUTO_DISCOVERY_KEY, String(enabled));
+}
 
 // Get all discovered features
 export function getDiscoveredFeatures(): DiscoveredMLFeature[] {
@@ -19,10 +46,18 @@ function saveDiscoveredFeatures(features: DiscoveredMLFeature[]): void {
 }
 
 // Discover new features from a surprise success ad
+// ⚠️ DISABLED BY DEFAULT - pass forceDiscovery: true to bypass
 export async function discoverFeaturesFromAd(
     ad: AdEntry,
-    reason: 'surprise_success' | 'surprise_failure' | 'pattern_analysis'
+    reason: 'surprise_success' | 'surprise_failure' | 'pattern_analysis',
+    forceDiscovery: boolean = false
 ): Promise<DiscoveredMLFeature[]> {
+    // Guard: only run if auto-discovery is enabled OR forced
+    if (!forceDiscovery && !isAutoDiscoveryEnabled()) {
+        console.log('[DISCOVERY] Auto-discovery disabled. Pass forceDiscovery: true to enable.');
+        return [];
+    }
+
     const discovered: DiscoveredMLFeature[] = [];
 
     try {
