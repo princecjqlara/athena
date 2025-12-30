@@ -202,3 +202,55 @@ export {
 } from './logging';
 
 export type { PredictionLog, FallbackReason, ErrorLog } from './logging';
+
+// ============================================
+// FACET-BASED AD RECORD SYSTEM (NEW)
+// ============================================
+// Enhanced 3-layer ad representation with facets and multi-embeddings.
+// Facets are for explanation, embeddings are for prediction.
+
+export type {
+    AdRecord,
+    FacetSet,
+    EmbeddingSet,
+    FacetEffect,
+    MultiEmbeddingSimilarity,
+} from './types';
+
+// AdRecord conversion
+export {
+    convertToAdRecord,
+    convertToAdRecordWithEmbeddings,
+    createAdRecordFromJSON,
+    populateEmbeddings,
+    regenerateDerived,
+    hasValidEmbeddings,
+    hasResults as adRecordHasResults,
+    getSuccessScore as getAdRecordSuccessScore,
+    addResults,
+    createEmptyAdRecord,
+} from './ad-record';
+
+// Facet derivation
+export {
+    deriveFacetsFromAdData,
+    deriveFacetsFromJSON,
+    createEmptyFacetSet,
+    flattenFacets,
+    hasFacet,
+    countMatchingFacets,
+    getDifferingFacetGroups,
+} from './facet-derivation';
+
+// Multi-embedding generation
+export {
+    buildCreativeSummary,
+    buildScriptSummary,
+    buildVisualSummary,
+    generateMultiEmbeddings,
+    generateMultiEmbeddingsWithTexts,
+    computeMultiEmbeddingSimilarity,
+    isValidEmbeddingSet,
+    createEmptyEmbeddingSet,
+} from './multi-embedding';
+
