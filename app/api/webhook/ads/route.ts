@@ -161,5 +161,71 @@ async function processAdChange(accountId: string, change: AdWebhookChange, times
                 console.error('[Ad Webhook] Error creating sync trigger:', dbError);
             }
         }
+
+        // Trigger quality analysis for new/updated ads
+        if (field === 'ad_created' || field === 'ad_updated') {
+            await triggerQualityAnalysis(value.ad_id, accountId);
+        }
+    }
+}
+
+/**
+ * Trigger quality analysis for an ad
+ * Fetches ad data and sends to quality scoring API
+ */
+async function triggerQualityAnalysis(adId: string | undefined, accountId: string) {
+    if (!adId) return;
+
+    try {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
+
+        // Fetch ad data and trigger quality analysis
+        const response = await fetch(`${baseUrl}/api/ai/ad-quality-score`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                adId,
+                accountId,
+                source: 'webhook',
+                // Basic data - frontend will enrich with full ad details during sync
+                mediaType: 'video',
+                platform: 'facebook',
+            })
+        });
+
+        if (response.ok) {
+            const analysis = await response.json();
+            console.log(`[Ad Webhook] ✅ Quality analysis triggered for ad ${adId}:`, {
+                score: analysis.overallScore,
+                grade: analysis.grade,
+                issues: analysis.issues?.length || 0,
+            });
+
+            // Store analysis result in Supabase for later retrieval
+            if (supabase) {
+                try {
+                    await supabase.from('ad_quality_scores').upsert({
+                        ad_id: adId,
+                        account_id: accountId,
+                        overall_score: analysis.overallScore,
+                        grade: analysis.grade,
+                        victory_chance: analysis.victoryChance,
+                        blunder_count: analysis.blunderCount,
+                        mistake_count: analysis.mistakeCount,
+                        inaccuracy_count: analysis.inaccuracyCount,
+                        analysis_json: analysis,
+                        analyzed_at: analysis.analyzedAt,
+                    }, {
+                        onConflict: 'ad_id'
+                    });
+                } catch (dbError) {
+                    console.error('[Ad Webhook] Error storing quality analysis:', dbError);
+                }
+            }
+        } else {
+            console.error('[Ad Webhook] Quality analysis failed:', response.status);
+        }
+    } catch (error) {
+        console.error('[Ad Webhook] Error triggering quality analysis:', error);
     }
 }

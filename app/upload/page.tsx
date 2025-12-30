@@ -4,6 +4,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import styles from './page.module.css';
 import { ExtractedAdData } from '@/types';
 import { DEFAULT_CATEGORIES, ExtendedAdInsights } from '@/types/extended-ad';
+import { AdQualityAnalysis } from '@/types/ad-quality-types';
+import AdQualityScore from '@/components/AdQualityScore';
 
 // Prediction result type
 interface PredictionResult {
@@ -31,6 +33,10 @@ export default function UploadPage() {
 
     // Prediction state - calculated when ad is extracted
     const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+
+    // Quality analysis state - chess-style scoring
+    const [qualityAnalysis, setQualityAnalysis] = useState<AdQualityAnalysis | null>(null);
+    const [analyzingQuality, setAnalyzingQuality] = useState(false);
 
     // Ad ID state - for linking to Facebook ad and auto-fetching results
     const [adId, setAdId] = useState('');
@@ -200,6 +206,57 @@ export default function UploadPage() {
         predictionResult.confidence = adData.extractionConfidence || 60;
 
         setPrediction(predictionResult);
+
+        // Trigger quality analysis (chess-style scoring)
+        await analyzeAdQuality(adData);
+    };
+
+    // Analyze ad quality with chess-style scoring
+    const analyzeAdQuality = async (adData: ExtractedAdData) => {
+        setAnalyzingQuality(true);
+        try {
+            const response = await fetch('/api/ai/ad-quality-score', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: adData.title,
+                    description: adData.description,
+                    mediaType: adData.mediaType,
+                    aspectRatio: adData.aspectRatio,
+                    platform: adData.platform,
+                    placement: adData.placement,
+                    hookType: adData.hookType,
+                    contentCategory: adData.contentCategory,
+                    editingStyle: adData.editingStyle,
+                    hasSubtitles: adData.hasSubtitles,
+                    hasTextOverlays: adData.hasTextOverlays,
+                    hasVoiceover: adData.hasVoiceover,
+                    isUGCStyle: adData.isUGCStyle,
+                    musicType: adData.musicType,
+                    hasCTA: adData.description?.toLowerCase().includes('shop') ||
+                        adData.description?.toLowerCase().includes('learn more') ||
+                        adData.description?.toLowerCase().includes('sign up') ||
+                        adData.description?.toLowerCase().includes('link'),
+                    customTraits: adData.customTraits,
+                    source: 'upload',
+                })
+            });
+
+            if (response.ok) {
+                const analysis = await response.json();
+                setQualityAnalysis(analysis);
+                console.log('[Upload] Quality analysis complete:', {
+                    score: analysis.overallScore,
+                    grade: analysis.grade,
+                    issues: analysis.issues?.length || 0,
+                });
+            } else {
+                console.error('[Upload] Quality analysis failed:', response.status);
+            }
+        } catch (error) {
+            console.error('[Upload] Error analyzing quality:', error);
+        }
+        setAnalyzingQuality(false);
     };
 
     // Fallback extraction
@@ -265,6 +322,18 @@ export default function UploadPage() {
             extendedInsights: extendedInsights,
             hasResults: adInsights ? true : false,
             successScore: adInsights?.ctr ? Math.min(100, Math.round(adInsights.ctr * 10)) : undefined,
+            // Quality analysis (chess-style scoring)
+            qualityAnalysis: qualityAnalysis ? {
+                overallScore: qualityAnalysis.overallScore,
+                victoryChance: qualityAnalysis.victoryChance,
+                grade: qualityAnalysis.grade,
+                blunderCount: qualityAnalysis.blunderCount,
+                mistakeCount: qualityAnalysis.mistakeCount,
+                inaccuracyCount: qualityAnalysis.inaccuracyCount,
+                issueCount: qualityAnalysis.issues.length,
+                positiveCount: qualityAnalysis.positives.length,
+                analyzedAt: qualityAnalysis.analyzedAt,
+            } : null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -731,6 +800,40 @@ CTA: "Link in bio to get 20% off"`}
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* Quality Analysis - Chess-Style Scoring */}
+                    {(qualityAnalysis || analyzingQuality) && (
+                        <div className={`glass-card`} style={{
+                            marginBottom: 'var(--spacing-xl)',
+                            padding: 'var(--spacing-lg)',
+                        }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 'var(--spacing-sm)',
+                                marginBottom: 'var(--spacing-md)'
+                            }}>
+                                <span style={{ fontSize: '1.5rem' }}>♟️</span>
+                                <h3 style={{ margin: 0, fontSize: '1.125rem' }}>Ad Quality Analysis</h3>
+                                <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>Chess Scoring</span>
+                            </div>
+
+                            {analyzingQuality ? (
+                                <div style={{
+                                    padding: 'var(--spacing-xl)',
+                                    textAlign: 'center',
+                                    color: 'var(--text-muted)'
+                                }}>
+                                    <svg className="animate-spin" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M21 12a9 9 0 11-6.219-8.56" />
+                                    </svg>
+                                    <p style={{ marginTop: 'var(--spacing-md)' }}>Analyzing ad quality...</p>
+                                </div>
+                            ) : qualityAnalysis ? (
+                                <AdQualityScore analysis={qualityAnalysis} />
+                            ) : null}
                         </div>
                     )}
 

@@ -81,6 +81,18 @@ interface Ad {
     linkedAdId?: string;                    // ID of the connected ad
     linkedAdType?: 'imported' | 'uploaded'; // Type of the linked ad
     linkedAt?: string;                      // Timestamp when connection was made
+    // Quality Analysis - Chess-style scoring
+    qualityAnalysis?: {
+        overallScore: number;
+        victoryChance: number;
+        grade: string;
+        blunderCount: number;
+        mistakeCount: number;
+        inaccuracyCount: number;
+        issueCount: number;
+        positiveCount?: number;
+        analyzedAt: string;
+    };
 }
 
 // Status options for dropdown
@@ -1109,6 +1121,37 @@ Ad description: ${adDescription}`,
                                                     >
                                                         <span className={styles.videoStatLabel}>Score</span>
                                                         <span className={`${styles.videoStatValue} ${styles.score}`}>{ad.successScore}%</span>
+                                                    </div>
+                                                )}
+                                                {/* Quality Analysis Badge */}
+                                                {ad.qualityAnalysis && (
+                                                    <div
+                                                        className={styles.videoStat}
+                                                        title={`Quality: ${ad.qualityAnalysis.grade}\nVictory Chance: ${ad.qualityAnalysis.victoryChance}%\n${ad.qualityAnalysis.blunderCount > 0 ? `🔴 ${ad.qualityAnalysis.blunderCount} Blunder(s)\n` : ''}${ad.qualityAnalysis.mistakeCount > 0 ? `🟠 ${ad.qualityAnalysis.mistakeCount} Mistake(s)\n` : ''}${ad.qualityAnalysis.inaccuracyCount > 0 ? `🟡 ${ad.qualityAnalysis.inaccuracyCount} Inaccuracy(s)` : ''}`}
+                                                        style={{
+                                                            cursor: 'help',
+                                                            background: ad.qualityAnalysis.grade === 'S' || ad.qualityAnalysis.grade === 'A'
+                                                                ? 'rgba(34, 197, 94, 0.2)'
+                                                                : ad.qualityAnalysis.grade === 'B' || ad.qualityAnalysis.grade === 'C'
+                                                                    ? 'rgba(59, 130, 246, 0.2)'
+                                                                    : 'rgba(239, 68, 68, 0.2)',
+                                                            borderRadius: '4px',
+                                                            padding: '2px 6px'
+                                                        }}
+                                                    >
+                                                        <span className={styles.videoStatLabel}>♟️</span>
+                                                        <span className={styles.videoStatValue} style={{
+                                                            color: ad.qualityAnalysis.grade === 'S' ? '#fbbf24' :
+                                                                ad.qualityAnalysis.grade === 'A' ? '#22c55e' :
+                                                                    ad.qualityAnalysis.grade === 'B' ? '#3b82f6' :
+                                                                        ad.qualityAnalysis.grade === 'C' ? '#f59e0b' : '#ef4444',
+                                                            fontWeight: 700
+                                                        }}>
+                                                            {ad.qualityAnalysis.grade}
+                                                            <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8 }}>
+                                                                {ad.qualityAnalysis.overallScore}
+                                                            </span>
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>

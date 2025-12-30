@@ -444,6 +444,16 @@ export default function MindMapPage() {
     const [legendCollapsed, setLegendCollapsed] = useState(false);
     const [customTraitGroups, setCustomTraitGroups] = useState<Array<{ name: string, color: string, traits: string[] }>>([]);
 
+    // Metrics panel state
+    const [showMetrics, setShowMetrics] = useState(false);
+
+    // Targeting Coverage Panel state
+    const [showTargetingPanel, setShowTargetingPanel] = useState(true);
+    const [targetingPanelCollapsed, setTargetingPanelCollapsed] = useState(false);
+    const [aiSuggestions, setAiSuggestions] = useState<Array<{ title: string; reason: string; priority: 'high' | 'medium' | 'low' }>>([]);
+    const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['platforms', 'hooks']));
+
     const containerRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
     const lastMouse = useRef({ x: 0, y: 0 });
@@ -1369,8 +1379,228 @@ export default function MindMapPage() {
         };
     }, [ads, traitNodes]);
 
-    // Show/hide metrics panel
-    const [showMetrics, setShowMetrics] = useState(false);
+    // ===== TARGETING COVERAGE CALCULATION =====
+    const targetingCoverage = useMemo(() => {
+        const MIN_ADS_COMPLETE = 5; // Minimum ads to consider a type "complete"
+        const MIN_ADS_IN_PROGRESS = 1;
+
+        // Define all tracked types
+        const ALL_PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'Snapchat'];
+        const ALL_HOOKS = ['Curiosity', 'Shock', 'Question', 'Transformation', 'Story', 'Problem Solution'];
+        const ALL_CONTENT_CATEGORIES = ['UGC', 'Testimonial', 'Product Demo', 'Educational', 'Entertainment'];
+        const ALL_PLACEMENTS = ['Feed', 'Stories', 'Reels'];
+        const ALL_FORMATS = ['Video', 'Image', 'Carousel'];
+        const ALL_DURATIONS = ['Under 15s', '15-30s', '30-60s', '60s+'];
+
+        // Count ads per type
+        const countByType = (extractor: (ad: AdEntry) => string | undefined, values: string[]) => {
+            const counts: Record<string, number> = {};
+            values.forEach(v => counts[v] = 0);
+
+            ads.forEach(ad => {
+                const value = extractor(ad);
+                if (value) {
+                    // Normalize the value for matching
+                    const normalized = value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    values.forEach(v => {
+                        if (normalized.toLowerCase().includes(v.toLowerCase()) ||
+                            v.toLowerCase().includes(normalized.toLowerCase())) {
+                            counts[v]++;
+                        }
+                    });
+                }
+            });
+
+            return counts;
+        };
+
+        const platformCounts = countByType(ad => ad.extractedContent?.platform, ALL_PLATFORMS);
+        const hookCounts = countByType(ad => ad.extractedContent?.hookType, ALL_HOOKS);
+        const categoryCounts = countByType(ad => ad.extractedContent?.contentCategory, ALL_CONTENT_CATEGORIES);
+        const placementCounts = countByType(ad => ad.extractedContent?.placement, ALL_PLACEMENTS);
+        const formatCounts = countByType(ad => ad.extractedContent?.mediaType, ALL_FORMATS);
+        const durationCounts = countByType(ad => ad.extractedContent?.durationCategory, ALL_DURATIONS);
+
+        // Calculate status for each type
+        const getStatus = (count: number): 'complete' | 'inProgress' | 'missing' => {
+            if (count >= MIN_ADS_COMPLETE) return 'complete';
+            if (count >= MIN_ADS_IN_PROGRESS) return 'inProgress';
+            return 'missing';
+        };
+
+        const buildCoverageList = (counts: Record<string, number>) => {
+            return Object.entries(counts).map(([name, count]) => ({
+                name,
+                count,
+                status: getStatus(count)
+            })).sort((a, b) => b.count - a.count);
+        };
+
+        const platforms = buildCoverageList(platformCounts);
+        const hooks = buildCoverageList(hookCounts);
+        const contentCategories = buildCoverageList(categoryCounts);
+        const placements = buildCoverageList(placementCounts);
+        const formats = buildCoverageList(formatCounts);
+        const durations = buildCoverageList(durationCounts);
+
+        // Calculate totals
+        const allCoverage = [...platforms, ...hooks, ...contentCategories, ...placements, ...formats];
+        const complete = allCoverage.filter(c => c.status === 'complete').length;
+        const inProgress = allCoverage.filter(c => c.status === 'inProgress').length;
+        const missing = allCoverage.filter(c => c.status === 'missing').length;
+        const totalTypes = allCoverage.length;
+        const overallPercentage = totalTypes > 0 ? Math.round(((complete + inProgress * 0.5) / totalTypes) * 100) : 0;
+
+        // Build targeting matrix (Platform × Placement)
+        const matrix: Record<string, Record<string, 'complete' | 'inProgress' | 'missing' | 'na'>> = {};
+        ALL_PLATFORMS.forEach(platform => {
+            matrix[platform] = {};
+            ALL_PLACEMENTS.forEach(placement => {
+                // Check if this platform supports this placement
+                const supported = !(
+                    (platform === 'TikTok' && placement === 'Stories') ||
+                    (platform === 'YouTube' && (placement === 'Stories' || placement === 'Reels'))
+                );
+
+                if (!supported) {
+                    matrix[platform][placement] = 'na';
+                } else {
+                    // Count ads with this combination
+                    const count = ads.filter(ad => {
+                        const adPlatform = ad.extractedContent?.platform?.toLowerCase() || '';
+                        const adPlacement = ad.extractedContent?.placement?.toLowerCase() || '';
+                        return adPlatform.includes(platform.toLowerCase()) &&
+                            adPlacement.includes(placement.toLowerCase());
+                    }).length;
+                    matrix[platform][placement] = getStatus(count);
+                }
+            });
+        });
+
+        return {
+            overallPercentage,
+            complete,
+            inProgress,
+            missing,
+            totalTypes,
+            platforms,
+            hooks,
+            contentCategories,
+            placements,
+            formats,
+            durations,
+            matrix
+        };
+    }, [ads]);
+
+    // ===== AI SUGGESTIONS GENERATION =====
+    const generateAISuggestions = async () => {
+        setIsLoadingSuggestions(true);
+
+        try {
+            // Prepare coverage data for AI
+            const coverageData = {
+                totalAds: ads.length,
+                overallCoverage: targetingCoverage.overallPercentage,
+                missing: {
+                    platforms: targetingCoverage.platforms.filter(p => p.status === 'missing').map(p => p.name),
+                    hooks: targetingCoverage.hooks.filter(h => h.status === 'missing').map(h => h.name),
+                    contentCategories: targetingCoverage.contentCategories.filter(c => c.status === 'missing').map(c => c.name),
+                },
+                inProgress: {
+                    platforms: targetingCoverage.platforms.filter(p => p.status === 'inProgress').map(p => ({ name: p.name, count: p.count })),
+                    hooks: targetingCoverage.hooks.filter(h => h.status === 'inProgress').map(h => ({ name: h.name, count: h.count })),
+                },
+                topPerformingTraits: metrics?.topTraits.slice(0, 3) || [],
+            };
+
+            const response = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'generate-targeting-suggestions',
+                    data: coverageData
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.data?.suggestions) {
+                setAiSuggestions(result.data.suggestions);
+            } else {
+                // Fallback suggestions based on coverage
+                const fallbackSuggestions: typeof aiSuggestions = [];
+
+                // High priority: Missing platforms
+                targetingCoverage.platforms
+                    .filter(p => p.status === 'missing')
+                    .slice(0, 2)
+                    .forEach(p => {
+                        fallbackSuggestions.push({
+                            title: `Create a ${p.name} ad`,
+                            reason: `You have no ${p.name} ads yet. Adding data from this platform will help AI make better cross-platform predictions.`,
+                            priority: 'high'
+                        });
+                    });
+
+                // Medium priority: In-progress types
+                targetingCoverage.hooks
+                    .filter(h => h.status === 'inProgress')
+                    .slice(0, 2)
+                    .forEach(h => {
+                        fallbackSuggestions.push({
+                            title: `Add more "${h.name}" hook ads`,
+                            reason: `You have ${h.count} ad(s) with this hook. Need ${5 - h.count} more for reliable predictions.`,
+                            priority: 'medium'
+                        });
+                    });
+
+                // Low priority: Diversify content
+                targetingCoverage.contentCategories
+                    .filter(c => c.status === 'missing')
+                    .slice(0, 1)
+                    .forEach(c => {
+                        fallbackSuggestions.push({
+                            title: `Try ${c.name} content`,
+                            reason: `Diversifying content types helps identify what works best for your audience.`,
+                            priority: 'low'
+                        });
+                    });
+
+                setAiSuggestions(fallbackSuggestions);
+            }
+        } catch (error) {
+            console.error('Error generating AI suggestions:', error);
+            // Set minimal fallback
+            setAiSuggestions([{
+                title: 'Add more ad data',
+                reason: 'Upload or import more ads to get personalized AI suggestions.',
+                priority: 'high'
+            }]);
+        }
+
+        setIsLoadingSuggestions(false);
+    };
+
+    // Load AI suggestions on mount (if we have ads)
+    useEffect(() => {
+        if (ads.length > 0 && aiSuggestions.length === 0) {
+            generateAISuggestions();
+        }
+    }, [ads.length]);
+
+    // Toggle section expansion
+    const toggleSection = (section: string) => {
+        setExpandedSections(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(section)) {
+                newSet.delete(section);
+            } else {
+                newSet.add(section);
+            }
+            return newSet;
+        });
+    };
 
     return (
         <div className={styles.page}>
@@ -2206,6 +2436,259 @@ export default function MindMapPage() {
                                 🗑️ Delete
                             </button>
                         </div>
+                    )}
+                </div>
+            )}
+
+            {/* ===== TARGETING COVERAGE PANEL ===== */}
+            {showTargetingPanel && (
+                <div className={`${styles.targetingPanel} ${targetingPanelCollapsed ? styles.targetingPanelCollapsed : ''}`}>
+                    <div
+                        className={styles.targetingHeader}
+                        onClick={() => setTargetingPanelCollapsed(!targetingPanelCollapsed)}
+                    >
+                        <div className={styles.targetingTitle}>
+                            🎯 {targetingPanelCollapsed ? '' : 'Targeting Coverage'}
+                        </div>
+                        <span className={`${styles.collapseIcon} ${targetingPanelCollapsed ? styles.collapseIconRotated : ''}`}>
+                            {targetingPanelCollapsed ? '▶' : '◀'}
+                        </span>
+                    </div>
+
+                    {!targetingPanelCollapsed && (
+                        <>
+                            {/* Get Started State - Show if no ads */}
+                            {ads.length === 0 ? (
+                                <div className={styles.getStartedState}>
+                                    <div className={styles.getStartedIcon}>🚀</div>
+                                    <h3>Get Started</h3>
+                                    <p>Upload or import ads to see your targeting coverage and get AI suggestions.</p>
+                                    <button
+                                        className={styles.getStartedButton}
+                                        onClick={() => window.location.href = '/myads?tab=upload'}
+                                    >
+                                        Upload Your First Ad
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Overall Coverage */}
+                                    <div className={styles.overallCoverage}>
+                                        <div className={styles.coveragePercentage}>
+                                            <span className={styles.coverageNumber}>{targetingCoverage.overallPercentage}%</span>
+                                            <span className={styles.coverageLabel}>Coverage</span>
+                                        </div>
+                                        <div className={styles.coverageBar}>
+                                            <div
+                                                className={styles.coverageBarFill}
+                                                style={{ width: `${targetingCoverage.overallPercentage}%` }}
+                                            />
+                                        </div>
+                                        <div className={styles.coverageStats}>
+                                            <span className={`${styles.coverageStat} ${styles.complete}`}>
+                                                ✅ {targetingCoverage.complete} complete
+                                            </span>
+                                            <span className={`${styles.coverageStat} ${styles.inProgress}`}>
+                                                🔄 {targetingCoverage.inProgress} in progress
+                                            </span>
+                                            <span className={`${styles.coverageStat} ${styles.missing}`}>
+                                                ❌ {targetingCoverage.missing} missing
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Platforms Section */}
+                                    <div className={styles.coverageSection}>
+                                        <div
+                                            className={styles.coverageSectionHeader}
+                                            onClick={() => toggleSection('platforms')}
+                                        >
+                                            <span className={styles.coverageSectionTitle}>
+                                                <span className={styles.coverageSectionIcon}>📱</span>
+                                                Platforms
+                                            </span>
+                                            <span className={styles.coverageSectionToggle}>
+                                                {expandedSections.has('platforms') ? '▼' : '▶'}
+                                            </span>
+                                        </div>
+                                        {expandedSections.has('platforms') && (
+                                            <div className={styles.coverageSectionContent}>
+                                                {targetingCoverage.platforms.map(item => (
+                                                    <div key={item.name} className={styles.coverageItem}>
+                                                        <div className={styles.coverageItemLeft}>
+                                                            <span className={`${styles.statusIcon} ${styles[item.status]}`}>
+                                                                {item.status === 'complete' ? '✅' : item.status === 'inProgress' ? '🔄' : '○'}
+                                                            </span>
+                                                            <span className={styles.coverageItemName}>{item.name}</span>
+                                                        </div>
+                                                        <span className={`${styles.coverageItemCount} ${item.count > 0 ? styles[item.status] : ''}`}>
+                                                            {item.count} ads
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Hook Types Section */}
+                                    <div className={styles.coverageSection}>
+                                        <div
+                                            className={styles.coverageSectionHeader}
+                                            onClick={() => toggleSection('hooks')}
+                                        >
+                                            <span className={styles.coverageSectionTitle}>
+                                                <span className={styles.coverageSectionIcon}>🎣</span>
+                                                Hook Types
+                                            </span>
+                                            <span className={styles.coverageSectionToggle}>
+                                                {expandedSections.has('hooks') ? '▼' : '▶'}
+                                            </span>
+                                        </div>
+                                        {expandedSections.has('hooks') && (
+                                            <div className={styles.coverageSectionContent}>
+                                                {targetingCoverage.hooks.map(item => (
+                                                    <div key={item.name} className={styles.coverageItem}>
+                                                        <div className={styles.coverageItemLeft}>
+                                                            <span className={`${styles.statusIcon} ${styles[item.status]}`}>
+                                                                {item.status === 'complete' ? '✅' : item.status === 'inProgress' ? '🔄' : '○'}
+                                                            </span>
+                                                            <span className={styles.coverageItemName}>{item.name}</span>
+                                                        </div>
+                                                        <span className={`${styles.coverageItemCount} ${item.count > 0 ? styles[item.status] : ''}`}>
+                                                            {item.count} ads
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Content Categories Section */}
+                                    <div className={styles.coverageSection}>
+                                        <div
+                                            className={styles.coverageSectionHeader}
+                                            onClick={() => toggleSection('content')}
+                                        >
+                                            <span className={styles.coverageSectionTitle}>
+                                                <span className={styles.coverageSectionIcon}>📝</span>
+                                                Content Types
+                                            </span>
+                                            <span className={styles.coverageSectionToggle}>
+                                                {expandedSections.has('content') ? '▼' : '▶'}
+                                            </span>
+                                        </div>
+                                        {expandedSections.has('content') && (
+                                            <div className={styles.coverageSectionContent}>
+                                                {targetingCoverage.contentCategories.map(item => (
+                                                    <div key={item.name} className={styles.coverageItem}>
+                                                        <div className={styles.coverageItemLeft}>
+                                                            <span className={`${styles.statusIcon} ${styles[item.status]}`}>
+                                                                {item.status === 'complete' ? '✅' : item.status === 'inProgress' ? '🔄' : '○'}
+                                                            </span>
+                                                            <span className={styles.coverageItemName}>{item.name}</span>
+                                                        </div>
+                                                        <span className={`${styles.coverageItemCount} ${item.count > 0 ? styles[item.status] : ''}`}>
+                                                            {item.count} ads
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Targeting Matrix */}
+                                    <div className={styles.coverageSection}>
+                                        <div
+                                            className={styles.coverageSectionHeader}
+                                            onClick={() => toggleSection('matrix')}
+                                        >
+                                            <span className={styles.coverageSectionTitle}>
+                                                <span className={styles.coverageSectionIcon}>📊</span>
+                                                Platform × Placement
+                                            </span>
+                                            <span className={styles.coverageSectionToggle}>
+                                                {expandedSections.has('matrix') ? '▼' : '▶'}
+                                            </span>
+                                        </div>
+                                        {expandedSections.has('matrix') && (
+                                            <div className={styles.targetingMatrix}>
+                                                <table className={styles.matrixTable}>
+                                                    <thead>
+                                                        <tr>
+                                                            <th></th>
+                                                            <th>Feed</th>
+                                                            <th>Stories</th>
+                                                            <th>Reels</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {Object.entries(targetingCoverage.matrix).map(([platform, placements]) => (
+                                                            <tr key={platform}>
+                                                                <td>{platform}</td>
+                                                                {Object.entries(placements).map(([placement, status]) => (
+                                                                    <td key={placement}>
+                                                                        <span className={styles.matrixCell}>
+                                                                            {status === 'complete' ? '✅' :
+                                                                                status === 'inProgress' ? '🔄' :
+                                                                                    status === 'na' ? '—' : '○'}
+                                                                        </span>
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* AI Suggestions */}
+                                    <div className={styles.aiSuggestionsSection}>
+                                        <div className={styles.aiSuggestionsHeader}>
+                                            <span className={styles.aiSuggestionsTitle}>
+                                                💡 AI Suggestions
+                                            </span>
+                                            <button
+                                                className={styles.refreshButton}
+                                                onClick={generateAISuggestions}
+                                                disabled={isLoadingSuggestions}
+                                            >
+                                                {isLoadingSuggestions ? '...' : '🔄'}
+                                            </button>
+                                        </div>
+
+                                        {isLoadingSuggestions ? (
+                                            <div className={styles.loadingSuggestions}>
+                                                <span className={styles.loadingSpinner}>🔄</span>
+                                                Generating suggestions...
+                                            </div>
+                                        ) : aiSuggestions.length === 0 ? (
+                                            <div className={styles.emptySuggestions}>
+                                                <div className={styles.emptyIcon}>🎉</div>
+                                                <p>Great coverage! Keep up the good work.</p>
+                                            </div>
+                                        ) : (
+                                            aiSuggestions.map((suggestion, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className={`${styles.suggestionCard} ${suggestion.priority === 'high' ? styles.highPriority :
+                                                            suggestion.priority === 'medium' ? styles.mediumPriority :
+                                                                styles.lowPriority
+                                                        }`}
+                                                >
+                                                    <span className={`${styles.suggestionPriority} ${styles[suggestion.priority]}`}>
+                                                        {suggestion.priority === 'high' ? '🎯 HIGH' :
+                                                            suggestion.priority === 'medium' ? '🔶 MEDIUM' : '🟢 LOW'}
+                                                    </span>
+                                                    <div className={styles.suggestionTitle}>{suggestion.title}</div>
+                                                    <div className={styles.suggestionReason}>{suggestion.reason}</div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </>
                     )}
                 </div>
             )}

@@ -946,3 +946,490 @@
 .light .deleteButton:hover {
     background: rgba(239, 68, 68, 0.15);
 }
+
+/* ====== TARGETING COVERAGE PANEL ====== */
+.targetingPanel {
+    position: fixed;
+    top: 100px;
+    left: 90px;
+    width: 320px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-lg);
+    z-index: 45;
+    animation: slideIn 0.3s ease-out;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.targetingPanelCollapsed {
+    width: auto;
+    padding: var(--spacing-sm);
+}
+
+.targetingHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+    cursor: pointer;
+}
+
+.targetingTitle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.targetingTitle svg {
+    width: 20px;
+    height: 20px;
+}
+
+.collapseIcon {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+}
+
+.collapseIconRotated {
+    transform: rotate(180deg);
+}
+
+/* Overall Coverage Section */
+.overallCoverage {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.1));
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.coveragePercentage {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+}
+
+.coverageNumber {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.coverageLabel {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.coverageBar {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    margin-bottom: var(--spacing-sm);
+}
+
+.coverageBarFill {
+    height: 100%;
+    background: linear-gradient(90deg, #8b5cf6, #3b82f6);
+    border-radius: var(--radius-full);
+    transition: width 0.5s ease-out;
+}
+
+.coverageStats {
+    display: flex;
+    gap: var(--spacing-md);
+    font-size: 0.75rem;
+}
+
+.coverageStat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.coverageStat.complete {
+    color: #22c55e;
+}
+
+.coverageStat.inProgress {
+    color: #f59e0b;
+}
+
+.coverageStat.missing {
+    color: #ef4444;
+}
+
+/* Coverage Section */
+.coverageSection {
+    margin-bottom: var(--spacing-md);
+}
+
+.coverageSectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.coverageSectionTitle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.coverageSectionIcon {
+    font-size: 1rem;
+}
+
+.coverageSectionToggle {
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+}
+
+.coverageSectionContent {
+    padding-top: var(--spacing-sm);
+}
+
+/* Coverage Item */
+.coverageItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.coverageItem:last-child {
+    border-bottom: none;
+}
+
+.coverageItemLeft {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.statusIcon {
+    font-size: 0.75rem;
+}
+
+.statusIcon.complete {
+    color: #22c55e;
+}
+
+.statusIcon.inProgress {
+    color: #f59e0b;
+}
+
+.statusIcon.missing {
+    color: #6b7280;
+}
+
+.coverageItemName {
+    color: var(--text-secondary);
+}
+
+.coverageItemCount {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+}
+
+.coverageItemCount.complete {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
+.coverageItemCount.inProgress {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+/* Targeting Matrix */
+.targetingMatrix {
+    margin-bottom: var(--spacing-md);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+    overflow-x: auto;
+}
+
+.matrixTable {
+    width: 100%;
+    font-size: 0.6875rem;
+    border-collapse: collapse;
+}
+
+.matrixTable th {
+    padding: 4px 6px;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.matrixTable td {
+    padding: 4px 6px;
+    text-align: center;
+}
+
+.matrixTable th:first-child,
+.matrixTable td:first-child {
+    text-align: left;
+    color: var(--text-secondary);
+}
+
+.matrixCell {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.625rem;
+}
+
+/* AI Suggestions Section */
+.aiSuggestionsSection {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.aiSuggestionsHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.aiSuggestionsTitle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.refreshButton {
+    padding: 4px 8px;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: var(--radius-sm);
+    color: var(--accent-primary);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.refreshButton:hover {
+    background: rgba(139, 92, 246, 0.2);
+}
+
+.refreshButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.suggestionCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.suggestionCard.highPriority {
+    border-left: 3px solid #ef4444;
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.suggestionCard.mediumPriority {
+    border-left: 3px solid #f59e0b;
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.suggestionCard.lowPriority {
+    border-left: 3px solid #22c55e;
+    background: rgba(34, 197, 94, 0.05);
+}
+
+.suggestionPriority {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.625rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.suggestionPriority.high {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.suggestionPriority.medium {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.suggestionPriority.low {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.suggestionTitle {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.suggestionReason {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Loading State */
+.loadingSuggestions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.loadingSpinner {
+    animation: spin 1s linear infinite;
+}
+
+/* Empty State */
+.emptySuggestions {
+    text-align: center;
+    padding: var(--spacing-lg);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.emptySuggestions .emptyIcon {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-sm);
+}
+
+/* Get Started State */
+.getStartedState {
+    text-align: center;
+    padding: var(--spacing-lg);
+}
+
+.getStartedState .getStartedIcon {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-md);
+}
+
+.getStartedState h3 {
+    font-size: 1rem;
+    margin-bottom: var(--spacing-xs);
+    color: var(--text-primary);
+}
+
+.getStartedState p {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-md);
+}
+
+.getStartedButton {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--accent-gradient);
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.getStartedButton:hover {
+    transform: scale(1.02);
+}
+
+/* Light Mode for Targeting Panel */
+[data-theme="light"] .targetingPanel,
+.light .targetingPanel {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .overallCoverage,
+.light .overallCoverage {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.05));
+    border-color: rgba(139, 92, 246, 0.15);
+}
+
+[data-theme="light"] .coverageBar,
+.light .coverageBar {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .coverageItem,
+.light .coverageItem {
+    border-bottom-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .coverageItemCount,
+.light .coverageItemCount {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .suggestionCard,
+.light .suggestionCard {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .targetingMatrix,
+.light .targetingMatrix {
+    background: rgba(0, 0, 0, 0.02);
+}
