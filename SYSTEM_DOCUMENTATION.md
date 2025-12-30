@@ -186,17 +186,51 @@ AdVision AI, codenamed **Athena**, is an AI-powered marketing insights platform 
 User Input (natural language) 
     → AI Parsing (NVIDIA NIM)
     → Structured ExtractedAdData (80+ fields)
-    → ML Feature Extraction (17 features)
-    → Weighted Score Calculation
-    → Prediction with Confidence
+    → Unified Prediction Pipeline (see below)
+    → Prediction with Confidence + 4-Section Explanation
     
 User Inputs Results
     → AI Results Parsing
     → Compare Prediction vs Reality
-    → If Error > 50%: Trigger Weight Adjustment
-    → If Surprise Success: Trigger Feature Discovery
-    → Update ML Weights (localStorage)
+    → Store for future RAG retrieval
 ```
+
+### Unified Prediction Pipeline (NEW)
+
+The system uses a **single decision spine** for all predictions, reducing complexity and improving explainability:
+
+```
+INPUT AD
+   ↓
+1. Retrieve Similar Ads (RAG)
+   ↓
+2. Estimate Outcome from Neighbors
+   ↓
+3. Adjust via Contrast (trait differences)
+   ↓
+4. Measure Confidence
+   ↓
+5. If Confidence Low → Fallback + Data Suggestions
+   ↓
+OUTPUT: Prediction + 4-Section Explanation
+```
+
+#### 4-Section Explanation Format
+
+Every prediction includes:
+1. **"Here's what similar ads did"** - Evidence from neighbor ads
+2. **"Here's how your differences matter"** - Contrastive trait analysis
+3. **"Here's our confidence"** - Confidence level with reasons
+4. **"Here's what data would help"** - Data gap suggestions (when confidence is low)
+
+#### Advisory Systems (OFF by default)
+
+The following systems are disabled by default to reduce noise:
+- **Exploration**: Random wildcard recommendations → trigger only on low confidence
+- **Feature Discovery**: Auto-trait discovery → manual trigger only
+- **Weight Learning**: Continuous weight updates → fallback-only mode
+
+Enable via `setAdvisoryEnabled()` in `lib/rag/decision-config.ts`.
 
 ---
 
