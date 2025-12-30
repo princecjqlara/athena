@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
+import GalaxyOrbs from '@/components/GalaxyOrbs';
+import AIDataGatherer from '@/components/AIDataGatherer';
 
 interface DataPool {
     id: string;
@@ -24,6 +26,38 @@ interface Filters {
     platform: string;
     audience: string;
     format: string;
+}
+
+interface CompiledData {
+    targetAudience: {
+        demographics: string[];
+        interests: string[];
+        behaviors: string[];
+        painPoints: string[];
+    };
+    adPreferences: {
+        platforms: string[];
+        contentTypes: string[];
+        tones: string[];
+        hooks: string[];
+    };
+    businessContext: {
+        industry: string;
+        products: string[];
+        uniqueValue: string;
+        competitors: string[];
+    };
+    goals: {
+        objectives: string[];
+        metrics: string[];
+        timeline: string;
+    };
+}
+
+interface PoolInsights {
+    totalPatterns: number;
+    avgConfidence: number;
+    totalSampleSize: number;
 }
 
 const INDUSTRIES = [
@@ -73,6 +107,17 @@ const INTENDED_USES = [
 export default function MarketplacePage() {
     const [pools, setPools] = useState<DataPool[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // View mode: 'orbs' for Galaxy Orbs, 'pools' for traditional grid
+    const [viewMode, setViewMode] = useState<'orbs' | 'pools'>('orbs');
+
+    // AI Data Gatherer state
+    const [showAIGatherer, setShowAIGatherer] = useState(false);
+    const [isPersonalized, setIsPersonalized] = useState(false);
+    const [personalizedData, setPersonalizedData] = useState<CompiledData | null>(null);
+
+    // Pool insights from public API
+    const [poolInsights, setPoolInsights] = useState<PoolInsights | null>(null);
 
     // AI Suggestion Mode (replaces manual filters)
     const [useAiMode, setUseAiMode] = useState(true);
@@ -272,12 +317,123 @@ export default function MarketplacePage() {
         <main className={styles.container}>
             <div className={styles.header}>
                 <div className={styles.titleSection}>
-                    <h1 className={styles.title}>Data Marketplace</h1>
+                    <h1 className={styles.title}>
+                        Data Marketplace
+                        {isPersonalized && (
+                            <span className={styles.personalizedBadge}>
+                                ✨ Personalized
+                            </span>
+                        )}
+                    </h1>
                     <p className={styles.subtitle}>
-                        Browse and request access to public ad performance data pools
+                        Explore community patterns and request access to public ad performance data
                     </p>
                 </div>
             </div>
+
+            {/* View Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div className={styles.viewToggle}>
+                    <button
+                        className={`${styles.viewToggleBtn} ${viewMode === 'orbs' ? styles.viewToggleBtnActive : ''}`}
+                        onClick={() => setViewMode('orbs')}
+                    >
+                        🌌 Galaxy Orbs
+                    </button>
+                    <button
+                        className={`${styles.viewToggleBtn} ${viewMode === 'pools' ? styles.viewToggleBtnActive : ''}`}
+                        onClick={() => setViewMode('pools')}
+                    >
+                        📊 Data Pools
+                    </button>
+                </div>
+            </div>
+
+            {/* Galaxy Orbs Section */}
+            {viewMode === 'orbs' && (
+                <div className={styles.galaxyOrbsSection}>
+                    <div className={styles.sectionHeader}>
+                        <h2 className={styles.sectionTitle}>
+                            🌌 Community Patterns
+                            <span className={styles.sectionBadge}>Public Pool</span>
+                        </h2>
+                    </div>
+
+                    {/* AI Data Gatherer Trigger */}
+                    <button
+                        className={styles.aiGathererTrigger}
+                        onClick={() => setShowAIGatherer(true)}
+                        style={{ marginBottom: '20px' }}
+                    >
+                        🤖 Ask AI to find data for you
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            (e.g., &quot;Get me data for business owners&quot;)
+                        </span>
+                    </button>
+
+                    {/* Galaxy Orbs Visualization */}
+                    <GalaxyOrbs
+                        searchQuery={searchQuery}
+                        filters={{
+                            industry: filters.industry,
+                            platform: filters.platform,
+                            audience: filters.audience
+                        }}
+                        onPatternSelect={(pattern) => {
+                            console.log('Selected pattern:', pattern);
+                            // Could open a detail modal or apply as filter
+                        }}
+                        maxOrbs={50}
+                    />
+
+                    {/* Insights Summary */}
+                    {poolInsights && (
+                        <div className={styles.insightsSummary}>
+                            <div className={styles.insightCard}>
+                                <div className={styles.insightValue}>{poolInsights.totalPatterns}</div>
+                                <div className={styles.insightLabel}>Patterns</div>
+                            </div>
+                            <div className={styles.insightCard}>
+                                <div className={styles.insightValue}>{poolInsights.avgConfidence}%</div>
+                                <div className={styles.insightLabel}>Avg Confidence</div>
+                            </div>
+                            <div className={styles.insightCard}>
+                                <div className={styles.insightValue}>{formatNumber(poolInsights.totalSampleSize)}</div>
+                                <div className={styles.insightLabel}>Data Points</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* AI Data Gatherer Modal */}
+            {showAIGatherer && (
+                <div className={styles.aiGathererOpen} onClick={() => setShowAIGatherer(false)}>
+                    <div className={styles.aiGathererContainer} onClick={e => e.stopPropagation()}>
+                        <AIDataGatherer
+                            onComplete={(data) => {
+                                setPersonalizedData(data);
+                                setIsPersonalized(true);
+                                setShowAIGatherer(false);
+                                // Apply filters based on gathered data
+                                if (data.businessContext.industry) {
+                                    setFilters(prev => ({
+                                        ...prev,
+                                        industry: data.businessContext.industry.toLowerCase()
+                                    }));
+                                }
+                                if (data.adPreferences.platforms.length > 0) {
+                                    setFilters(prev => ({
+                                        ...prev,
+                                        platform: data.adPreferences.platforms[0].toLowerCase()
+                                    }));
+                                }
+                            }}
+                            onCancel={() => setShowAIGatherer(false)}
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* Search Bar */}
             <div className={styles.searchContainer}>

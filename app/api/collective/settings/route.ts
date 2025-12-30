@@ -45,14 +45,21 @@ export async function GET(request: NextRequest) {
 
         const blendRatio = calculateBlendRatio(settings.local_data_points);
 
+        // Derive toggle values from participation mode for backward compatibility
+        const receivePublicData = settings.participation_mode !== 'private';
+        const autoShareData = settings.participation_mode === 'contribute_receive';
+
         return NextResponse.json({
             success: true,
             data: {
                 ...settings,
                 blend_ratio: blendRatio,
                 collective_influence: Math.round((1 - blendRatio) * 100),
+                receive_public_data: receivePublicData,
+                auto_share_data: autoShareData,
             },
         });
+
 
     } catch (error) {
         console.error('[CI API] Error fetching settings:', error);

@@ -12,7 +12,10 @@ interface CISettings {
     local_conversions: number;
     blend_ratio: number;
     collective_influence: number;
+    receive_public_data?: boolean;  // Toggle: receive collective priors
+    auto_share_data?: boolean;      // Toggle: automatically share data
 }
+
 
 interface TopFeature {
     feature: string;
@@ -87,6 +90,8 @@ export default function CollectiveIntelligencePage() {
                     userId,
                     optedIn: mode !== 'private',
                     participationMode: mode,
+                    receivePublicData: mode !== 'private',
+                    autoShareData: mode === 'contribute_receive',
                 }),
             });
 
@@ -100,6 +105,28 @@ export default function CollectiveIntelligencePage() {
             setSaving(false);
         }
     };
+
+    // Handle individual toggle changes
+    const handleToggleChange = async (field: 'receive' | 'share', value: boolean) => {
+        const receiveOn = field === 'receive' ? value : (settings?.receive_public_data ?? false);
+        const shareOn = field === 'share' ? value : (settings?.auto_share_data ?? false);
+
+        // Determine mode based on toggles
+        let mode: 'private' | 'contribute_receive' | 'receive_only' = 'private';
+        if (receiveOn && shareOn) {
+            mode = 'contribute_receive';
+        } else if (receiveOn && !shareOn) {
+            mode = 'receive_only';
+        } else if (!receiveOn && shareOn) {
+            // If sharing but not receiving, we also need to receive for it to make sense
+            mode = 'contribute_receive';
+        } else {
+            mode = 'private';
+        }
+
+        await handleModeChange(mode);
+    };
+
 
     const getProgressWidth = () => {
         if (!settings) return 0;
@@ -124,63 +151,73 @@ export default function CollectiveIntelligencePage() {
                 </p>
             </div>
 
-            {/* Participation Mode */}
+            {/* Data Sharing Options - Toggle Switches */}
             <div className="ci-section">
-                <h2>Participation Mode</h2>
-                <div className="ci-mode-options">
-                    <label className={`ci-mode-option ${settings?.participation_mode === 'private' ? 'selected' : ''}`}>
-                        <input
-                            type="radio"
-                            name="mode"
-                            value="private"
-                            checked={settings?.participation_mode === 'private'}
-                            onChange={() => handleModeChange('private')}
-                            disabled={saving}
-                        />
-                        <div className="ci-mode-content">
-                            <div className="ci-mode-title">🔒 Private Only</div>
-                            <div className="ci-mode-desc">
-                                Your data stays completely local. No contribution, no collective priors.
+                <h2>📡 Data Sharing Options</h2>
+                <div className="ci-toggles-section">
+                    {/* Receive Public Data Toggle */}
+                    <div className={`ci-toggle-item ${settings?.receive_public_data !== false && settings?.participation_mode !== 'private' ? 'active' : ''}`}>
+                        <div className="ci-toggle-info">
+                            <div className="ci-toggle-title">
+                                📥 Receive Public Data
+                                <span className={`ci-toggle-status ${settings?.receive_public_data !== false && settings?.participation_mode !== 'private' ? 'on' : 'off'}`}>
+                                    {settings?.receive_public_data !== false && settings?.participation_mode !== 'private' ? 'ON' : 'OFF'}
+                                </span>
+                            </div>
+                            <div className="ci-toggle-desc">
+                                Receive anonymized collective insights from the community to improve your prediction accuracy.
+                                This helps bootstrap predictions with less data.
                             </div>
                         </div>
-                    </label>
+                        <label className="ci-toggle-switch">
+                            <input
+                                type="checkbox"
+                                checked={settings?.receive_public_data !== false && settings?.participation_mode !== 'private'}
+                                onChange={(e) => handleToggleChange('receive', e.target.checked)}
+                                disabled={saving}
+                            />
+                            <span className="ci-toggle-slider"></span>
+                        </label>
+                    </div>
 
-                    <label className={`ci-mode-option ${settings?.participation_mode === 'contribute_receive' ? 'selected' : ''}`}>
-                        <input
-                            type="radio"
-                            name="mode"
-                            value="contribute_receive"
-                            checked={settings?.participation_mode === 'contribute_receive'}
-                            onChange={() => handleModeChange('contribute_receive')}
-                            disabled={saving}
-                        />
-                        <div className="ci-mode-content">
-                            <div className="ci-mode-title">🤝 Contribute & Receive</div>
-                            <div className="ci-mode-desc">
-                                Share anonymized feature signals and get collective priors to improve predictions.
+                    {/* Auto Share Data Toggle */}
+                    <div className={`ci-toggle-item ${settings?.auto_share_data || settings?.participation_mode === 'contribute_receive' ? 'active' : ''}`}>
+                        <div className="ci-toggle-info">
+                            <div className="ci-toggle-title">
+                                📤 Automatically Share Data Publicly
+                                <span className={`ci-toggle-status ${settings?.auto_share_data || settings?.participation_mode === 'contribute_receive' ? 'on' : 'off'}`}>
+                                    {settings?.auto_share_data || settings?.participation_mode === 'contribute_receive' ? 'ON' : 'OFF'}
+                                </span>
                             </div>
-                            <div className="ci-mode-recommended">Recommended</div>
+                            <div className="ci-toggle-desc">
+                                Contribute your anonymized feature patterns to help others improve their ad predictions.
+                                Only abstracted signals are shared—never raw creatives, spend, or identity.
+                            </div>
                         </div>
-                    </label>
+                        <label className="ci-toggle-switch">
+                            <input
+                                type="checkbox"
+                                checked={settings?.auto_share_data || settings?.participation_mode === 'contribute_receive'}
+                                onChange={(e) => handleToggleChange('share', e.target.checked)}
+                                disabled={saving}
+                            />
+                            <span className="ci-toggle-slider"></span>
+                        </label>
+                    </div>
 
-                    <label className={`ci-mode-option ${settings?.participation_mode === 'receive_only' ? 'selected' : ''}`}>
-                        <input
-                            type="radio"
-                            name="mode"
-                            value="receive_only"
-                            checked={settings?.participation_mode === 'receive_only'}
-                            onChange={() => handleModeChange('receive_only')}
-                            disabled={saving}
-                        />
-                        <div className="ci-mode-content">
-                            <div className="ci-mode-title">📥 Receive Only</div>
-                            <div className="ci-mode-desc">
-                                Benefit from collective priors without contributing your own data.
-                            </div>
-                        </div>
-                    </label>
+                    {/* Summary based on current settings */}
+                    <div className="ci-toggles-summary">
+                        {settings?.participation_mode === 'private' ? (
+                            <span>🔒 <strong>Private Mode</strong> — Your data stays local. No sharing, no receiving.</span>
+                        ) : settings?.participation_mode === 'receive_only' ? (
+                            <span>📥 <strong>Receive Only</strong> — You benefit from collective insights without contributing.</span>
+                        ) : (
+                            <span>🤝 <strong>Full Participation</strong> — You contribute and receive collective insights. <em>Recommended!</em></span>
+                        )}
+                    </div>
                 </div>
             </div>
+
 
             {/* Blend Ratio */}
             <div className="ci-section">

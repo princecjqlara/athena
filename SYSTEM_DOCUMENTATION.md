@@ -23,8 +23,19 @@
 14. [Environment Setup](#environment-setup)
 15. [Development Guide](#development-guide)
 16. [Deployment](#deployment)
-17. [**Athena AI Upgrade System**](#athena-ai-upgrade-system) ⭐ NEW
-18. [Troubleshooting](#troubleshooting)
+17. [Athena AI Upgrade System](#athena-ai-upgrade-system)
+18. [**Athena Agent System**](#athena-agent-system) ⭐ NEW
+19. [**Campaign Builder & Templates**](#campaign-builder--templates) ⭐ NEW
+20. [**Ad Quality Scoring System**](#ad-quality-scoring-system) ⭐ NEW
+21. [**Pipeline CRM System**](#pipeline-crm-system) ⭐ NEW
+22. [**Advanced ML Modules**](#advanced-ml-modules) ⭐ NEW
+23. [**Advanced AI Modules**](#advanced-ai-modules) ⭐ NEW
+24. [**Background Sync System**](#background-sync-system) ⭐ NEW
+25. [**Collective Intelligence**](#collective-intelligence) ⭐ NEW
+26. [**Marketplace & Data Pools**](#marketplace--data-pools) ⭐ NEW
+27. [**Admin & RBAC**](#admin--rbac) ⭐ NEW
+28. [Troubleshooting](#troubleshooting)
+
 
 ---
 
@@ -38,6 +49,10 @@ AdVision AI, codenamed **Athena**, is an AI-powered marketing insights platform 
 - **Self-Correcting ML System**: A client-side machine learning pipeline that learns from prediction errors
 - **Interactive Visualizations**: 2D/3D force-directed mind maps showing pattern correlations
 - **Facebook CAPI Integration**: Real-time conversion tracking with proper SHA-256 hashing
+- **Athena Agent System**: 40+ agentic actions for executing tasks via natural language commands
+- **Campaign Builder**: Multi ad set campaign creation with templates and AI recommendations
+- **Pipeline CRM**: Lead management with stage-based workflows and conversion tracking
+- **Collective Intelligence**: Privacy-preserving shared learning across the user community
 
 ### Key Capabilities
 
@@ -49,6 +64,14 @@ AdVision AI, codenamed **Athena**, is an AI-powered marketing insights platform 
 | **Track Performance** | Input results and feed back to ML for continuous learning |
 | **Facebook Integration** | OAuth connection, CAPI event sending, webhook receiving |
 | **AI Chat Assistant** | Natural language interface for data analysis and recommendations |
+| **Athena Agent** | Execute 40+ actions via natural language (pause/resume ads, update budgets, create campaigns) |
+| **Campaign Builder** | Create multi-adset campaigns with templates and AI-powered recommendations |
+| **Quality Scoring** | Chess-style ad analysis with blunders, mistakes, and victory chance |
+| **Pipeline CRM** | Manage leads through customizable stage workflows |
+| **Background Sync** | Automatic Facebook ad synchronization with configurable intervals |
+| **Collective Intelligence** | Shared learning across users while preserving privacy |
+| **Marketplace** | Access Galaxy Orbs data pools for AI-enhanced targeting |
+
 
 ---
 
@@ -1645,100 +1668,105 @@ ML history management panel.
 
 ```
 ads-algorithm-app/
-├── app/                           # Next.js App Router
+├── app/                           # Next.js App Router (17 routes)
 │   ├── page.tsx                   # Dashboard (/)
 │   ├── page.module.css
 │   ├── layout.tsx                 # Root layout with Sidebar
 │   ├── globals.css                # Design tokens + responsive
 │   │
-│   ├── api/                       # API Routes
-│   │   ├── ai/
-│   │   │   └── route.ts           # Central AI endpoint (633 lines)
-│   │   ├── capi/
-│   │   │   └── send/
-│   │   │       └── route.ts       # CAPI event sending
-│   │   ├── categories/
-│   │   │   └── route.ts           # Trait categories
-│   │   ├── facebook/              # Facebook OAuth routes
-│   │   └── webhook/
-│   │       └── route.ts           # Facebook webhook receiver
+│   ├── api/                       # API Routes (18 directories)
+│   │   ├── ai/                    # AI endpoint + recommendations + agent
+│   │   ├── capi/                  # CAPI event sending
+│   │   ├── categories/            # Trait categories
+│   │   ├── collective/            # Collective intelligence
+│   │   ├── contacts/              # Contact management
+│   │   ├── data-pools/            # Data pool operations
+│   │   ├── facebook/              # Facebook OAuth + Ads + Insights
+│   │   ├── organizer/             # Admin user management
+│   │   ├── pool/                  # Pool operations
+│   │   ├── sync/                  # Background sync
+│   │   ├── traits/                # Dynamic traits
+│   │   └── webhook/               # Facebook webhook receiver
 │   │
-│   ├── upload/                    # /upload page
-│   │   ├── page.tsx
-│   │   └── page.module.css
-│   │
-│   ├── predict/                   # /predict page
-│   │   ├── page.tsx
-│   │   └── page.module.css
-│   │
-│   ├── analytics/                 # /analytics page
-│   │   ├── page.tsx
-│   │   └── page.module.css
-│   │
-│   ├── mindmap/                   # /mindmap page
-│   │   ├── page.tsx
-│   │   └── page.module.css
-│   │
-│   ├── videos/                    # /videos page
-│   │   ├── page.tsx
-│   │   └── page.module.css
-│   │
-│   ├── settings/                  # /settings page
-│   │   ├── page.tsx
-│   │   └── page.module.css
-│   │
-│   ├── results/                   # /results page
-│   │   ├── page.tsx
-│   │   └── page.module.css
-│   │
-│   ├── pipeline/                  # /pipeline page
-│   │   ├── page.tsx
-│   │   └── page.module.css
-│   │
-│   └── import/                    # /import page
-│       ├── page.tsx
-│       └── page.module.css
+│   ├── admin/                     # /admin - Admin panel
+│   ├── athena/                    # /athena - Agent interface
+│   ├── create-ad/                 # /create-ad - Campaign builder
+│   ├── import/                    # /import - Ad import
+│   ├── login/                     # /login - Authentication
+│   ├── marketplace/               # /marketplace - Data pools
+│   ├── mindmap/                   # /mindmap - Visualization
+│   ├── myads/                     # /myads - Ad library
+│   ├── organizer/                 # /organizer - User management
+│   ├── pipeline/                  # /pipeline - CRM
+│   ├── predict/                   # /predict - Predictions
+│   ├── results/                   # /results - Results input
+│   ├── settings/                  # /settings - Configuration
+│   ├── upload/                    # /upload - Media upload
+│   └── videos/                    # /videos - Video library
 │
-├── components/                    # React Components
-│   ├── Sidebar.tsx                # Navigation (340 lines)
-│   ├── ChatBot.tsx                # AI Assistant (258 lines)
-│   ├── ChatBot.module.css
-│   ├── FacebookLogin.tsx          # OAuth Component (280 lines)
-│   └── UndoPanel.tsx              # History Management
+├── components/                    # React Components (18+)
+│   ├── Sidebar.tsx                # Navigation
+│   ├── ChatBot.tsx                # AI Assistant
+│   ├── FacebookLogin.tsx          # OAuth Component
+│   ├── UndoPanel.tsx              # History Management
+│   ├── AdQualityScore.tsx         # Quality scoring display
+│   ├── BackgroundSyncProvider.tsx # Global sync
+│   ├── SyncIndicator.tsx          # Sync status
+│   ├── NotificationBell.tsx       # Notifications
+│   ├── DailyReportsViewer.tsx     # Reports
+│   ├── RoleGate.tsx               # RBAC protection
+│   ├── ThemeProvider.tsx          # Theme context
+│   └── ...
 │
 ├── lib/                           # Core Libraries
-│   ├── supabase.ts                # Database operations (205 lines)
-│   ├── cloudinary.ts              # Media upload (80 lines)
-│   ├── capi.ts                    # Facebook CAPI (176 lines)
+│   ├── supabase.ts                # Database operations
+│   ├── cloudinary.ts              # Media upload
+│   ├── capi.ts                    # Facebook CAPI
+│   ├── athena-agent.ts            # Agent system (2700+ lines)
+│   ├── collective-intelligence.ts # Shared learning
+│   ├── contacts-store.ts          # Contact management
+│   ├── prediction-utils.ts        # Prediction utilities
+│   ├── rbac.ts                    # Role-based access
+│   ├── auth.ts                    # Authentication
+│   ├── sync.ts                    # Sync utilities
 │   │
-│   ├── ai/                        # AI Integration
-│   │   ├── nvidia-ai.ts           # NVIDIA NIM client (379 lines)
-│   │   └── document-parser.ts     # AI parsing (317 lines)
+│   ├── ai/                        # AI Integration (24 modules)
+│   │   ├── nvidia-ai.ts           # NVIDIA NIM client
+│   │   ├── document-parser.ts     # AI parsing
+│   │   ├── agent-runner.ts        # Multi-step agent
+│   │   ├── agent-tools.ts         # Agent tools
+│   │   ├── anomaly-detection.ts   # Anomaly detection
+│   │   ├── creative-fatigue.ts    # Fatigue detection
+│   │   ├── forecasting.ts         # Performance prediction
+│   │   ├── pattern-mining.ts      # Pattern extraction
+│   │   ├── guardrails.ts          # Safety checks
+│   │   └── ...
 │   │
-│   └── ml/                        # ML System (10 modules)
-│       ├── index.ts               # Orchestrator (143 lines)
-│       ├── model.ts               # TensorFlow.js (296 lines)
-│       ├── features.ts            # Feature encoding (206 lines)
-│       ├── weight-adjustment.ts   # Dynamic weights (232 lines)
-│       ├── feedback-loop.ts       # Error detection (193 lines)
-│       ├── feature-discovery.ts   # Pattern discovery (220 lines)
-│       ├── exploration.ts         # Epsilon-greedy (192 lines)
-│       ├── time-decay.ts          # Recency weighting (160 lines)
-│       ├── audience-segmentation.ts # Segment scoring (280 lines)
-│       └── history.ts             # Undo/redo (250 lines)
+│   └── ml/                        # ML System (19 modules)
+│       ├── index.ts               # Orchestrator
+│       ├── model.ts               # TensorFlow.js
+│       ├── features.ts            # Feature encoding
+│       ├── campaign-optimizer.ts  # Campaign recommendations
+│       ├── risk-assessment.ts     # Risk scoring
+│       ├── failure-taxonomy.ts    # Failure patterns
+│       ├── success-normalization.ts # Success scoring
+│       ├── seasonality.ts         # Time patterns
+│       └── ...
 │
 ├── types/                         # TypeScript Types
-│   ├── index.ts                   # All types (713 lines)
-│   └── extended-ad.ts             # Extended ad types
+│   ├── index.ts                   # Core types
+│   ├── extended-ad.ts             # Extended ad types
+│   └── ad-quality-types.ts        # Quality scoring types
 │
+├── hooks/                         # Custom React Hooks
+├── supabase/                      # Supabase migrations
 ├── public/                        # Static Assets
-│   └── ...
 │
 ├── .env.local                     # Environment variables
 ├── package.json
 ├── tsconfig.json
 ├── next.config.ts
-└── SYSTEM_DOCUMENTATION.md        # This file
+└── SYSTEM_DOCUMENTATION.md        # This file (2990+ lines)
 ```
 
 ---
@@ -2125,7 +2153,806 @@ const anomalies = await runAnomalyDetection(userId);
 
 ---
 
+## Athena Agent System
+
+The Athena Agent transforms the AI assistant from a passive responder to an **active executor**. It can perform 40+ actions through natural language commands, enabling users to manage their advertising ecosystem without leaving the chat interface.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         ATHENA AGENT SYSTEM                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  User Message → Intent Parser → Action Matcher → Confirmation → Executor   │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                     ACTION REGISTRY (40+ Actions)                    │   │
+│  ├─────────────────────────────────────────────────────────────────────┤   │
+│  │                                                                      │   │
+│  │  AD MANAGEMENT         FACEBOOK INTEGRATION    PIPELINE OPS         │   │
+│  │  ├── import_ads        ├── pause_fb_ad         ├── create_pipeline  │   │
+│  │  ├── delete_ad         ├── resume_fb_ad        ├── move_lead        │   │
+│  │  ├── delete_ads_bulk   ├── update_budget       ├── show_insights    │   │
+│  │  ├── list_ads          ├── create_fb_campaign  └── export_data      │   │
+│  │  ├── get_ad_details    ├── create_fb_adset                          │   │
+│  │  ├── archive_ad        ├── upload_ad_image                          │   │
+│  │  ├── restore_ad        ├── create_ad_creative                       │   │
+│  │  ├── sort_ads          └── create_full_ad                           │   │
+│  │  ├── filter_ads                                                      │   │
+│  │  └── bulk_update_ads   TRAITS & ANALYSIS       SEARCH               │   │
+│  │                        ├── add_custom_trait    └── search_trends    │   │
+│  │                        └── analyze patterns                          │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Action Categories
+
+#### 1. Ad Management Actions
+
+| Action | Description | Confirmation |
+|--------|-------------|--------------|
+| `import_ads` | Import ads from Facebook | No |
+| `delete_ad` | Delete a specific ad | Yes |
+| `delete_ads_bulk` | Delete multiple ads | Yes |
+| `list_ads` | List ads with optional filters | No |
+| `get_ad_details` | Get detailed ad information | No |
+| `archive_ad` | Archive an ad | No |
+| `restore_ad` | Restore archived ad | No |
+| `sort_ads` | Sort ads by criteria | No |
+| `filter_ads` | Filter ads by conditions | No |
+| `bulk_update_ads` | Update multiple ads | Yes |
+
+#### 2. Facebook Integration Actions
+
+| Action | Description | Confirmation |
+|--------|-------------|--------------|
+| `pause_fb_ad` | Pause a Facebook ad | Yes |
+| `resume_fb_ad` | Resume a paused ad | Yes |
+| `update_budget` | Update ad set budget | Yes |
+| `create_fb_campaign` | Create new campaign | Yes |
+| `create_fb_adset` | Create new ad set | Yes |
+| `upload_ad_image` | Upload image to Facebook | No |
+| `create_ad_creative` | Create ad creative | Yes |
+| `create_full_ad` | Create complete ad | Yes |
+
+#### 3. Pipeline & CRM Actions
+
+| Action | Description | Confirmation |
+|--------|-------------|--------------|
+| `create_pipeline` | Create new pipeline | No |
+| `move_lead` | Move lead between stages | Yes |
+| `show_insights` | Show analytics insights | No |
+| `export_data` | Export ads/analytics | No |
+
+#### 4. Traits & Analysis Actions
+
+| Action | Description | Confirmation |
+|--------|-------------|--------------|
+| `add_custom_trait` | Add new custom trait | No |
+| `search_trends` | Search web for trends | No |
+
+### Intent Parsing
+
+The agent uses pattern matching to identify user intent:
+
+```typescript
+const INTENT_PATTERNS: Record<ActionName, RegExp[]> = {
+  pause_fb_ad: [
+    /pause\s+(the\s+)?ad/i,
+    /stop\s+(the\s+)?ad/i,
+    /turn\s+off\s+(the\s+)?ad/i
+  ],
+  update_budget: [
+    /update\s+(the\s+)?budget/i,
+    /change\s+(the\s+)?budget/i,
+    /set\s+(the\s+)?budget\s+to/i
+  ],
+  // ... more patterns
+};
+```
+
+### Usage Examples
+
+```typescript
+// Natural language commands the agent understands:
+
+"Pause my worst performing ad"
+// → pause_fb_ad action with lowest ROAS ad
+
+"Create a new campaign for skincare products"
+// → create_fb_campaign with extracted targeting
+
+"Import my Facebook ads"
+// → import_ads action
+
+"Delete all ads with less than 1% CTR"
+// → delete_ads_bulk with filter condition
+
+"Update the budget to $50 for my summer campaign"
+// → update_budget with new amount
+```
+
+### Confirmation Workflow
+
+Actions marked with `requiresConfirmation: true` trigger a confirmation UI:
+
+```typescript
+interface ParsedIntent {
+  action: ActionName;
+  parameters: Record<string, unknown>;
+  confidence: number;
+  requiresConfirmation: boolean;
+  confirmationMessage?: string;  // Human-readable confirmation
+}
+```
+
+---
+
+## Campaign Builder & Templates
+
+The Campaign Builder enables creation of complete Facebook campaigns with multiple ad sets and ads, along with reusable campaign templates.
+
+### Multi-Level Campaign Structure
+
+```
+Campaign
+├── Campaign Settings
+│   ├── Name
+│   ├── Objective (TRAFFIC, CONVERSIONS, LEADS, etc.)
+│   └── Special Ad Category (NONE, HOUSING, CREDIT, etc.)
+│
+├── Ad Set 1
+│   ├── Name
+│   ├── Daily Budget
+│   ├── Targeting
+│   │   ├── Age Range (min-max)
+│   │   ├── Gender (all/male/female)
+│   │   ├── Countries
+│   │   └── Interests
+│   │
+│   ├── Ad 1
+│   │   ├── Media (video/photo)
+│   │   ├── Primary Text
+│   │   ├── Headline
+│   │   ├── Description
+│   │   ├── CTA
+│   │   └── Website URL
+│   │
+│   └── Ad 2...
+│
+└── Ad Set 2...
+```
+
+### Campaign Templates
+
+Save and reuse campaign configurations:
+
+```typescript
+interface CampaignTemplate {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  campaign: {
+    name: string;
+    objective: string;
+    specialAdCategory: string;
+  };
+  adSets: Array<{
+    name: string;
+    dailyBudget: number;
+    targeting: TargetingConfig;
+    ads: Array<AdConfig>;
+  }>;
+}
+```
+
+### AI Recommendations Integration
+
+The Campaign Builder integrates with the Campaign Optimizer to provide:
+
+- Placement recommendations with confidence scores
+- Ad copy suggestions based on historical performance
+- Budget type recommendations (daily vs lifetime)
+- Flexible ads format recommendations
+- Historical performance benchmarks
+
+### Step Wizard
+
+1. **Analyze Content** - Describe your ad and get AI trait extraction
+2. **View Recommendations** - See AI-powered suggestions
+3. **Configure Campaign** - Set campaign-level settings
+4. **Configure Ad Sets** - Add targeting and budgets
+5. **Configure Ads** - Add creative content
+6. **Review & Create** - Final review before creation
+
+---
+
+## Ad Quality Scoring System
+
+A chess-inspired quality analysis system that evaluates ad creatives and provides actionable feedback.
+
+### Scoring Methodology
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       AD QUALITY ANALYSIS                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐    │
+│  │  BLUNDERS   │   │  MISTAKES   │   │INACCURACIES│   │  POSITIVES  │    │
+│  │   (−20)     │   │   (−10)     │   │    (−5)    │   │   (+10)     │    │
+│  │   🔴 Red    │   │  🟠 Orange  │   │  🟡 Yellow │   │  🟢 Green   │    │
+│  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘    │
+│                                                                             │
+│  Starting Score: 100  →  Final Score: 100 - penalties + bonuses            │
+│                                                                             │
+│  GRADES:                                                                    │
+│  A (90-100) │ B (75-89) │ C (60-74) │ D (40-59) │ F (0-39)                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Issue Severity Types
+
+| Severity | Icon | Impact | Description |
+|----------|------|--------|-------------|
+| **Blunder** | 🔴 | -20 points | Critical mistake that significantly harms performance |
+| **Mistake** | 🟠 | -10 points | Notable error that reduces effectiveness |
+| **Inaccuracy** | 🟡 | -5 points | Minor issue with room for improvement |
+
+### Positive Categories
+
+| Category | Icon | Impact | Description |
+|----------|------|--------|-------------|
+| **Excellent** | ⭐ | +10 points | Outstanding best practice implementation |
+| **Good** | ✅ | +5 points | Solid technique or approach |
+| **Decent** | 👍 | +2 points | Above average element |
+
+### Victory Chance
+
+Inspired by chess engine analysis, provides a success probability:
+
+```typescript
+interface AdQualityAnalysis {
+  overallScore: number;        // 0-100
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  victoryChance: number;       // 0-100% success probability
+  issues: QualityIssue[];
+  positives: QualityPositive[];
+  summary: string;
+}
+```
+
+### Integration Points
+
+- **Upload Page**: Auto-analyze on content extraction
+- **MyAds Page**: Quality badge on ad cards
+- **Webhook Handler**: Analyze imported ads automatically
+
+---
+
+## Pipeline CRM System
+
+A lead management system with customizable stage-based workflows and Facebook integration.
+
+### Pipeline Structure
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PIPELINE CRM                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌────────────┐    ┌────────────┐    ┌────────────┐    ┌────────────┐     │
+│  │   NEW      │───▶│ QUALIFIED  │───▶│  BOOKED    │───▶│   CLOSED   │     │
+│  │   LEAD     │    │            │    │            │    │   (GOAL)   │     │
+│  └────────────┘    └────────────┘    └────────────┘    └────────────┘     │
+│       │                 │                  │                  │            │
+│       │                 │                  │                  │            │
+│       ▼                 ▼                  ▼                  ▼            │
+│    [Lead]            [Lead]             [Lead]            [Send CAPI      │
+│    Event             Event              Event             Conversion]      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Goal Presets
+
+| Goal | Icon | Description |
+|------|------|-------------|
+| Appointment Booked | 📅 | Track until appointment scheduled |
+| Sale Completed | 💰 | Track until purchase made |
+| Trial Started | 🚀 | Track until trial begins |
+| Quote Requested | 📝 | Track until quote sent |
+| Custom Goal | ⚙️ | Define your own conversion |
+
+### Stage Configuration
+
+```typescript
+interface Stage {
+  id: string;
+  name: string;
+  isGoal: boolean;          // Final conversion stage
+  isAutoCreated: boolean;   // System-generated
+  leadCount: number;
+  facebookEvent?: string;   // CAPI event to fire
+  description?: string;
+}
+```
+
+### Facebook CAPI Integration
+
+When a lead reaches a goal stage, the system can automatically fire CAPI conversion events:
+
+1. Configure stage with Facebook event type
+2. Lead moves to goal stage
+3. CAPI event automatically sent with lead data
+4. Conversion attributed back to original ad
+
+### Contact Import
+
+Import contacts directly from Facebook Messenger:
+
+```typescript
+interface FetchedContact {
+  conversationId: string;
+  facebookPsid: string;
+  name: string;
+  email?: string;
+  isFromAd: boolean;
+  messageCount: number;
+  messages: Message[];
+}
+```
+
+---
+
+## Advanced ML Modules
+
+The ML system includes 19 specialized modules for comprehensive ad performance analysis.
+
+### Module Overview
+
+| Module | Size | Purpose |
+|--------|------|---------|
+| `index.ts` | 8KB | Central orchestrator |
+| `model.ts` | 9KB | TensorFlow.js neural network |
+| `features.ts` | 10KB | Feature encoding |
+| `weight-adjustment.ts` | 10KB | Dynamic weight updates |
+| `feedback-loop.ts` | 6KB | Error detection & learning |
+| `campaign-optimizer.ts` | 34KB | Multi-factor campaign recommendations |
+| `risk-assessment.ts` | 17KB | Risk scoring and mitigation |
+| `failure-taxonomy.ts` | 19KB | Failure pattern classification |
+| `success-normalization.ts` | 15KB | Standardized success scoring |
+| `seasonality.ts` | 9KB | Time-based pattern detection |
+| `pattern-learning.ts` | 9KB | Cross-ad pattern discovery |
+| `historical-performance.ts` | 6KB | Historical baseline tracking |
+| `score-recalculation.ts` | 9KB | Dynamic score updating |
+| `feature-eligibility.ts` | 9KB | Feature validation rules |
+| `exploration.ts` | 7KB | Epsilon-greedy exploration |
+| `time-decay.ts` | 5KB | Recency weighting |
+| `audience-segmentation.ts` | 9KB | Segment-specific scoring |
+| `history.ts` | 8KB | Undo/redo operations |
+| `feature-discovery.ts` | 7KB | AI-powered pattern discovery |
+
+### Campaign Optimizer
+
+The largest ML module (34KB) provides comprehensive campaign recommendations:
+
+```typescript
+interface CampaignRecommendations {
+  placement: {
+    recommended: string[];
+    confidence: number;
+    reasoning: string;
+  };
+  adCopy: {
+    headlines: string[];
+    descriptions: string[];
+    confidence: number;
+  };
+  budgetType: {
+    recommended: 'daily' | 'lifetime';
+    confidence: number;
+    historicalData: BudgetPerformance[];
+  };
+  flexibleAds: {
+    recommended: boolean;
+    confidence: number;
+  };
+  aggregateStats: {
+    totalAdsAnalyzed: number;
+    avgROAS: number;
+    avgCTR: number;
+    topTraits: string[];
+  };
+}
+```
+
+### Risk Assessment
+
+Evaluates potential risks before campaign launch:
+
+```typescript
+interface RiskAssessment {
+  overallRisk: 'low' | 'medium' | 'high' | 'critical';
+  riskScore: number;  // 0-100
+  factors: RiskFactor[];
+  mitigations: string[];
+  recommendations: string[];
+}
+```
+
+### Success Normalization
+
+Standardizes success scoring across different metrics:
+
+- ROAS normalization
+- CTR percentile ranking
+- Conversion rate scoring
+- Cross-platform normalization
+
+---
+
+## Advanced AI Modules
+
+The AI system includes 24 specialized modules beyond the core NVIDIA NIM integration.
+
+### Module Overview
+
+| Module | Size | Purpose |
+|--------|------|---------|
+| `nvidia-ai.ts` | 21KB | Core LLM integration |
+| `document-parser.ts` | 14KB | Natural language parsing |
+| `agent-runner.ts` | 11KB | Multi-step agent execution |
+| `agent-tools.ts` | 11KB | Structured agent tools |
+| `anomaly-detection.ts` | 12KB | Performance anomaly detection |
+| `creative-fatigue.ts` | 13KB | Creative decline detection |
+| `forecasting.ts` | 13KB | Performance prediction |
+| `pattern-mining.ts` | 17KB | Deep pattern extraction |
+| `nl-query.ts` | 13KB | Natural language query processing |
+| `timeline.ts` | 13KB | Time-series analysis |
+| `explainability.ts` | 12KB | AI decision explanations |
+| `governance.ts` | 10KB | AI decision oversight |
+| `confidence-scoring.ts` | 9KB | Confidence calculations |
+| `confidence-calibration.ts` | 5KB | Calibrating confidence accuracy |
+| `priority-scoring.ts` | 8KB | Action prioritization |
+| `benchmarking.ts` | 10KB | Performance benchmarks |
+| `data-health.ts` | 11KB | Data quality scoring |
+| `evaluation.ts` | 7KB | Before/after impact analysis |
+| `guardrails.ts` | 8KB | Safety checks |
+| `auto-apply.ts` | 6KB | Automatic recommendation application |
+| `prompt-versioning.ts` | 13KB | Prompt A/B testing |
+| `audit-logging.ts` | 8KB | Action audit trail |
+| `rbac.ts` | 9KB | Role-based access control |
+
+### Creative Fatigue Detection
+
+Identifies when ad creatives are losing effectiveness:
+
+```typescript
+interface FatigueAnalysis {
+  isFatigued: boolean;
+  fatigueScore: number;  // 0-100
+  indicators: {
+    ctrDecline: number;
+    frequencyIncrease: number;
+    engagementDrop: number;
+  };
+  recommendation: 'continue' | 'refresh' | 'replace';
+  estimatedDaysUntilFatigue: number;
+}
+```
+
+### Forecasting
+
+Predicts future performance based on trends:
+
+```typescript
+interface Forecast {
+  metric: string;
+  currentValue: number;
+  predictions: {
+    day7: { value: number; confidence: number };
+    day14: { value: number; confidence: number };
+    day30: { value: number; confidence: number };
+  };
+  trend: 'improving' | 'stable' | 'declining';
+}
+```
+
+### Pattern Mining
+
+Discovers hidden patterns across ad data:
+
+```typescript
+interface MinedPattern {
+  id: string;
+  name: string;
+  description: string;
+  frequency: number;
+  correlation: number;
+  associatedTraits: string[];
+  performanceImpact: 'positive' | 'negative' | 'neutral';
+}
+```
+
+---
+
+## Background Sync System
+
+A global background synchronization system that keeps Facebook ad data up-to-date automatically.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      BACKGROUND SYNC PROVIDER                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌────────────┐  │
+│  │   Timer     │───▶│   Fetch     │───▶│   Compare   │───▶│   Update   │  │
+│  │  (15 min)   │    │  FB Ads     │    │   & Merge   │    │ localStorage│  │
+│  └─────────────┘    └─────────────┘    └─────────────┘    └────────────┘  │
+│                                                                             │
+│  Features:                                                                  │
+│  ├── Configurable sync interval (min 5 minutes)                            │
+│  ├── Auto-prediction generation for new ads                                │
+│  ├── Visibility-aware (pauses when tab hidden)                             │
+│  ├── Conflict resolution with timestamp comparison                          │
+│  └── Real-time sync indicator in UI                                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Configuration
+
+```typescript
+interface SyncSettings {
+  enabled: boolean;
+  intervalMinutes: number;  // Default: 15, Min: 5
+  lastSyncTime?: string;
+  autoGeneratePredictions: boolean;
+}
+```
+
+### Sync Process
+
+1. **Timer Trigger**: Interval-based or visibility change
+2. **Fetch Ads**: Get latest from Facebook Graph API
+3. **Compare**: Detect new, updated, or removed ads
+4. **Merge**: Apply updates with conflict resolution
+5. **Predictions**: Auto-generate for new ads
+6. **Store**: Save to localStorage with timestamp
+
+### Components
+
+- `BackgroundSyncProvider.tsx` - Global sync context
+- `SyncIndicator.tsx` - Visual sync status
+
+---
+
+## Collective Intelligence
+
+A privacy-preserving shared learning system that allows users to benefit from community insights.
+
+### Privacy Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     COLLECTIVE INTELLIGENCE                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  WHAT IS SHARED (anonymized):          WHAT IS NEVER SHARED:               │
+│  ├── Feature weights                    ├── Raw creatives                   │
+│  ├── Outcome signals (success/fail)     ├── Ad content                      │
+│  ├── Confidence levels                  ├── User identity                   │
+│  └── Category information               ├── Spend data                      │
+│                                          └── Individual metrics              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Participation Modes
+
+| Mode | Contributes | Receives |
+|------|-------------|----------|
+| `private` | ❌ No | ❌ No |
+| `receive_only` | ❌ No | ✅ Yes |
+| `contribute_receive` | ✅ Yes | ✅ Yes |
+
+### Weight Blending
+
+Local weights are blended with collective priors based on data volume:
+
+```typescript
+function calculateBlendRatio(localDataPoints: number): number {
+  // More local data = more weight on local weights
+  // Less local data = more weight on collective priors
+  
+  const MIN_FOR_FULL_LOCAL = 200;
+  return Math.min(localDataPoints / MIN_FOR_FULL_LOCAL, 1);
+}
+
+// Result:
+// 0 data points → 100% collective
+// 100 data points → 50% local, 50% collective
+// 200+ data points → 100% local
+```
+
+### Collective Priors
+
+Aggregated signals from the community:
+
+```typescript
+interface CollectivePrior {
+  feature_name: string;
+  category: string;
+  avg_weight: number;
+  confidence: number;
+  contribution_count: number;
+  lift_percentage: number;  // Performance improvement
+}
+```
+
+### Contribution Flow
+
+1. User runs ad and inputs results
+2. System calculates weight delta
+3. Anonymized contribution submitted
+4. Collective prior updated with running average
+5. All users receive updated priors on next sync
+
+---
+
+## Marketplace & Data Pools
+
+A visual marketplace for accessing Galaxy Orbs public data pools.
+
+### Galaxy Orbs Visualization
+
+Interactive 3D visualization of available data pools:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        MARKETPLACE                                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│     ●           Data Pool: "E-commerce Traits"                              │
+│   ● ○ ●         Contributors: 1,247                                         │
+│     ●           Avg Lift: +23%                                              │
+│                                                                             │
+│         ○       Data Pool: "B2B SaaS"                                       │
+│       ○ ● ○     Contributors: 892                                           │
+│         ○       Avg Lift: +18%                                              │
+│                                                                             │
+│   ○ = Available to you                                                      │
+│   ● = Subscribed                                                            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### AI Data Integration
+
+Ask AI for targeted data:
+
+```
+User: "Get me data for business owners as target audience"
+
+AI: Analyzing available pools...
+    Found 3 relevant pools:
+    - B2B Decision Makers (1.2K contributors)
+    - Small Business Owners (934 contributors)
+    - Entrepreneur Targeting (567 contributors)
+    
+    Would you like me to integrate this data into your ML model?
+```
+
+### Data Pool Structure
+
+```typescript
+interface DataPool {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  contributorCount: number;
+  avgLift: number;
+  features: CollectivePrior[];
+  isPublic: boolean;
+  createdAt: string;
+}
+```
+
+---
+
+## Admin & RBAC
+
+Role-based access control system for team management.
+
+### Role Hierarchy
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           ROLE HIERARCHY                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│                         ┌─────────────┐                                     │
+│                         │   OWNER     │                                     │
+│                         │  (Full)     │                                     │
+│                         └──────┬──────┘                                     │
+│                                │                                            │
+│                         ┌──────┴──────┐                                     │
+│                         │   ADMIN     │                                     │
+│                         │ (Manage)    │                                     │
+│                         └──────┬──────┘                                     │
+│                                │                                            │
+│              ┌─────────────────┼─────────────────┐                         │
+│              │                 │                 │                          │
+│       ┌──────┴──────┐   ┌──────┴──────┐   ┌──────┴──────┐                  │
+│       │   EDITOR    │   │   VIEWER    │   │   GUEST     │                  │
+│       │  (Write)    │   │  (Read)     │   │ (Limited)   │                  │
+│       └─────────────┘   └─────────────┘   └─────────────┘                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Permission Matrix
+
+| Permission | Owner | Admin | Editor | Viewer | Guest |
+|------------|-------|-------|--------|--------|-------|
+| View Ads | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Create Ads | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Delete Ads | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Manage Users | ✅ | ✅ | ❌ | ❌ | ❌ |
+| View Settings | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Change Settings | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Access Billing | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Delete Account | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+### Organizer Page
+
+Admin interface for user management:
+
+- View all users
+- Assign roles
+- Invite new users
+- Revoke access
+- View activity logs
+
+### Auth Integration
+
+```typescript
+// lib/auth.ts
+interface AuthUser {
+  id: string;
+  email: string;
+  role: Role;
+  organizationId: string;
+  permissions: Permission[];
+}
+
+// lib/rbac.ts
+function hasPermission(user: AuthUser, permission: Permission): boolean;
+function requireRole(minimumRole: Role): Middleware;
+```
+
+### RoleGate Component
+
+```typescript
+// Protect UI elements based on role
+<RoleGate minimumRole="admin">
+  <AdminControls />
+</RoleGate>
+```
+
+---
+
 ## Troubleshooting
+
 
 ### Common Issues
 
@@ -2163,5 +2990,6 @@ localStorage.getItem('ads_data')
 
 ---
 
-*Documentation last updated: December 29, 2024*  
-*AdVision AI (Athena) v0.2.0 - Athena AI Upgrade*
+*Documentation last updated: December 30, 2024*  
+*AdVision AI (Athena) v0.3.0 - Athena Agent & Full Platform Update*
+

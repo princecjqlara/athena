@@ -150,24 +150,34 @@ export default function PipelineDetailPage() {
                     .then(data => {
                         if (data.success && data.data && Array.isArray(data.data)) {
                             // Convert Supabase contacts to Lead format
-                            const supabaseLeads: Lead[] = data.data.map((c: any) => ({
-                                id: c.id,
-                                name: c.name || 'Unknown',
-                                email: c.email,
-                                phone: c.phone,
-                                stageId: c.stage_id || 'new-lead',
-                                createdAt: c.created_at || new Date().toISOString(),
-                                lastActivity: c.last_message_at || c.created_at || new Date().toISOString(),
-                                source: c.source_ad_id ? 'Facebook Messenger' : 'Webhook',
-                                sourceAdId: c.source_ad_id,
-                                sourceAdName: c.source_ad_name,
-                                facebookLeadId: c.facebook_lead_id,
-                                isPlaceholder: false,
-                                isRealLead: true,
-                            }));
+                            // Map stage_id to actual pipeline stages (inquiry, interested, scheduled, completed, lost)
+                            // Fallback to first pipeline stage if stage_id is missing or invalid
+                            const validStageIds = found.stages.map((s: Stage) => s.id);
+                            const supabaseLeads: Lead[] = data.data.map((c: any) => {
+                                // Use the stage_id if it exists and is valid, otherwise use first stage
+                                let stageId = c.stage_id;
+                                if (!stageId || !validStageIds.includes(stageId)) {
+                                    stageId = found.stages[0]?.id || 'inquiry';
+                                }
+                                return {
+                                    id: c.id,
+                                    name: c.name || 'Unknown',
+                                    email: c.email,
+                                    phone: c.phone,
+                                    stageId,
+                                    createdAt: c.created_at || new Date().toISOString(),
+                                    lastActivity: c.last_message_at || c.created_at || new Date().toISOString(),
+                                    source: c.source_ad_id ? 'Facebook Messenger' : 'Webhook',
+                                    sourceAdId: c.source_ad_id,
+                                    sourceAdName: c.source_ad_name,
+                                    facebookLeadId: c.facebook_lead_id,
+                                    isPlaceholder: false,
+                                    isRealLead: true,
+                                };
+                            });
 
                             // Merge: real leads from Supabase + placeholders that haven't been replaced
-                            const supabaseAdIds = new Set(supabaseLeads.map(l => l.sourceAdId).filter(Boolean));
+                            const supabaseAdIds = new Set(supabaseLeads.map((l: Lead) => l.sourceAdId).filter(Boolean));
 
                             // Keep placeholders that don't have matching real leads
                             const remainingPlaceholders = localLeads.filter(local => {
