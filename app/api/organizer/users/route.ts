@@ -19,10 +19,31 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Not configured' }, { status: 500 });
     }
 
-    const user = await getCurrentUser();
-    if (!user?.profile || !isOrganizer(user.profile)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    // Use admin client to get current user and bypass RLS
+    const { data: { user: authUser }, error: authUserError } = await supabaseAdmin.auth.getUser();
+
+    if (authUserError || !authUser) {
+        console.error('[Organizer] Auth error:', authUserError);
+        return NextResponse.json({ error: 'Unauthorized - not logged in' }, { status: 401 });
     }
+
+    // Get user profile with admin client (bypasses RLS)
+    const { data: userProfile, error: profileError } = await supabaseAdmin
+        .from('user_profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+    if (profileError) {
+        console.error('[Organizer] Profile fetch error:', profileError);
+        return NextResponse.json({ error: 'Profile not found' }, { status: 403 });
+    }
+
+    // Check if user is an organizer
+    if (userProfile?.role !== 'organizer') {
+        return NextResponse.json({ error: 'Unauthorized - not an organizer' }, { status: 403 });
+    }
+
 
     try {
         // Get all auth users first - this is the source of truth for who exists
