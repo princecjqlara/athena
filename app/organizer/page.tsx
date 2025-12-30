@@ -186,6 +186,12 @@ export default function OrganizerDashboard() {
             if (usersRes.ok) {
                 const data = await usersRes.json();
                 setUsers(data.data || []);
+            } else {
+                const errorData = await usersRes.json().catch(() => ({}));
+                console.error('[Organizer] Users API error:', usersRes.status, errorData);
+                if (usersRes.status === 401) {
+                    alert('Session expired. Please log out and log back in.');
+                }
             }
 
             if (teamsRes.ok) {
