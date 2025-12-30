@@ -12,6 +12,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 /**
  * GET /api/organizer/users
  * Get all users with data sizes (organizer only)
+ * This now includes ALL auth users, even those without profiles yet
  */
 export async function GET(request: NextRequest) {
     if (!isSupabaseConfigured()) {
@@ -24,17 +25,26 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+        // Get all auth users first - this is the source of truth for who exists
+        const { data: { users: authUsers }, error: authError } = await supabaseAdmin.auth.admin.listUsers();
+
+        if (authError) {
+            console.error('[Organizer] Error fetching auth users:', authError);
+            throw authError;
+        }
+
         // Get all user profiles - use supabaseAdmin to bypass RLS
-        const { data: profiles, error } = await supabaseAdmin
+        const { data: profiles, error: profileError } = await supabaseAdmin
             .from('user_profiles')
-            .select('*')
-            .order('created_at', { ascending: false });
+            .select('*');
 
-        if (error) throw error;
+        if (profileError) {
+            console.error('[Organizer] Error fetching profiles:', profileError);
+            // Don't throw - we can still return auth users with default profiles
+        }
 
-        // Get auth user emails - use supabaseAdmin for admin access
-        const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers();
-        const emailMap = new Map(authUsers?.map(u => [u.id, u.email]) || []);
+        // Create a map of profiles by ID
+        const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
         // Get organization names - use supabaseAdmin to bypass RLS
         const { data: orgs } = await supabaseAdmin
@@ -53,17 +63,74 @@ export async function GET(request: NextRequest) {
             adsCounts.set(ad.user_id, count + 1);
         });
 
-        // Combine data
-        const usersWithData = profiles?.map(p => ({
-            ...p,
-            email: emailMap.get(p.id) || 'unknown@example.com',
-            org_name: p.org_id ? orgMap.get(p.org_id) : null,
-            data_size: {
-                ads: adsCounts.get(p.id) || 0,
-                contacts: 0, // Could add contacts count
-                predictions: 0, // Could add predictions count
-            },
-        })) || [];
+        // Track users without profiles so we can create them
+        const usersWithoutProfiles: Array<{ id: string; email: string; full_name: string }> = [];
+
+        // Combine auth users with their profiles (or create default profile data)
+        const usersWithData = (authUsers || []).map(authUser => {
+            const profile = profileMap.get(authUser.id);
+
+            if (!profile) {
+                // User exists in auth but not in profiles - track for profile creation
+                usersWithoutProfiles.push({
+                    id: authUser.id,
+                    email: authUser.email || '',
+                    full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Unknown'
+                });
+            }
+
+            const baseProfile = profile || {
+                id: authUser.id,
+                role: 'marketer', // Default role
+                status: 'pending', // Default status
+                org_id: null,
+                full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Unknown',
+                created_at: authUser.created_at,
+                last_login_at: authUser.last_sign_in_at,
+            };
+
+            return {
+                ...baseProfile,
+                email: authUser.email || 'unknown@example.com',
+                org_name: baseProfile.org_id ? orgMap.get(baseProfile.org_id) : null,
+                data_size: {
+                    ads: adsCounts.get(authUser.id) || 0,
+                    contacts: 0,
+                    predictions: 0,
+                },
+                _hasProfile: !!profile, // Flag to indicate if profile exists
+            };
+        });
+
+        // Attempt to create profiles for users who don't have them (async, non-blocking)
+        if (usersWithoutProfiles.length > 0) {
+            console.log(`[Organizer] Creating ${usersWithoutProfiles.length} missing profiles...`);
+
+            // Insert missing profiles in the background
+            const profilesToInsert = usersWithoutProfiles.map(u => ({
+                id: u.id,
+                role: 'marketer',
+                status: 'pending',
+                full_name: u.full_name,
+                created_at: new Date().toISOString(),
+            }));
+
+            supabaseAdmin
+                .from('user_profiles')
+                .upsert(profilesToInsert, { onConflict: 'id' })
+                .then(({ error }) => {
+                    if (error) {
+                        console.error('[Organizer] Error creating missing profiles:', error);
+                    } else {
+                        console.log(`[Organizer] Created ${usersWithoutProfiles.length} missing profiles`);
+                    }
+                });
+        }
+
+        // Sort by created_at descending
+        usersWithData.sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
 
         return NextResponse.json({ success: true, data: usersWithData });
     } catch (error) {

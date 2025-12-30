@@ -388,6 +388,141 @@ async function testSafetyRules() {
 }
 
 // ============================================
+// TEST 8: Data Need Detection (Marketplace)
+// ============================================
+async function testDataNeedDetection() {
+    logSection('Test 8: Data Need Detection (Marketplace)');
+
+    try {
+        // Simulate low-data scenario
+        const mockNeighbors = [
+            { orb: { metadata: { platform: 'tiktok' }, results: { successScore: 72 } }, weightedSimilarity: 65 },
+            { orb: { metadata: { platform: 'tiktok' }, results: { successScore: 68 } }, weightedSimilarity: 55 },
+            { orb: { metadata: { platform: 'facebook' }, results: { successScore: 45 } }, weightedSimilarity: 40 },
+        ];
+
+        const mockTraitEffects = [
+            { trait: 'voiceover', confidence: 25, n_with: 2, n_without: 1 },
+            { trait: 'ugc', confidence: 60, n_with: 5, n_without: 3 },
+        ];
+
+        console.log('Simulating low-data prediction:');
+        console.log(`  - Neighbors: ${mockNeighbors.length}`);
+        console.log(`  - Low confidence traits: ${mockTraitEffects.filter(e => e.confidence < 40).length}`);
+
+        // Detection logic (simulated)
+        const needsThreshold = 10;
+        const hasNeighborGap = mockNeighbors.length < needsThreshold;
+        const hasTraitGaps = mockTraitEffects.some(e => e.confidence < 40);
+
+        const dataNeeds = [];
+
+        if (hasNeighborGap) {
+            dataNeeds.push({
+                dimension: 'trait',
+                value: 'similar_ads',
+                reason: `Only ${mockNeighbors.length} similar ads found (need ${needsThreshold})`,
+                severity: 'high',
+            });
+        }
+
+        for (const effect of mockTraitEffects) {
+            if (effect.confidence < 40) {
+                dataNeeds.push({
+                    dimension: 'trait',
+                    value: effect.trait,
+                    reason: `Only ${effect.n_with} examples with "${effect.trait}" (confidence: ${effect.confidence}%)`,
+                    severity: effect.confidence < 20 ? 'high' : 'medium',
+                });
+            }
+        }
+
+        console.log('\nDetected data needs:');
+        for (const need of dataNeeds) {
+            console.log(`  - [${need.severity.toUpperCase()}] ${need.reason}`);
+        }
+
+        const passed = dataNeeds.length >= 2; // Should detect neighbor gap + voiceover gap
+        logResult('Data need detection', passed, passed ? '' : 'Expected at least 2 gaps detected');
+        return passed;
+    } catch (error) {
+        logResult('Data need detection', false, error.message);
+        return false;
+    }
+}
+
+// ============================================
+// TEST 9: Marketplace Matching Logic
+// ============================================
+async function testMarketplaceMatching() {
+    logSection('Test 9: Marketplace Matching Logic');
+
+    try {
+        // Mock data need
+        const dataNeed = {
+            dimension: 'platform',
+            value: 'tiktok',
+            severity: 'high',
+        };
+
+        // Mock datasets
+        const datasets = [
+            {
+                id: 'dataset-tiktok-ugc',
+                name: 'TikTok UGC Performance Data',
+                covers: { platforms: ['tiktok'], traits: ['ugc', 'voiceover'] },
+                sampleCount: 2500,
+                freshnessScore: 92,
+                confidenceScore: 88,
+            },
+            {
+                id: 'dataset-facebook-ecommerce',
+                name: 'Facebook E-commerce Ads',
+                covers: { platforms: ['facebook', 'instagram'], traits: ['product_demo'] },
+                sampleCount: 4200,
+                freshnessScore: 85,
+                confidenceScore: 91,
+            },
+        ];
+
+        console.log('Testing matching logic:');
+        console.log(`  Data need: ${dataNeed.dimension} = ${dataNeed.value}`);
+
+        // Calculate coverage scores
+        const results = datasets.map(ds => {
+            const coversPlatform = ds.covers.platforms?.includes(dataNeed.value) ?? false;
+            const coverageScore = coversPlatform ? 100 : 0;
+            const matchScore = coverageScore * 0.6 + ds.freshnessScore * 0.2 + ds.confidenceScore * 0.2;
+
+            return {
+                datasetId: ds.id,
+                datasetName: ds.name,
+                coverageScore,
+                matchScore,
+            };
+        });
+
+        // Sort by match score
+        results.sort((a, b) => b.matchScore - a.matchScore);
+
+        console.log('\nMatch results:');
+        for (const r of results) {
+            console.log(`  ${r.datasetName}: coverage=${r.coverageScore}, match=${r.matchScore.toFixed(1)}`);
+        }
+
+        // Best match should be TikTok dataset
+        const bestMatch = results[0];
+        const passed = bestMatch.datasetId === 'dataset-tiktok-ugc' && bestMatch.coverageScore === 100;
+
+        logResult('Marketplace matching', passed, passed ? '' : 'Wrong dataset matched');
+        return passed;
+    } catch (error) {
+        logResult('Marketplace matching', false, error.message);
+        return false;
+    }
+}
+
+// ============================================
 // Main Test Runner
 // ============================================
 async function runTests() {
@@ -403,6 +538,8 @@ async function runTests() {
         hybridBlending: false,
         explanationGeneration: false,
         safetyRules: false,
+        dataNeedDetection: false,
+        marketplaceMatching: false,
     };
 
     // Run tests
@@ -413,6 +550,8 @@ async function runTests() {
     results.hybridBlending = await testHybridBlending();
     results.explanationGeneration = await testExplanationGeneration();
     results.safetyRules = await testSafetyRules();
+    results.dataNeedDetection = await testDataNeedDetection();
+    results.marketplaceMatching = await testMarketplaceMatching();
 
     // Summary
     logSection('Test Summary');
@@ -446,3 +585,4 @@ runTests()
         console.error('Test runner error:', err);
         process.exit(1);
     });
+

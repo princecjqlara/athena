@@ -93,6 +93,41 @@ export {
     analyzeAdTraits,
 } from './rag-predict';
 
+// ============================================
+// UNIFIED PREDICTION PIPELINE (PRIMARY API)
+// ============================================
+// Use these for all new prediction code - they implement
+// the simplified single decision spine architecture.
+
+export {
+    unifiedPredict,
+    predict,
+    predictWithThreshold,
+    canPredictConfidently,
+} from './unified-predict';
+
+export type {
+    UnifiedPrediction,
+    PipelineExplanation,
+} from './unified-predict';
+
+// Pipeline configuration
+export {
+    getPipelineConfig,
+    savePipelineConfig,
+    resetPipelineConfig,
+    isAdvisoryEnabled,
+    setAdvisoryEnabled,
+    getConfidenceLevel,
+    isConfidenceSufficient,
+    DEFAULT_PIPELINE_CONFIG,
+} from './decision-config';
+
+export type {
+    PipelineConfig,
+    ConfidenceLevel,
+} from './decision-config';
+
 // Explanation generation
 export {
     generateExperimentSuggestions,

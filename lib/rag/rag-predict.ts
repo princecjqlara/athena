@@ -64,6 +64,10 @@ async function getLegacyPrediction(ad: AdEntry): Promise<{ score: number; confid
 /**
  * Predict ad success using RAG + contrastive analysis
  * 
+ * @deprecated Use `unifiedPredict` from './unified-predict' instead.
+ * This function is kept for backward compatibility but the unified
+ * pipeline provides clearer explanations and consistent behavior.
+ * 
  * Flow:
  * 1. Convert ad to AdOrb
  * 2. Generate embedding

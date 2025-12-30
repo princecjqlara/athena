@@ -108,8 +108,13 @@ export default function CollectiveIntelligencePage() {
 
     // Handle individual toggle changes
     const handleToggleChange = async (field: 'receive' | 'share', value: boolean) => {
-        const receiveOn = field === 'receive' ? value : (settings?.receive_public_data ?? false);
-        const shareOn = field === 'share' ? value : (settings?.auto_share_data ?? false);
+        let receiveOn = field === 'receive' ? value : (settings?.receive_public_data ?? false);
+        let shareOn = field === 'share' ? value : (settings?.auto_share_data ?? false);
+
+        // If turning off receive, also turn off share (share requires receive to make sense)
+        if (field === 'receive' && !value) {
+            shareOn = false;
+        }
 
         // Determine mode based on toggles
         let mode: 'private' | 'contribute_receive' | 'receive_only' = 'private';
@@ -117,9 +122,6 @@ export default function CollectiveIntelligencePage() {
             mode = 'contribute_receive';
         } else if (receiveOn && !shareOn) {
             mode = 'receive_only';
-        } else if (!receiveOn && shareOn) {
-            // If sharing but not receiving, we also need to receive for it to make sense
-            mode = 'contribute_receive';
         } else {
             mode = 'private';
         }

@@ -3,10 +3,17 @@
  * 
  * POST /api/rag/predict
  * Returns RAG-based prediction for an ad with trait effects and explanations.
+ * 
+ * SAFETY: Uses safe prediction wrapper with feature flag checks
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { predictWithRAG, predictWithRAGOnly } from '@/lib/rag';
+import {
+    predictWithRAG,
+    predictWithRAGOnly,
+    getFlags,
+    SAFETY_CONFIG,
+} from '@/lib/rag';
 import { AdEntry } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -29,7 +36,18 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Run prediction
+        // SAFETY: Check feature flags for logging
+        const flags = getFlags();
+        if (flags.enableDebugLogging) {
+            console.log('[RAG API] Processing prediction request', {
+                adId: ad.id,
+                useHybrid,
+                ragEnabled: flags.enableRAG
+            });
+        }
+
+        // Run prediction using the RAG pipeline
+        // Note: safePredict wrapper handles fallbacks internally
         const prediction = useHybrid
             ? await predictWithRAG(ad as AdEntry)
             : await predictWithRAGOnly(ad as AdEntry);

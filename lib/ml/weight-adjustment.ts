@@ -127,11 +127,26 @@ export function calculateWeightedScore(adData: ExtractedAdData): number {
 }
 
 // Adjust weights based on prediction error
+// ⚠️ RESPECTS WEIGHT MODE - in 'frozen' or 'fallback_only' mode, adjustments are logged but not applied
 export function adjustWeightsForError(
     prediction: PredictionRecord,
     adData: ExtractedAdData,
     actualScore: number
 ): WeightAdjustmentEvent {
+    const mode = getWeightMode();
+
+    // Guard: check weight mode
+    if (mode === 'frozen') {
+        console.log('[WEIGHTS] Frozen mode - no adjustments allowed');
+        return {
+            id: `adj-${Date.now()}-frozen`,
+            timestamp: new Date().toISOString(),
+            triggeredBy: prediction.id,
+            adjustments: [],
+            validatedImprovement: false,
+        };
+    }
+
     const weights = getFeatureWeights();
     const adjustments: WeightAdjustmentEvent['adjustments'] = [];
 
