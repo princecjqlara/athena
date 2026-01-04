@@ -183,6 +183,25 @@ export default function AthenaPage() {
             )
         },
         {
+            id: 'strategy-focus',
+            title: '🌳 Strategy Focus',
+            description: 'AI-powered tree visualization showing which strategies are working and where to focus.',
+            stat: '🎯',
+            statLabel: 'View Strategy',
+            color: '#22c55e',
+            link: '/athena/strategy',
+            icon: (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="5" r="3" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <circle cx="6" cy="17" r="3" />
+                    <circle cx="18" cy="17" r="3" />
+                    <line x1="12" y1="12" x2="6" y2="14" />
+                    <line x1="12" y1="12" x2="18" y2="14" />
+                </svg>
+            )
+        },
+        {
             id: 'prompts',
             title: '📝 Prompt Versions',
             description: 'Manage and A/B test different AI prompt configurations for better recommendations.',

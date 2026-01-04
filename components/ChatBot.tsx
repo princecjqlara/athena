@@ -74,31 +74,128 @@ export default function ChatBot({ onClose }: ChatBotProps) {
         return () => clearTimeout(timer);
     }, [localSearchQuery, searchMessages]);
 
-    // Get all data context for AI
+    // Get all data context for AI - includes FULL ad data for comprehensive analysis
     const getDataContext = () => {
         const ads = JSON.parse(localStorage.getItem('ads') || '[]');
+
+        // Aggregate demographics across all ads
+        const aggregatedDemographics: Record<string, { impressions: number; reach: number }> = {};
+        const aggregatedPlacements: Record<string, { impressions: number; spend: number }> = {};
+        const aggregatedRegions: Record<string, { impressions: number }> = {};
 
         // Summarize data for context
         const summary = {
             totalAds: ads.length,
             platforms: {} as Record<string, number>,
             hookTypes: {} as Record<string, number>,
+            contentCategories: {} as Record<string, number>,
             avgPredictedScore: 0,
             avgActualScore: 0,
             adsWithResults: 0,
             topTraits: [] as string[],
-            recentAds: ads.slice(-5).map((a: any) => ({
-                title: a.extractedContent?.title,
-                platform: a.extractedContent?.platform,
-                hookType: a.extractedContent?.hookType,
-                predicted: a.predictedScore,
-                actual: a.successScore
-            }))
+            // Aggregated performance metrics
+            totalSpend: 0,
+            totalImpressions: 0,
+            totalClicks: 0,
+            totalConversions: 0,
+            avgCTR: 0,
+            avgCPC: 0,
+            avgROAS: 0,
+            // Demographics breakdown (aggregated from all ads)
+            demographics: {} as Record<string, { impressions: number; reach: number }>,
+            // Placement performance
+            placements: {} as Record<string, { impressions: number; spend: number }>,
+            // Regional performance
+            regions: {} as Record<string, { impressions: number }>,
+            // Full ad details for AI analysis
+            allAds: ads.map((a: any) => {
+                // Handle both data structures: 'metrics' (manual) and 'adInsights' (Facebook import)
+                const metrics = a.metrics || a.adInsights || {};
+                return {
+                    id: a.id,
+                    title: a.extractedContent?.title || a.name || 'Untitled',
+                    platform: a.extractedContent?.platform || 'unknown',
+                    hookType: a.extractedContent?.hookType,
+                    contentCategory: a.extractedContent?.contentCategory,
+                    editingStyle: a.extractedContent?.editingStyle,
+                    colorScheme: a.extractedContent?.colorScheme,
+                    musicType: a.extractedContent?.musicType,
+                    ctaType: a.extractedContent?.cta,
+                    hasSubtitles: a.extractedContent?.hasSubtitles,
+                    hasTextOverlays: a.extractedContent?.hasTextOverlays,
+                    hasVoiceover: a.extractedContent?.hasVoiceover,
+                    isUGCStyle: a.extractedContent?.isUGCStyle,
+                    duration: a.extractedContent?.duration,
+                    customTraits: a.extractedContent?.customTraits || a.traits || [],
+                    // Scores
+                    predictedScore: a.predictedScore,
+                    actualScore: a.successScore,
+                    // Performance metrics (from either source)
+                    metrics: Object.keys(metrics).length > 0 ? {
+                        spend: metrics.spend || 0,
+                        impressions: metrics.impressions || 0,
+                        reach: metrics.reach || 0,
+                        clicks: metrics.clicks || 0,
+                        ctr: metrics.ctr || 0,
+                        cpc: metrics.cpc || 0,
+                        cpm: metrics.cpm || 0,
+                        conversions: metrics.results || metrics.conversions || 0,
+                        leads: metrics.leads || 0,
+                        purchases: metrics.purchases || 0,
+                        messages: metrics.messages || metrics.messagesStarted || 0,
+                        roas: metrics.purchaseRoas || metrics.roas || null,
+                        costPerResult: metrics.costPerResult || 0,
+                        resultType: metrics.resultType || 'none',
+                        // Additional Facebook-specific metrics
+                        qualityRanking: metrics.qualityRanking,
+                        engagementRateRanking: metrics.engagementRateRanking,
+                        conversionRateRanking: metrics.conversionRateRanking,
+                        videoViews: metrics.videoViews || 0,
+                        videoThruPlays: metrics.videoThruPlays || 0,
+                        postEngagement: metrics.postEngagement || 0,
+                        postReactions: metrics.postReactions || 0,
+                        postComments: metrics.postComments || 0,
+                        postShares: metrics.postShares || 0
+                    } : null,
+                    // Demographics breakdown for this ad
+                    demographics: a.demographics || [],
+                    // Placement breakdown for this ad
+                    placements: a.placements || [],
+                    // Regional breakdown
+                    regions: a.regions || [],
+                    // Device/Platform breakdown
+                    byDevice: a.byDevice || [],
+                    byPlatform: a.byPlatform || [],
+                    // Campaign/AdSet info
+                    campaign: a.campaign,
+                    adset: a.adset
+                };
+            }),
+            // Recent ads summary (for quick reference)
+            recentAds: ads.slice(-10).map((a: any) => {
+                const m = a.metrics || a.adInsights || {};
+                return {
+                    title: a.extractedContent?.title || a.name,
+                    platform: a.extractedContent?.platform,
+                    hookType: a.extractedContent?.hookType,
+                    predicted: a.predictedScore,
+                    actual: a.successScore,
+                    spend: m.spend,
+                    ctr: m.ctr,
+                    results: m.results || m.conversions || m.leads || m.messagesStarted || m.messages || 0,
+                    resultType: m.resultType
+                };
+            })
         };
 
         let totalPredicted = 0, totalActual = 0;
+        let totalCTR = 0, totalCPC = 0, totalROAS = 0;
+        let adsWithCTR = 0, adsWithCPC = 0, adsWithROAS = 0;
+
         ads.forEach((ad: any) => {
             const content = ad.extractedContent || {};
+            // Handle both data structures: 'metrics' (manual) and 'adInsights' (Facebook import)
+            const metrics = ad.metrics || ad.adInsights || {};
 
             // Platform stats
             if (content.platform) {
@@ -110,20 +207,80 @@ export default function ChatBot({ onClose }: ChatBotProps) {
                 summary.hookTypes[content.hookType] = (summary.hookTypes[content.hookType] || 0) + 1;
             }
 
+            // Content category stats
+            if (content.contentCategory) {
+                summary.contentCategories[content.contentCategory] = (summary.contentCategories[content.contentCategory] || 0) + 1;
+            }
+
             // Score averages
             if (ad.predictedScore) totalPredicted += ad.predictedScore;
             if (ad.successScore) {
                 totalActual += ad.successScore;
                 summary.adsWithResults++;
             }
+
+            // Aggregate metrics
+            summary.totalSpend += metrics.spend || 0;
+            summary.totalImpressions += metrics.impressions || 0;
+            summary.totalClicks += metrics.clicks || 0;
+            summary.totalConversions += (metrics.results || metrics.conversions || 0) + (metrics.leads || 0) + (metrics.purchases || 0);
+
+            if (metrics.ctr) { totalCTR += metrics.ctr; adsWithCTR++; }
+            if (metrics.cpc) { totalCPC += metrics.cpc; adsWithCPC++; }
+            const roas = metrics.purchaseRoas || metrics.roas;
+            if (roas) { totalROAS += roas; adsWithROAS++; }
+
+            // Aggregate demographics
+            if (ad.demographics && Array.isArray(ad.demographics)) {
+                ad.demographics.forEach((demo: { age?: string; gender?: string; impressions: number; reach?: number }) => {
+                    const key = `${demo.gender || 'unknown'}_${demo.age || 'unknown'}`;
+                    if (!aggregatedDemographics[key]) {
+                        aggregatedDemographics[key] = { impressions: 0, reach: 0 };
+                    }
+                    aggregatedDemographics[key].impressions += demo.impressions || 0;
+                    aggregatedDemographics[key].reach += demo.reach || 0;
+                });
+            }
+
+            // Aggregate placements
+            if (ad.placements && Array.isArray(ad.placements)) {
+                ad.placements.forEach((p: { platform?: string; position?: string; impressions: number; spend: number }) => {
+                    const key = `${p.platform || 'unknown'}_${p.position || 'unknown'}`;
+                    if (!aggregatedPlacements[key]) {
+                        aggregatedPlacements[key] = { impressions: 0, spend: 0 };
+                    }
+                    aggregatedPlacements[key].impressions += p.impressions || 0;
+                    aggregatedPlacements[key].spend += p.spend || 0;
+                });
+            }
+
+            // Aggregate regions
+            if (ad.regions && Array.isArray(ad.regions)) {
+                ad.regions.forEach((r: { country?: string; impressions: number }) => {
+                    const key = r.country || 'unknown';
+                    if (!aggregatedRegions[key]) {
+                        aggregatedRegions[key] = { impressions: 0 };
+                    }
+                    aggregatedRegions[key].impressions += r.impressions || 0;
+                });
+            }
         });
 
+        // Calculate averages
         if (ads.length > 0) {
             summary.avgPredictedScore = Math.round(totalPredicted / ads.length);
         }
         if (summary.adsWithResults > 0) {
             summary.avgActualScore = Math.round(totalActual / summary.adsWithResults);
         }
+        if (adsWithCTR > 0) summary.avgCTR = parseFloat((totalCTR / adsWithCTR).toFixed(2));
+        if (adsWithCPC > 0) summary.avgCPC = parseFloat((totalCPC / adsWithCPC).toFixed(2));
+        if (adsWithROAS > 0) summary.avgROAS = parseFloat((totalROAS / adsWithROAS).toFixed(2));
+
+        // Assign aggregated data
+        summary.demographics = aggregatedDemographics;
+        summary.placements = aggregatedPlacements;
+        summary.regions = aggregatedRegions;
 
         return summary;
     };

@@ -913,16 +913,66 @@ interface ChatContext {
   totalAds: number;
   platforms: Record<string, number>;
   hookTypes: Record<string, number>;
+  contentCategories?: Record<string, number>;
   avgPredictedScore: number;
   avgActualScore: number;
   adsWithResults: number;
   topTraits: string[];
+  // Aggregated performance metrics
+  totalSpend?: number;
+  totalImpressions?: number;
+  totalClicks?: number;
+  totalConversions?: number;
+  avgCTR?: number;
+  avgCPC?: number;
+  avgROAS?: number;
+  // Demographics breakdown (aggregated)
+  demographics?: Record<string, { impressions: number; reach: number }>;
+  // Placement performance
+  placements?: Record<string, { impressions: number; spend: number }>;
+  // Regional performance
+  regions?: Record<string, { impressions: number }>;
+  // Full ad details
+  allAds?: Array<{
+    id: string;
+    title: string;
+    platform: string;
+    hookType?: string;
+    contentCategory?: string;
+    editingStyle?: string;
+    customTraits?: string[];
+    predictedScore?: number;
+    actualScore?: number;
+    metrics?: {
+      spend: number;
+      impressions: number;
+      reach: number;
+      clicks: number;
+      ctr: number;
+      cpc: number;
+      conversions: number;
+      leads: number;
+      purchases: number;
+      messages: number;
+      roas: number | null;
+      costPerResult: number;
+      resultType: string;
+    } | null;
+    demographics?: Array<{ age?: string; gender?: string; impressions: number; reach?: number }>;
+    placements?: Array<{ platform?: string; position?: string; impressions: number; spend: number }>;
+    campaign?: { id: string; name: string; objective?: string };
+    adset?: { id: string; name: string; optimizationGoal?: string };
+  }>;
   recentAds: Array<{
     title: string;
     platform: string;
     hookType: string;
     predicted: number;
     actual: number;
+    spend?: number;
+    ctr?: number;
+    results?: number;
+    resultType?: string;
   }>;
 }
 
@@ -940,28 +990,99 @@ function buildChatPrompt(
     .map(m => `${m.role === 'user' ? 'User' : 'Athena'}: ${m.content}`)
     .join('\n');
 
-  return `USER'S AD DATA CONTEXT:
+  // Build demographics summary
+  const demographicsText = context.demographics && Object.keys(context.demographics).length > 0
+    ? Object.entries(context.demographics)
+        .sort((a, b) => b[1].impressions - a[1].impressions)
+        .slice(0, 10)
+        .map(([key, data]) => {
+          const [gender, age] = key.split('_');
+          return `- ${gender} ${age}: ${data.impressions.toLocaleString()} impressions`;
+        })
+        .join('\n')
+    : 'No demographic data available';
+
+  // Build placement summary
+  const placementsText = context.placements && Object.keys(context.placements).length > 0
+    ? Object.entries(context.placements)
+        .sort((a, b) => b[1].impressions - a[1].impressions)
+        .slice(0, 5)
+        .map(([key, data]) => `- ${key}: ${data.impressions.toLocaleString()} impressions, $${data.spend.toFixed(2)} spent`)
+        .join('\n')
+    : 'No placement data available';
+
+  // Build regions summary
+  const regionsText = context.regions && Object.keys(context.regions).length > 0
+    ? Object.entries(context.regions)
+        .sort((a, b) => b[1].impressions - a[1].impressions)
+        .slice(0, 5)
+        .map(([country, data]) => `- ${country}: ${data.impressions.toLocaleString()} impressions`)
+        .join('\n')
+    : 'No regional data available';
+
+  // Build detailed ads summary with performance
+  const detailedAdsText = context.allAds && context.allAds.length > 0
+    ? context.allAds
+        .sort((a, b) => (b.actualScore || b.predictedScore || 0) - (a.actualScore || a.predictedScore || 0))
+        .slice(0, 15)
+        .map(ad => {
+          const metrics = ad.metrics;
+          const demoSummary = ad.demographics && ad.demographics.length > 0
+            ? ` | Top demo: ${ad.demographics.sort((a, b) => b.impressions - a.impressions)[0]?.gender} ${ad.demographics.sort((a, b) => b.impressions - a.impressions)[0]?.age}`
+            : '';
+          return `- "${ad.title}" (${ad.platform || 'unknown'})
+    Hook: ${ad.hookType || 'N/A'} | Category: ${ad.contentCategory || 'N/A'}
+    Predicted: ${ad.predictedScore || 'N/A'}% | Actual: ${ad.actualScore || 'N/A'}%
+    ${metrics ? `Spend: $${metrics.spend.toFixed(2)} | CTR: ${metrics.ctr.toFixed(2)}% | ${metrics.resultType}: ${metrics.conversions || metrics.leads || metrics.messages || 0}${demoSummary}` : 'No metrics'}`;
+        })
+        .join('\n')
+    : context.recentAds.map(a => `- "${a.title || 'Untitled'}" (${a.platform || 'unknown'}) - Predicted: ${a.predicted || 'N/A'}%, Actual: ${a.actual || 'N/A'}%`).join('\n');
+
+  return `USER'S COMPLETE AD DATA (YOU HAVE FULL ACCESS):
+=====================================
+
+📊 SUMMARY METRICS:
 - Total Ads: ${context.totalAds}
 - Ads with Results: ${context.adsWithResults}
 - Average Predicted Score: ${context.avgPredictedScore}%
 - Average Actual Score: ${context.avgActualScore}%
+- Total Spend: $${(context.totalSpend || 0).toFixed(2)}
+- Total Impressions: ${(context.totalImpressions || 0).toLocaleString()}
+- Total Clicks: ${(context.totalClicks || 0).toLocaleString()}
+- Total Conversions: ${context.totalConversions || 0}
+- Average CTR: ${(context.avgCTR || 0).toFixed(2)}%
+- Average CPC: $${(context.avgCPC || 0).toFixed(2)}
+- Average ROAS: ${(context.avgROAS || 0).toFixed(2)}x
 
-Platform Breakdown:
-${Object.entries(context.platforms).map(([p, c]) => `- ${p}: ${c} ads`).join('\n')}
+📱 PLATFORM BREAKDOWN:
+${Object.entries(context.platforms).map(([p, c]) => `- ${p}: ${c} ads`).join('\n') || 'No platform data'}
 
-Hook Type Breakdown:
-${Object.entries(context.hookTypes).map(([h, c]) => `- ${h}: ${c} ads`).join('\n')}
+🎯 HOOK TYPE BREAKDOWN:
+${Object.entries(context.hookTypes).map(([h, c]) => `- ${h}: ${c} ads`).join('\n') || 'No hook data'}
 
-Recent Ads:
-${context.recentAds.map(a => `- "${a.title || 'Untitled'}" (${a.platform || 'unknown'}) - Predicted: ${a.predicted || 'N/A'}%, Actual: ${a.actual || 'N/A'}%`).join('\n')}
+📂 CONTENT CATEGORY BREAKDOWN:
+${context.contentCategories ? Object.entries(context.contentCategories).map(([c, count]) => `- ${c}: ${count} ads`).join('\n') : 'No category data'}
 
+👥 DEMOGRAPHICS PERFORMANCE (Top segments by impressions):
+${demographicsText}
+
+📍 PLACEMENT PERFORMANCE:
+${placementsText}
+
+🌍 REGIONAL PERFORMANCE:
+${regionsText}
+
+📋 DETAILED AD PERFORMANCE (sorted by score):
+${detailedAdsText}
+
+=====================================
 CONVERSATION HISTORY:
 ${historyText}
 
 USER'S MESSAGE:
 ${message}
 
-Respond helpfully based on their data. Be specific and reference their actual numbers when relevant. Keep response under 200 words.`;
+IMPORTANT: You have FULL ACCESS to all user data above. Never ask users to share data you already have access to. Analyze the data provided and give specific, actionable insights based on their actual numbers, demographics, and performance metrics.`;
 }
 
 async function handleChatResponse(
