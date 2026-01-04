@@ -490,6 +490,89 @@ export default function ChatBot({ onClose }: ChatBotProps) {
         );
     };
 
+    // Simple markdown-like formatting for chat messages
+    const formatMessage = (text: string) => {
+        // Split into lines and process each
+        const lines = text.split('\n');
+        const elements: React.ReactNode[] = [];
+        
+        lines.forEach((line, lineIndex) => {
+            // Process inline formatting: **bold**
+            const processInline = (str: string): React.ReactNode[] => {
+                const parts: React.ReactNode[] = [];
+                let remaining = str;
+                let keyIndex = 0;
+                
+                // Match **bold** text
+                const boldRegex = /\*\*(.+?)\*\*/g;
+                let lastIndex = 0;
+                let match;
+                
+                while ((match = boldRegex.exec(str)) !== null) {
+                    // Add text before the match
+                    if (match.index > lastIndex) {
+                        parts.push(str.slice(lastIndex, match.index));
+                    }
+                    // Add the bold text
+                    parts.push(
+                        <strong key={`bold-${lineIndex}-${keyIndex++}`} className={styles.boldText}>
+                            {match[1]}
+                        </strong>
+                    );
+                    lastIndex = match.index + match[0].length;
+                }
+                
+                // Add remaining text
+                if (lastIndex < str.length) {
+                    parts.push(str.slice(lastIndex));
+                }
+                
+                return parts.length > 0 ? parts : [str];
+            };
+            
+            // Check if line is a header (starts with emoji or number + text)
+            const isHeader = /^[🏆⚠️💰📊🎯💡✅❌1️⃣2️⃣3️⃣4️⃣5️⃣]/.test(line.trim());
+            const isBullet = /^[•\-\*] /.test(line.trim()) || /^[🏆⚠️💰📊🎯💡✅❌•] /.test(line.trim());
+            const isNumbered = /^\d+[\.\)]\s/.test(line.trim()) || /^[1️⃣2️⃣3️⃣4️⃣5️⃣]\s/.test(line.trim());
+            
+            if (line.trim() === '') {
+                // Empty line - add spacing
+                elements.push(<div key={`line-${lineIndex}`} className={styles.messageBreak} />);
+            } else if (isHeader && !isBullet && !isNumbered) {
+                // Header-like line with emoji
+                elements.push(
+                    <div key={`line-${lineIndex}`} className={styles.messageHeader}>
+                        {processInline(line)}
+                    </div>
+                );
+            } else if (isBullet) {
+                // Bullet point
+                elements.push(
+                    <div key={`line-${lineIndex}`} className={styles.messageBullet}>
+                        {processInline(line)}
+                    </div>
+                );
+            } else if (isNumbered) {
+                // Numbered item
+                elements.push(
+                    <div key={`line-${lineIndex}`} className={styles.messageNumbered}>
+                        {processInline(line)}
+                    </div>
+                );
+            } else {
+                // Regular text
+                elements.push(
+                    <span key={`line-${lineIndex}`}>
+                        {processInline(line)}
+                        <br />
+                    </span>
+                );
+            }
+        });
+        
+        return elements;
+    };
+
     // Quick prompts for users
     const quickPrompts = [
         "What hook types work best?",
@@ -812,9 +895,12 @@ export default function ChatBot({ onClose }: ChatBotProps) {
                                     <span className={styles.messageIcon}>{message.actionResult?.success ? '✅' : '⚠️'}</span>
                                 )}
                                 <div className={styles.messageContent}>
-                                    {message.content.split('\n').map((line, i) => (
-                                        <span key={i}>{line}<br /></span>
-                                    ))}
+                                    {message.role === 'user' 
+                                        ? message.content.split('\n').map((line, i) => (
+                                            <span key={i}>{line}<br /></span>
+                                        ))
+                                        : formatMessage(message.content)
+                                    }
                                 </div>
                             </div>
                         ))}

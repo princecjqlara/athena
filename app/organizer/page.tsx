@@ -131,6 +131,17 @@ export default function OrganizerDashboard() {
     }>>([]);
     const [showAddTrait, setShowAddTrait] = useState(false);
     const [newTrait, setNewTrait] = useState({ traitName: '', traitCategory: 'Custom', definition: '', businessType: '' });
+    
+    // Bulk import state
+    const [showBulkImport, setShowBulkImport] = useState(false);
+    const [bulkTraitsJson, setBulkTraitsJson] = useState('');
+    const [isBulkImporting, setIsBulkImporting] = useState(false);
+    const [bulkImportResult, setBulkImportResult] = useState<{
+        added: number;
+        duplicates: number;
+        merged: number;
+        errors: string[];
+    } | null>(null);
 
     // AI-generated traits state (from public_traits table)
     const [aiTraits, setAiTraits] = useState<Array<{
@@ -409,6 +420,161 @@ export default function OrganizerDashboard() {
             }
         } catch (error) {
             console.error('Error adding trait:', error);
+        }
+    };
+
+    // Bulk import traits with AI deduplication
+    const bulkImportTraits = async () => {
+        if (!bulkTraitsJson.trim()) {
+            alert('Please paste JSON data to import');
+            return;
+        }
+
+        setIsBulkImporting(true);
+        setBulkImportResult(null);
+
+        try {
+            // Parse JSON input - support both array and single object
+            let traitsToImport: Array<{
+                traitName?: string;
+                name?: string;
+                trait_name?: string;
+                traitCategory?: string;
+                category?: string;
+                trait_category?: string;
+                definition?: string;
+                description?: string;
+                businessType?: string;
+                business_type?: string;
+            }> = [];
+
+            try {
+                const parsed = JSON.parse(bulkTraitsJson);
+                traitsToImport = Array.isArray(parsed) ? parsed : [parsed];
+            } catch {
+                alert('Invalid JSON format. Please check your input.');
+                setIsBulkImporting(false);
+                return;
+            }
+
+            // Normalize trait names for comparison
+            const normalizeTraitName = (name: string) => {
+                return name
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[^a-z0-9]/g, '') // Remove special chars
+                    .replace(/\s+/g, ''); // Remove spaces
+            };
+
+            // Get existing traits for comparison
+            const existingTraitNames = new Set(
+                learnedTraits.map(t => normalizeTraitName(t.trait_name))
+            );
+
+            // Also collect already-processed names to avoid duplicates within the import
+            const processedInBatch = new Set<string>();
+
+            const result = {
+                added: 0,
+                duplicates: 0,
+                merged: 0,
+                errors: [] as string[]
+            };
+
+            // Process each trait
+            for (const trait of traitsToImport) {
+                // Normalize field names (support various formats)
+                const traitName = trait.traitName || trait.name || trait.trait_name || '';
+                const traitCategory = trait.traitCategory || trait.category || trait.trait_category || 'Custom';
+                const definition = trait.definition || trait.description || '';
+                const businessType = trait.businessType || trait.business_type || '';
+
+                if (!traitName) {
+                    result.errors.push('Skipped trait with no name');
+                    continue;
+                }
+
+                const normalizedName = normalizeTraitName(traitName);
+
+                // Check for duplicates
+                if (existingTraitNames.has(normalizedName)) {
+                    result.duplicates++;
+                    // Increment usage count for existing trait
+                    try {
+                        await fetch('/api/ai/learned-traits', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                traitName,
+                                traitCategory,
+                                definition: definition || `Trait: ${traitName}`,
+                                businessType
+                            })
+                        });
+                        result.merged++;
+                    } catch {
+                        // Silently continue
+                    }
+                    continue;
+                }
+
+                // Check for duplicates within the batch
+                if (processedInBatch.has(normalizedName)) {
+                    result.duplicates++;
+                    continue;
+                }
+
+                // Add the trait
+                try {
+                    const res = await fetch('/api/ai/learned-traits', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            traitName,
+                            traitCategory,
+                            definition: definition || `Custom trait: ${traitName}`,
+                            businessType
+                        })
+                    });
+
+                    if (res.ok) {
+                        result.added++;
+                        existingTraitNames.add(normalizedName);
+                        processedInBatch.add(normalizedName);
+                    } else {
+                        const err = await res.json();
+                        if (err.existing) {
+                            result.duplicates++;
+                            result.merged++;
+                        } else {
+                            result.errors.push(`Failed to add "${traitName}": ${err.error || 'Unknown error'}`);
+                        }
+                    }
+                } catch (error) {
+                    result.errors.push(`Error adding "${traitName}": ${error}`);
+                }
+            }
+
+            setBulkImportResult(result);
+            
+            // Refresh traits list
+            fetchLearnedTraits();
+
+            // Clear input if successful
+            if (result.added > 0 || result.merged > 0) {
+                setBulkTraitsJson('');
+            }
+
+        } catch (error) {
+            console.error('Bulk import error:', error);
+            setBulkImportResult({
+                added: 0,
+                duplicates: 0,
+                merged: 0,
+                errors: [`Import failed: ${error}`]
+            });
+        } finally {
+            setIsBulkImporting(false);
         }
     };
 
@@ -1216,14 +1382,114 @@ export default function OrganizerDashboard() {
                                     User-submitted custom traits that are learned and suggested to similar users
                                 </p>
                             </div>
-                            <button
-                                className="create-btn"
-                                onClick={() => setShowAddTrait(!showAddTrait)}
-                                style={{ padding: '10px 20px', background: 'var(--primary)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
-                            >
-                                {showAddTrait ? '✕ Cancel' : '+ Add Trait'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button
+                                    className="create-btn"
+                                    onClick={() => { setShowBulkImport(!showBulkImport); setShowAddTrait(false); }}
+                                    style={{ padding: '10px 20px', background: showBulkImport ? 'var(--error)' : 'var(--accent-secondary)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
+                                >
+                                    {showBulkImport ? '✕ Cancel' : '📥 Bulk Import'}
+                                </button>
+                                <button
+                                    className="create-btn"
+                                    onClick={() => { setShowAddTrait(!showAddTrait); setShowBulkImport(false); }}
+                                    style={{ padding: '10px 20px', background: showAddTrait ? 'var(--error)' : 'var(--primary)', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'white' }}
+                                >
+                                    {showAddTrait ? '✕ Cancel' : '+ Add Trait'}
+                                </button>
+                            </div>
                         </div>
+
+                        {/* Bulk Import Form */}
+                        {showBulkImport && (
+                            <div style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                                <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    📥 Bulk Import Traits
+                                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', background: 'rgba(34,197,94,0.2)', borderRadius: '12px', color: 'var(--success)' }}>
+                                        AI Deduplication
+                                    </span>
+                                </h3>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                                    Paste JSON data containing traits. AI will automatically detect and merge duplicates.
+                                </p>
+                                
+                                <div style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>JSON Data</label>
+                                    <textarea
+                                        value={bulkTraitsJson}
+                                        onChange={(e) => setBulkTraitsJson(e.target.value)}
+                                        placeholder={`Paste JSON array or object. Supported formats:
+[
+  { "traitName": "hasUnboxing", "definition": "Shows product unboxing", "traitCategory": "Content" },
+  { "name": "ugcStyle", "description": "User-generated content style" }
+]
+
+Or single object:
+{ "trait_name": "fastCuts", "definition": "Quick editing transitions" }`}
+                                        rows={8}
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '12px', 
+                                            borderRadius: '8px', 
+                                            border: '1px solid var(--border)', 
+                                            background: 'var(--bg-tertiary)',
+                                            fontFamily: 'monospace',
+                                            fontSize: '0.85rem'
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Import Result */}
+                                {bulkImportResult && (
+                                    <div style={{ 
+                                        padding: '12px', 
+                                        borderRadius: '8px', 
+                                        marginBottom: '12px',
+                                        background: bulkImportResult.errors.length > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                                        border: `1px solid ${bulkImportResult.errors.length > 0 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`
+                                    }}>
+                                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                                            <span style={{ color: 'var(--success)' }}>✅ Added: {bulkImportResult.added}</span>
+                                            <span style={{ color: '#f59e0b' }}>🔄 Merged: {bulkImportResult.merged}</span>
+                                            <span style={{ color: 'var(--text-muted)' }}>⏭️ Skipped duplicates: {bulkImportResult.duplicates}</span>
+                                        </div>
+                                        {bulkImportResult.errors.length > 0 && (
+                                            <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--error)' }}>
+                                                {bulkImportResult.errors.slice(0, 3).map((err, i) => (
+                                                    <div key={i}>❌ {err}</div>
+                                                ))}
+                                                {bulkImportResult.errors.length > 3 && (
+                                                    <div>...and {bulkImportResult.errors.length - 3} more errors</div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <button 
+                                    onClick={bulkImportTraits} 
+                                    disabled={isBulkImporting || !bulkTraitsJson.trim()}
+                                    style={{ 
+                                        padding: '12px 24px', 
+                                        background: isBulkImporting ? 'var(--text-muted)' : 'var(--success)', 
+                                        border: 'none', 
+                                        borderRadius: '8px', 
+                                        cursor: isBulkImporting ? 'not-allowed' : 'pointer', 
+                                        color: 'white', 
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    {isBulkImporting ? (
+                                        <>⏳ Importing & Deduplicating...</>
+                                    ) : (
+                                        <>🚀 Import with AI Deduplication</>
+                                    )}
+                                </button>
+                            </div>
+                        )}
 
                         {/* Add Trait Form */}
                         {showAddTrait && (
