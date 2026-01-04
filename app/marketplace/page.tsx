@@ -165,6 +165,98 @@ export default function MarketplacePage() {
         return userId;
     };
 
+    // Generate user's personal data pool from localStorage ads
+    const generateMyDataPool = (): DataPool | null => {
+        try {
+            const storedAds = JSON.parse(localStorage.getItem('ads') || '[]');
+            if (storedAds.length === 0) return null;
+
+            // Calculate aggregate stats from user's ads
+            let totalImpressions = 0;
+            let totalSpend = 0;
+            let totalCTR = 0;
+            let totalROAS = 0;
+            let adsWithCTR = 0;
+            let adsWithROAS = 0;
+            let adsWithResults = 0;
+            const platforms: Record<string, number> = {};
+            const formats: Record<string, number> = {};
+            const industries: Record<string, number> = {};
+            const audiences: Record<string, number> = {};
+
+            storedAds.forEach((ad: any) => {
+                const metrics = ad.metrics || ad.adInsights || {};
+                const content = ad.extractedContent || {};
+
+                // Aggregate metrics
+                totalImpressions += metrics.impressions || 0;
+                totalSpend += metrics.spend || 0;
+                if (metrics.ctr) { totalCTR += metrics.ctr; adsWithCTR++; }
+                const roas = metrics.purchaseRoas || metrics.roas;
+                if (roas) { totalROAS += roas; adsWithROAS++; }
+                if (ad.successScore) adsWithResults++;
+
+                // Count platforms
+                const platform = content.platform || 'facebook';
+                platforms[platform] = (platforms[platform] || 0) + 1;
+
+                // Count formats
+                const format = content.contentCategory || ad.mediaType || 'video';
+                formats[format] = (formats[format] || 0) + 1;
+
+                // Count demographics from ad data
+                if (ad.demographics && Array.isArray(ad.demographics)) {
+                    ad.demographics.forEach((demo: any) => {
+                        if (demo.age) {
+                            // Map age to audience category
+                            if (demo.age.includes('18') || demo.age.includes('24')) {
+                                audiences['gen_z'] = (audiences['gen_z'] || 0) + demo.impressions;
+                            } else if (demo.age.includes('25') || demo.age.includes('34') || demo.age.includes('35') || demo.age.includes('44')) {
+                                audiences['millennials'] = (audiences['millennials'] || 0) + demo.impressions;
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Determine primary platform
+            const primaryPlatform = Object.entries(platforms)
+                .sort((a, b) => b[1] - a[1])[0]?.[0] || 'facebook';
+
+            // Determine primary format
+            const primaryFormat = Object.entries(formats)
+                .sort((a, b) => b[1] - a[1])[0]?.[0] || 'video';
+
+            // Determine primary audience
+            const primaryAudience = Object.entries(audiences)
+                .sort((a, b) => b[1] - a[1])[0]?.[0] || 'millennials';
+
+            // Calculate averages
+            const avgCTR = adsWithCTR > 0 ? totalCTR / adsWithCTR : 0;
+            const avgROAS = adsWithROAS > 0 ? totalROAS / adsWithROAS : 0;
+            const avgSuccessRate = adsWithResults > 0 ? (adsWithResults / storedAds.length) * 100 : 0;
+
+            return {
+                id: 'my-data-pool',
+                name: '📊 My Ad Data',
+                slug: 'my-data',
+                description: `Your personal Facebook/Instagram ad performance data. Contains ${storedAds.length} ads with ${totalImpressions.toLocaleString()} total impressions and $${totalSpend.toFixed(2)} total spend.`,
+                industry: 'my_business',
+                target_audience: primaryAudience,
+                platform: primaryPlatform,
+                creative_format: primaryFormat,
+                data_points: storedAds.length,
+                contributors: 1,
+                avg_success_rate: Math.round(avgSuccessRate),
+                access_tier: 'owner',
+                accessStatus: 'approved' as const,
+            };
+        } catch (e) {
+            console.error('Error generating my data pool:', e);
+            return null;
+        }
+    };
+
     // Fetch data pools
     useEffect(() => {
         fetchPools();
@@ -185,11 +277,26 @@ export default function MarketplacePage() {
             const response = await fetch(`/api/data-pools?${params.toString()}`);
             const data = await response.json();
 
+            // Generate user's personal data pool from their localStorage ads
+            const myDataPool = generateMyDataPool();
+
             if (data.success) {
-                setPools(data.data || []);
+                // Prepend user's data pool if they have ads
+                const allPools = myDataPool ? [myDataPool, ...(data.data || [])] : (data.data || []);
+                setPools(allPools);
+            } else {
+                // Even if API fails, show user's data pool
+                if (myDataPool) {
+                    setPools([myDataPool]);
+                }
             }
         } catch (error) {
             console.error('Failed to fetch data pools:', error);
+            // Still show user's data pool on error
+            const myDataPool = generateMyDataPool();
+            if (myDataPool) {
+                setPools([myDataPool]);
+            }
         } finally {
             setLoading(false);
         }
@@ -626,6 +733,37 @@ export default function MarketplacePage() {
                 )}
             </div>
 
+            {/* No Ads Banner - encourage import */}
+            {!loading && !generateMyDataPool() && (
+                <div style={{ 
+                    background: 'linear-gradient(135deg, rgba(24, 119, 242, 0.15) 0%, rgba(138, 58, 185, 0.15) 100%)',
+                    border: '1px dashed rgba(24, 119, 242, 0.5)',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    marginBottom: '24px',
+                    textAlign: 'center'
+                }}>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#1877F2' }}>📊 No Ad Data Yet</h3>
+                    <p style={{ margin: '0 0 16px 0', opacity: 0.8 }}>
+                        Import your Facebook/Instagram ads to see your personal data pool and compare with marketplace insights.
+                    </p>
+                    <a 
+                        href="/import" 
+                        style={{ 
+                            background: '#1877F2',
+                            color: 'white',
+                            padding: '10px 24px',
+                            borderRadius: '8px',
+                            textDecoration: 'none',
+                            fontWeight: 600,
+                            display: 'inline-block'
+                        }}
+                    >
+                        Import from Facebook →
+                    </a>
+                </div>
+            )}
+
             {/* Data Pools Grid */}
             {loading ? (
                 <div className={styles.loading}>
@@ -635,39 +773,61 @@ export default function MarketplacePage() {
             ) : filteredPools.length === 0 ? (
                 <div className={styles.empty}>
                     <p>{searchQuery ? 'No pools match your search.' : 'No data pools found matching your filters.'}</p>
+                    {!generateMyDataPool() && (
+                        <p style={{ marginTop: '12px' }}>
+                            <a href="/import" style={{ color: '#1877F2' }}>Import your Facebook ads</a> to get started!
+                        </p>
+                    )}
                 </div>
             ) : (
                 <div className={styles.grid}>
                     {filteredPools.map((pool) => {
                         const statusBadge = getStatusBadge(pool.accessStatus);
                         const canRequest = pool.accessStatus === 'none' || pool.accessStatus === 'denied' || pool.accessStatus === 'revoked';
+                        const isMyData = pool.id === 'my-data-pool';
 
                         return (
-                            <div key={pool.id} className={styles.card}>
+                            <div 
+                                key={pool.id} 
+                                className={`${styles.card} ${isMyData ? styles.cardMyData : ''}`}
+                                style={isMyData ? { border: '2px solid #4CAF50', background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(33, 150, 243, 0.1) 100%)' } : undefined}
+                            >
                                 <div className={styles.cardHeader}>
                                     <h3 className={styles.cardTitle}>{pool.name}</h3>
-                                    <span className={`${styles.tierBadge} ${pool.access_tier === 'premium' ? styles.tierPremium : ''}`}>
-                                        {pool.access_tier}
+                                    <span 
+                                        className={`${styles.tierBadge} ${pool.access_tier === 'premium' ? styles.tierPremium : ''}`}
+                                        style={isMyData ? { background: '#4CAF50', color: 'white' } : undefined}
+                                    >
+                                        {isMyData ? '✓ Your Data' : pool.access_tier}
                                     </span>
                                 </div>
 
                                 <p className={styles.cardDescription}>{pool.description}</p>
 
                                 <div className={styles.cardTags}>
-                                    {pool.industry && <span className={styles.tag}>{pool.industry}</span>}
-                                    {pool.platform && <span className={styles.tag}>{pool.platform}</span>}
-                                    {pool.target_audience && <span className={styles.tag}>{pool.target_audience}</span>}
-                                    {pool.creative_format && <span className={styles.tag}>{pool.creative_format}</span>}
+                                    {isMyData ? (
+                                        <>
+                                            <span className={styles.tag} style={{ background: '#1877F2', color: 'white' }}>Facebook</span>
+                                            <span className={styles.tag} style={{ background: 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)', color: 'white' }}>Instagram</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {pool.industry && <span className={styles.tag}>{pool.industry}</span>}
+                                            {pool.platform && <span className={styles.tag}>{pool.platform}</span>}
+                                            {pool.target_audience && <span className={styles.tag}>{pool.target_audience}</span>}
+                                            {pool.creative_format && <span className={styles.tag}>{pool.creative_format}</span>}
+                                        </>
+                                    )}
                                 </div>
 
                                 <div className={styles.cardStats}>
                                     <div className={styles.stat}>
                                         <span className={styles.statValue}>{formatNumber(pool.data_points)}</span>
-                                        <span className={styles.statLabel}>Data Points</span>
+                                        <span className={styles.statLabel}>{isMyData ? 'Ads' : 'Data Points'}</span>
                                     </div>
                                     <div className={styles.stat}>
                                         <span className={styles.statValue}>{pool.contributors}</span>
-                                        <span className={styles.statLabel}>Contributors</span>
+                                        <span className={styles.statLabel}>{isMyData ? 'Account' : 'Contributors'}</span>
                                     </div>
                                     <div className={styles.stat}>
                                         <span className={styles.statValue}>{pool.avg_success_rate}%</span>
@@ -676,7 +836,15 @@ export default function MarketplacePage() {
                                 </div>
 
                                 <div className={styles.cardFooter}>
-                                    {canRequest ? (
+                                    {isMyData ? (
+                                        <a 
+                                            href="/myads" 
+                                            className={styles.requestBtn}
+                                            style={{ background: '#4CAF50', textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}
+                                        >
+                                            View My Ads →
+                                        </a>
+                                    ) : canRequest ? (
                                         <button
                                             className={styles.requestBtn}
                                             onClick={() => openRequestModal(pool)}
