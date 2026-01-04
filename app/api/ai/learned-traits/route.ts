@@ -88,8 +88,53 @@ export async function GET(request: NextRequest) {
 }
 
 /**
+ * Normalize trait name for comparison
+ * Removes special chars, spaces, and converts to lowercase
+ */
+function normalizeForComparison(name: string): string {
+    return name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]/g, '') // Remove special chars
+        .replace(/\s+/g, ''); // Remove spaces
+}
+
+/**
+ * Check if two trait names are similar (for deduplication)
+ * Uses normalized comparison and checks for common variations
+ */
+function areSimilarTraits(name1: string, name2: string): boolean {
+    const n1 = normalizeForComparison(name1);
+    const n2 = normalizeForComparison(name2);
+    
+    // Exact match after normalization
+    if (n1 === n2) return true;
+    
+    // One contains the other (for variations like "ugc" vs "ugcStyle")
+    if (n1.includes(n2) || n2.includes(n1)) {
+        // Only if the shorter one is at least 4 chars to avoid false positives
+        const shorter = n1.length < n2.length ? n1 : n2;
+        if (shorter.length >= 4) return true;
+    }
+    
+    // Check common prefixes (hasX vs hasXStyle)
+    const commonPrefixes = ['has', 'is', 'uses', 'includes', 'shows'];
+    for (const prefix of commonPrefixes) {
+        if (n1.startsWith(prefix) && n2.startsWith(prefix)) {
+            const rest1 = n1.slice(prefix.length);
+            const rest2 = n2.slice(prefix.length);
+            if (rest1 === rest2 || rest1.includes(rest2) || rest2.includes(rest1)) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+/**
  * POST /api/ai/learned-traits
- * Add a new learned trait from user input
+ * Add a new learned trait from user input with smart deduplication
  */
 export async function POST(request: NextRequest) {
     try {
@@ -102,23 +147,47 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        const normalizedName = traitName.trim().toLowerCase();
+        const normalizedName = normalizeForComparison(traitName);
 
         // Try Supabase first
         if (supabase) {
-            // Check if trait exists
-            const { data: existing } = await supabase
+            // Get all existing traits for smart matching
+            const { data: allTraits } = await supabase
                 .from('learned_traits')
-                .select('*')
-                .ilike('trait_name', normalizedName)
-                .single();
+                .select('*');
 
-            if (existing) {
-                // Increment usage count
+            // Find exact or similar matches
+            let existingTrait = null;
+            let matchType: 'exact' | 'similar' | null = null;
+
+            if (allTraits) {
+                // First check for exact match
+                existingTrait = allTraits.find(
+                    t => normalizeForComparison(t.trait_name) === normalizedName
+                );
+                if (existingTrait) matchType = 'exact';
+
+                // If no exact match, check for similar traits
+                if (!existingTrait) {
+                    existingTrait = allTraits.find(
+                        t => areSimilarTraits(t.trait_name, traitName)
+                    );
+                    if (existingTrait) matchType = 'similar';
+                }
+            }
+
+            if (existingTrait) {
+                // Increment usage count for existing/similar trait
                 const { data: updated, error } = await supabase
                     .from('learned_traits')
-                    .update({ usage_count: existing.usage_count + 1 })
-                    .eq('id', existing.id)
+                    .update({ 
+                        usage_count: existingTrait.usage_count + 1,
+                        // Optionally merge definitions if different
+                        definition: existingTrait.definition.length < definition.length 
+                            ? definition.trim() 
+                            : existingTrait.definition
+                    })
+                    .eq('id', existingTrait.id)
                     .select()
                     .single();
 
@@ -128,7 +197,11 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({
                         success: true,
                         trait: updated,
-                        message: 'Trait already exists, incremented usage count',
+                        message: matchType === 'similar' 
+                            ? `Similar trait "${existingTrait.trait_name}" found, merged and incremented usage count`
+                            : 'Trait already exists, incremented usage count',
+                        matchType,
+                        existing: true,
                         source: 'supabase'
                     });
                 }
@@ -161,16 +234,29 @@ export async function POST(request: NextRequest) {
         }
 
         // Fallback to in-memory
-        const existing = learnedTraitsCache.find(
-            t => t.trait_name.toLowerCase() === normalizedName
+        // Check for exact match first
+        let existing = learnedTraitsCache.find(
+            t => normalizeForComparison(t.trait_name) === normalizedName
         );
+        
+        // Check for similar match
+        if (!existing) {
+            existing = learnedTraitsCache.find(
+                t => areSimilarTraits(t.trait_name, traitName)
+            );
+        }
 
         if (existing) {
             existing.usage_count++;
+            // Update definition if new one is longer/better
+            if (definition.length > existing.definition.length) {
+                existing.definition = definition.trim();
+            }
             return NextResponse.json({
                 success: true,
                 trait: existing,
-                message: 'Trait already exists, incremented usage count',
+                message: 'Trait already exists or similar found, incremented usage count',
+                existing: true,
                 source: 'memory'
             });
         }
