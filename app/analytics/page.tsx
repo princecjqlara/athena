@@ -86,7 +86,7 @@ export default function AnalyticsPage() {
 
     const [form, setForm] = useState<PerformanceForm>({
         video_id: '',
-        platform: 'tiktok',
+        platform: 'facebook',
         launch_date: new Date().toISOString().split('T')[0],
         launch_day: 'monday',
         launch_time: 'evening',
