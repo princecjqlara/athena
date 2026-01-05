@@ -140,14 +140,7 @@ export type MusicType =
 
 export type Platform =
   | 'facebook'
-  | 'instagram'
-  | 'tiktok'
-  | 'youtube'
-  | 'snapchat'
-  | 'pinterest'
-  | 'twitter'
-  | 'linkedin'
-  | 'other';
+  | 'instagram';
 
 export type DayOfWeek =
   | 'monday'
@@ -270,10 +263,10 @@ export type MediaType = 'video' | 'photo' | 'carousel';
 
 // Aspect Ratios
 export type AspectRatio =
-  | '9:16'    // Vertical (TikTok, Stories, Reels)
+  | '9:16'    // Vertical (Stories, Reels)
   | '1:1'     // Square (Feed)
   | '4:5'     // Portrait Feed
-  | '16:9'    // Horizontal (YouTube)
+  | '16:9'    // Horizontal
   | '4:3'     // Standard
   | 'other';
 

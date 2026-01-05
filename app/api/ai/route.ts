@@ -899,7 +899,7 @@ Return JSON:
       "traits": ["ugc", "curiosity", "tiktok"],
       "frequency": 3,
       "avgSuccessRate": 90,
-      "description": "UGC + Curiosity on TikTok performs exceptionally well"
+      "description": "UGC + Curiosity on Instagram/Facebook performs exceptionally well"
     }
   ],
   "correlations": [

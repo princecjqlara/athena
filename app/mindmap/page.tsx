@@ -125,7 +125,7 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 
     // Media Format
     Media: 'The type of media content (video, photo, carousel). Video typically drives higher engagement on social platforms.',
-    Aspect: 'The aspect ratio of the content. 9:16 is optimal for mobile-first platforms like TikTok and Stories.',
+    Aspect: 'The aspect ratio of the content. 9:16 is optimal for mobile-first placements like Stories and Reels.',
     Duration: 'How long the video runs. Shorter videos (15-30s) often perform best for attention retention.',
 
     // Content & Hook
@@ -171,12 +171,9 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 
 // ===== DETAILED DESCRIPTIONS FOR SPECIFIC TRAIT VALUES =====
 const TRAIT_DESCRIPTIONS: Record<string, string> = {
-    // Platforms
-    'Platform:Tiktok': 'TikTok ads reach Gen Z and millennials with authentic, trend-driven content. Best for virality and discovery.',
-    'Platform:Instagram': 'Instagram ads reach diverse demographics through visual storytelling. Strong for brand awareness and shopping.',
-    'Platform:Facebook': 'Facebook ads reach older demographics with detailed targeting. Best for retargeting and conversions.',
-    'Platform:Youtube': 'YouTube ads reach intent-driven viewers with longer content. Great for education and consideration.',
-    'Platform:Snapchat': 'Snapchat ads reach younger users with playful, AR-enhanced content.',
+    // Platforms (Facebook & Instagram focus)
+    'Platform:Instagram': 'Instagram ads reach diverse demographics through visual storytelling. Strong for brand awareness, shopping, and Reels discovery.',
+    'Platform:Facebook': 'Facebook ads reach broad demographics with detailed targeting. Best for retargeting, conversions, and lead generation.',
 
     // Placements
     'Placement:Feed': 'In-feed placement offers maximum reach but competes for attention in a scrollable environment.',
@@ -248,7 +245,7 @@ const TRAIT_DESCRIPTIONS: Record<string, string> = {
     // Aspect
     'Aspect:9:16': 'Vertical format optimized for mobile-first platforms. Maximum screen real estate.',
     'Aspect:1:1': 'Square format works across all placements but less immersive than vertical.',
-    'Aspect:16:9': 'Horizontal format for YouTube and desktop viewing.',
+    'Aspect:16:9': 'Horizontal format for desktop viewing and Facebook Feed.',
 
     // Duration
     'Duration:15 30S': '15-30 second videos hit the sweet spot for attention and message delivery.',
@@ -1385,7 +1382,7 @@ export default function MindMapPage() {
         const MIN_ADS_IN_PROGRESS = 1;
 
         // Define all tracked types
-        const ALL_PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'Snapchat'];
+        const ALL_PLATFORMS = ['Facebook', 'Instagram'];
         const ALL_HOOKS = ['Curiosity', 'Shock', 'Question', 'Transformation', 'Story', 'Problem Solution'];
         const ALL_CONTENT_CATEGORIES = ['UGC', 'Testimonial', 'Product Demo', 'Educational', 'Entertainment'];
         const ALL_PLACEMENTS = ['Feed', 'Stories', 'Reels'];
@@ -1457,10 +1454,8 @@ export default function MindMapPage() {
             matrix[platform] = {};
             ALL_PLACEMENTS.forEach(placement => {
                 // Check if this platform supports this placement
-                const supported = !(
-                    (platform === 'TikTok' && placement === 'Stories') ||
-                    (platform === 'YouTube' && (placement === 'Stories' || placement === 'Reels'))
-                );
+                // Facebook and Instagram support Feed, Stories, and Reels
+                const supported = true;
 
                 if (!supported) {
                     matrix[platform][placement] = 'na';
@@ -2351,11 +2346,8 @@ export default function MindMapPage() {
                                 <label>Platform</label>
                                 <select value={editPlatform} onChange={(e) => setEditPlatform(e.target.value)}>
                                     <option value="">Select Platform</option>
-                                    <option value="tiktok">TikTok</option>
-                                    <option value="instagram">Instagram</option>
                                     <option value="facebook">Facebook</option>
-                                    <option value="youtube">YouTube</option>
-                                    <option value="snapchat">Snapchat</option>
+                                    <option value="instagram">Instagram</option>
                                 </select>
                             </div>
 

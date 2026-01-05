@@ -383,7 +383,7 @@ export default function PredictPage() {
                         <div className={styles.documentInputWrapper}>
                             <textarea
                                 className={styles.documentInput}
-                                placeholder="Example: I'm creating a TikTok ad with a shocking hook that grabs attention in the first second. It's UGC-style content featuring a customer testimonial with fast cuts and trending music. The video has subtitles throughout and text overlays highlighting key benefits. There's a voiceover narrating the customer's experience..."
+                                placeholder="Example: I'm creating a Facebook/Instagram ad with a shocking hook that grabs attention in the first second. It's UGC-style content featuring a customer testimonial with fast cuts and trending music. The video has subtitles throughout and text overlays highlighting key benefits. There's a voiceover narrating the customer's experience..."
                                 value={adDescription}
                                 onChange={(e) => {
                                     setAdDescription(e.target.value);

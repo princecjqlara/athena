@@ -565,7 +565,7 @@ export default function UploadPage() {
                                 <div className={styles.hintCategory}>
                                     <h5>📱 Platform & Placement</h5>
                                     <ul>
-                                        <li>• Platform (TikTok, Instagram, Facebook, YouTube, Snapchat)</li>
+                                        <li>• Platform (Facebook, Instagram)</li>
                                         <li>• Placement (Feed, Stories, Reels, Shorts, In-stream)</li>
                                         <li>• Target age range (18-24, 25-34, 35-44, etc.)</li>
                                         <li>• Target gender (Male, Female, All)</li>
@@ -610,7 +610,7 @@ export default function UploadPage() {
                                     <ul>
                                         <li>• Music type (Trending, Original, Licensed, No music)</li>
                                         <li>• Music genre (Pop, Hip-hop, EDM, Acoustic, Lo-fi)</li>
-                                        <li>• TikTok sound name or audio source</li>
+                                        <li>• Audio/sound name or source</li>
                                         <li>• Has voiceover? (Yes/No)</li>
                                         <li>• Voiceover style (Professional, Casual, AI-generated)</li>
                                         <li>• Voice gender and tone</li>
@@ -674,7 +674,7 @@ export default function UploadPage() {
 
                         <textarea
                             className={styles.documentTextarea}
-                            placeholder={`Example: This is a 9:16 vertical video for TikTok Reels.
+                            placeholder={`Example: This is a 9:16 vertical video for Instagram Reels.
 
 It uses a curiosity hook: "You won't believe what happened when I tried this..."
 
@@ -683,7 +683,7 @@ The video is UGC style with a female creator in her 20s. Shot raw/authentic styl
 The script goes:
 "Hey guys, I just tried this new skincare product and wait until you see the results..."
 
-Uses trending audio from TikTok, also has voiceover.
+Uses trending audio, also has voiceover.
 
 CTA: "Link in bio to get 20% off"`}
                             value={contentDocument}

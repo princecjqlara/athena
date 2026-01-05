@@ -49,11 +49,11 @@ function generateQuestions(initialQuery: string, previousAnswers: Record<string,
     if (query.includes('business owner') || query.includes('b2b')) {
         questions.push("What is the typical company size of your target audience? (e.g., solo, small team, enterprise)");
         questions.push("What are the main pain points these business owners face?");
-        questions.push("What platforms do these business owners actively use? (e.g., LinkedIn, Facebook, YouTube)");
+        questions.push("What platforms do these business owners actively use? (e.g., Facebook, Instagram)");
     } else if (query.includes('consumer') || query.includes('b2c')) {
         questions.push("What age range is your target audience?");
         questions.push("What hobbies or interests does your audience have?");
-        questions.push("Where does your audience spend time online? (e.g., TikTok, Instagram, YouTube)");
+        questions.push("Where does your audience spend time online? (e.g., Facebook, Instagram)");
     } else {
         questions.push("Who is your ideal customer? Describe them briefly.");
         questions.push("What age range and demographics are you targeting?");

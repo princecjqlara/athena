@@ -187,23 +187,20 @@ function extractBasicContentData(text: string): ExtractedAdData {
 
     // Detect aspect ratio
     let aspectRatio: AspectRatio = '9:16';
-    if (lowerText.includes('9:16') || lowerText.includes('vertical') || lowerText.includes('tiktok') || lowerText.includes('reels')) {
+    if (lowerText.includes('9:16') || lowerText.includes('vertical') || lowerText.includes('reels') || lowerText.includes('stories')) {
         aspectRatio = '9:16';
     } else if (lowerText.includes('1:1') || lowerText.includes('square')) {
         aspectRatio = '1:1';
     } else if (lowerText.includes('4:5')) {
         aspectRatio = '4:5';
-    } else if (lowerText.includes('16:9') || lowerText.includes('horizontal') || lowerText.includes('youtube')) {
+    } else if (lowerText.includes('16:9') || lowerText.includes('horizontal')) {
         aspectRatio = '16:9';
     }
 
-    // Detect platform
-    let platform: Platform = 'other';
-    if (lowerText.includes('tiktok')) platform = 'tiktok';
-    else if (lowerText.includes('instagram') || lowerText.includes('ig ')) platform = 'instagram';
+    // Detect platform (Facebook & Instagram only)
+    let platform: Platform = 'facebook';
+    if (lowerText.includes('instagram') || lowerText.includes('ig ') || lowerText.includes('reels')) platform = 'instagram';
     else if (lowerText.includes('facebook') || lowerText.includes('fb ')) platform = 'facebook';
-    else if (lowerText.includes('youtube')) platform = 'youtube';
-    else if (lowerText.includes('snapchat')) platform = 'snapchat';
 
     // Detect placement
     let placement: AdPlacement = 'feed';
@@ -288,12 +285,10 @@ function extractBasicResultsData(text: string): ExtractedResultsData {
     else if (roas && roas > 2) successScore += 15;
     else if (roas && roas > 1) successScore += 5;
 
-    // Detect platform
-    let platform: Platform = 'other';
-    if (lowerText.includes('tiktok')) platform = 'tiktok';
-    else if (lowerText.includes('instagram')) platform = 'instagram';
+    // Detect platform (Facebook & Instagram only)
+    let platform: Platform = 'facebook';
+    if (lowerText.includes('instagram') || lowerText.includes('reels')) platform = 'instagram';
     else if (lowerText.includes('facebook')) platform = 'facebook';
-    else if (lowerText.includes('youtube')) platform = 'youtube';
 
     return {
         platform,

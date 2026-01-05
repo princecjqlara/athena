@@ -335,16 +335,15 @@ function analyzeAdQuality(input: QualityAnalysisInput): AdQualityAnalysis {
     // TARGETING/PLATFORM CHECKS
     // ==========================================
 
-    // Platform-specific optimizations
-    if (input.platform === 'tiktok') {
-        if (input.isUGCStyle !== true) {
-            addIssue(
-                'inaccuracy',
+    // Platform-specific optimizations (Facebook & Instagram focused)
+    if (input.platform === 'instagram') {
+        if (input.isUGCStyle === true) {
+            addPositive(
+                'excellent',
                 'targeting',
-                'Non-Native TikTok Style',
-                'Polished ads stand out negatively on TikTok',
-                '-20% engagement',
-                'Use raw, authentic UGC-style content for TikTok'
+                'Native Instagram Style',
+                'UGC-style content performs well on Instagram Reels and Stories',
+                '+25% engagement'
             );
         }
         if (input.musicType === 'trending') {
@@ -352,7 +351,7 @@ function analyzeAdQuality(input: QualityAnalysisInput): AdQualityAnalysis {
                 'excellent',
                 'targeting',
                 'Trending Audio',
-                'Trending sounds boost discoverability on TikTok',
+                'Trending sounds boost discoverability on Instagram Reels',
                 '+30% reach'
             );
         }

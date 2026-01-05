@@ -1178,7 +1178,7 @@ export default function OrganizerDashboard() {
                                             type="text"
                                             value={newPrompt.name}
                                             onChange={(e) => setNewPrompt({ ...newPrompt, name: e.target.value })}
-                                            placeholder="e.g., TikTok UGC Analyzer"
+                                            placeholder="e.g., Facebook/Instagram UGC Analyzer"
                                             style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}
                                         />
                                     </div>
@@ -1817,7 +1817,7 @@ Or single object:
                                             type="text"
                                             value={newPool.name}
                                             onChange={e => setNewPool({ ...newPool, name: e.target.value })}
-                                            placeholder="e.g., TikTok UGC for Gen Z E-commerce"
+                                            placeholder="e.g., Facebook UGC for Gen Z E-commerce"
                                         />
                                     </div>
                                     <div className="form-group">
@@ -1846,9 +1846,6 @@ Or single object:
                                                 <option value="">🤖 Let AI detect...</option>
                                                 <option value="facebook">Facebook</option>
                                                 <option value="instagram">Instagram</option>
-                                                <option value="tiktok">TikTok</option>
-                                                <option value="youtube">YouTube</option>
-                                                <option value="multi">Multi-platform</option>
                                             </select>
                                         </div>
                                     </div>

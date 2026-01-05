@@ -490,85 +490,212 @@ export default function ChatBot({ onClose }: ChatBotProps) {
         );
     };
 
-    // Simple markdown-like formatting for chat messages
+    // Enhanced markdown-like formatting for chat messages
     const formatMessage = (text: string) => {
         // Split into lines and process each
         const lines = text.split('\n');
         const elements: React.ReactNode[] = [];
         
-        lines.forEach((line, lineIndex) => {
-            // Process inline formatting: **bold**
-            const processInline = (str: string): React.ReactNode[] => {
-                const parts: React.ReactNode[] = [];
-                let remaining = str;
-                let keyIndex = 0;
+        // Process inline formatting: **bold**, numbers, percentages
+        const processInline = (str: string, lineIndex: number): React.ReactNode[] => {
+            const parts: React.ReactNode[] = [];
+            let keyIndex = 0;
+            
+            // Combined regex for all inline formatting
+            // Matches: **bold**, numbers with $, numbers with %, standalone large numbers
+            const inlineRegex = /(\*\*(.+?)\*\*)|(\$[\d,]+(?:\.\d{2})?)|(\d+(?:\.\d+)?%)|(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\b\d+(?:\.\d+)?\s*(?:imp|clicks?|leads?|messages?|conversions?|reach|views?)\b)/gi;
+            
+            let lastIndex = 0;
+            let match;
+            
+            while ((match = inlineRegex.exec(str)) !== null) {
+                // Add text before the match
+                if (match.index > lastIndex) {
+                    parts.push(str.slice(lastIndex, match.index));
+                }
                 
-                // Match **bold** text
-                const boldRegex = /\*\*(.+?)\*\*/g;
-                let lastIndex = 0;
-                let match;
-                
-                while ((match = boldRegex.exec(str)) !== null) {
-                    // Add text before the match
-                    if (match.index > lastIndex) {
-                        parts.push(str.slice(lastIndex, match.index));
-                    }
-                    // Add the bold text
+                if (match[1]) {
+                    // Bold text **text**
                     parts.push(
                         <strong key={`bold-${lineIndex}-${keyIndex++}`} className={styles.boldText}>
-                            {match[1]}
+                            {match[2]}
                         </strong>
                     );
-                    lastIndex = match.index + match[0].length;
+                } else if (match[3]) {
+                    // Money $X,XXX.XX
+                    parts.push(
+                        <span key={`money-${lineIndex}-${keyIndex++}`} className={styles.moneyValue}>
+                            {match[3]}
+                        </span>
+                    );
+                } else if (match[4]) {
+                    // Percentage X%
+                    parts.push(
+                        <span key={`pct-${lineIndex}-${keyIndex++}`} className={styles.percentValue}>
+                            {match[4]}
+                        </span>
+                    );
+                } else if (match[5]) {
+                    // Large number with commas
+                    parts.push(
+                        <span key={`num-${lineIndex}-${keyIndex++}`} className={styles.numericValue}>
+                            {match[5]}
+                        </span>
+                    );
+                } else if (match[6]) {
+                    // Number with metric unit
+                    parts.push(
+                        <span key={`metric-${lineIndex}-${keyIndex++}`} className={styles.metricValue}>
+                            {match[6]}
+                        </span>
+                    );
                 }
                 
-                // Add remaining text
-                if (lastIndex < str.length) {
-                    parts.push(str.slice(lastIndex));
-                }
-                
-                return parts.length > 0 ? parts : [str];
-            };
+                lastIndex = match.index + match[0].length;
+            }
             
-            // Check if line is a header (starts with emoji or number + text)
-            const isHeader = /^[🏆⚠️💰📊🎯💡✅❌1️⃣2️⃣3️⃣4️⃣5️⃣]/.test(line.trim());
-            const isBullet = /^[•\-\*] /.test(line.trim()) || /^[🏆⚠️💰📊🎯💡✅❌•] /.test(line.trim());
+            // Add remaining text
+            if (lastIndex < str.length) {
+                parts.push(str.slice(lastIndex));
+            }
+            
+            return parts.length > 0 ? parts : [str];
+        };
+
+        // Detect if we have a markdown table (lines starting with |)
+        const tableLines: string[] = [];
+        let inTable = false;
+        let tableStartIndex = -1;
+
+        lines.forEach((line, lineIndex) => {
+            const trimmedLine = line.trim();
+            const isTableLine = trimmedLine.startsWith('|') && trimmedLine.endsWith('|');
+            const isSeparatorLine = /^\|[\s\-:|\s]+\|$/.test(trimmedLine);
+            
+            if (isTableLine || isSeparatorLine) {
+                if (!inTable) {
+                    inTable = true;
+                    tableStartIndex = lineIndex;
+                }
+                tableLines.push(trimmedLine);
+            } else if (inTable && trimmedLine === '') {
+                // Empty line might continue table, skip
+            } else if (inTable) {
+                // End of table, render it
+                if (tableLines.length > 0) {
+                    elements.push(renderTable(tableLines, tableStartIndex));
+                    tableLines.length = 0;
+                }
+                inTable = false;
+                processRegularLine(line, lineIndex);
+            } else {
+                processRegularLine(line, lineIndex);
+            }
+        });
+
+        // Handle table at end of message
+        if (tableLines.length > 0) {
+            elements.push(renderTable(tableLines, tableStartIndex));
+        }
+
+        function renderTable(tableRows: string[], startIndex: number): React.ReactNode {
+            // Parse table rows
+            const parsedRows = tableRows
+                .filter(row => !/^\|[\s\-:|\s]+\|$/.test(row)) // Remove separator rows
+                .map(row => 
+                    row.split('|')
+                        .slice(1, -1) // Remove first and last empty strings from split
+                        .map(cell => cell.trim())
+                );
+
+            if (parsedRows.length === 0) return null;
+
+            const headerRow = parsedRows[0];
+            const dataRows = parsedRows.slice(1);
+
+            return (
+                <div key={`table-${startIndex}`} className={styles.messageTable}>
+                    {/* Render as cards for better mobile readability */}
+                    {dataRows.map((row, rowIndex) => (
+                        <div key={`row-${rowIndex}`} className={styles.tableCard}>
+                            {row.map((cell, cellIndex) => (
+                                <div key={`cell-${cellIndex}`} className={styles.tableCardRow}>
+                                    <span className={styles.tableCardLabel}>
+                                        {headerRow[cellIndex] || 'Value'}
+                                    </span>
+                                    <span className={styles.tableCardValue}>
+                                        {processInline(cell, startIndex + rowIndex)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        function processRegularLine(line: string, lineIndex: number) {
+            // Check if line is a header (### or emoji headers)
+            const isMarkdownHeader = /^#{1,3}\s/.test(line.trim());
+            const isEmojiHeader = /^[🏆⚠️💰📊🎯💡✅❌🔥📈📉🎉💎⭐️🚀💪🎊1️⃣2️⃣3️⃣4️⃣5️⃣]/.test(line.trim());
+            const isBullet = /^[•\-\*]\s/.test(line.trim());
             const isNumbered = /^\d+[\.\)]\s/.test(line.trim()) || /^[1️⃣2️⃣3️⃣4️⃣5️⃣]\s/.test(line.trim());
+            const isKeyValue = /^[A-Za-z\s]+:\s/.test(line.trim()) && line.includes(':');
             
             if (line.trim() === '') {
                 // Empty line - add spacing
                 elements.push(<div key={`line-${lineIndex}`} className={styles.messageBreak} />);
-            } else if (isHeader && !isBullet && !isNumbered) {
+            } else if (isMarkdownHeader) {
+                // Markdown header (### Title)
+                const headerText = line.trim().replace(/^#{1,3}\s/, '');
+                elements.push(
+                    <div key={`line-${lineIndex}`} className={styles.messageSectionHeader}>
+                        {processInline(headerText, lineIndex)}
+                    </div>
+                );
+            } else if (isEmojiHeader && !isBullet && !isNumbered) {
                 // Header-like line with emoji
                 elements.push(
                     <div key={`line-${lineIndex}`} className={styles.messageHeader}>
-                        {processInline(line)}
+                        {processInline(line, lineIndex)}
                     </div>
                 );
             } else if (isBullet) {
                 // Bullet point
+                const bulletContent = line.trim().replace(/^[•\-\*]\s/, '');
                 elements.push(
                     <div key={`line-${lineIndex}`} className={styles.messageBullet}>
-                        {processInline(line)}
+                        <span className={styles.bulletIcon}>•</span>
+                        <span>{processInline(bulletContent, lineIndex)}</span>
                     </div>
                 );
             } else if (isNumbered) {
                 // Numbered item
                 elements.push(
                     <div key={`line-${lineIndex}`} className={styles.messageNumbered}>
-                        {processInline(line)}
+                        {processInline(line, lineIndex)}
+                    </div>
+                );
+            } else if (isKeyValue) {
+                // Key: Value format (common in analytics)
+                const colonIndex = line.indexOf(':');
+                const label = line.slice(0, colonIndex).trim();
+                const value = line.slice(colonIndex + 1).trim();
+                elements.push(
+                    <div key={`line-${lineIndex}`} className={styles.messageKeyValue}>
+                        <span className={styles.keyLabel}>{label}</span>
+                        <span className={styles.keyValue}>{processInline(value, lineIndex)}</span>
                     </div>
                 );
             } else {
                 // Regular text
                 elements.push(
-                    <span key={`line-${lineIndex}`}>
-                        {processInline(line)}
-                        <br />
+                    <span key={`line-${lineIndex}`} className={styles.messageLine}>
+                        {processInline(line, lineIndex)}
                     </span>
                 );
             }
-        });
+        }
         
         return elements;
     };

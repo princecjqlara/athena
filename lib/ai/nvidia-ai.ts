@@ -333,8 +333,8 @@ function getDefaultRecommendations(request: AdAnalysisRequest): string[] {
     if (!request.features.isUGC) {
         recommendations.push('Consider UGC-style content for higher authenticity and engagement');
     }
-    if (request.platform.toLowerCase() === 'tiktok' && request.editingStyle !== 'fast-cuts') {
-        recommendations.push('Use fast-paced editing with quick cuts for better TikTok performance');
+    if (request.platform.toLowerCase() === 'instagram' && request.editingStyle !== 'fast-cuts') {
+        recommendations.push('Use fast-paced editing with quick cuts for better Instagram Reels performance');
     }
     if (request.hookType === 'story') {
         recommendations.push('Front-load the most engaging content - viewers decide in first 3 seconds');
@@ -391,7 +391,7 @@ export interface PoolCategorizationResult {
 
 // Valid category values (must match marketplace filters)
 const VALID_INDUSTRIES = ['ecommerce', 'saas', 'finance', 'health', 'local_services'];
-const VALID_PLATFORMS = ['tiktok', 'facebook', 'instagram', 'youtube', 'multi'];
+const VALID_PLATFORMS = ['facebook', 'instagram'];
 const VALID_AUDIENCES = ['gen_z', 'millennials', 'b2b', 'high_income', 'parents'];
 const VALID_FORMATS = ['ugc', 'testimonial', 'product_demo', 'founder_led', 'meme'];
 
@@ -510,18 +510,12 @@ function heuristicCategorization(name: string, description?: string): PoolCatego
         industry = 'local_services';
     }
 
-    // Platform detection
+    // Platform detection (Facebook & Instagram only)
     let platform: string | null = null;
-    if (text.includes('tiktok') || text.includes('tik tok')) {
-        platform = 'tiktok';
-    } else if (text.includes('facebook') || text.includes('fb') || text.includes('meta')) {
+    if (text.includes('facebook') || text.includes('fb') || text.includes('meta')) {
         platform = 'facebook';
-    } else if (text.includes('instagram') || text.includes('ig ') || text.includes('insta')) {
+    } else if (text.includes('instagram') || text.includes('ig ') || text.includes('insta') || text.includes('reels')) {
         platform = 'instagram';
-    } else if (text.includes('youtube') || text.includes('yt ')) {
-        platform = 'youtube';
-    } else if (text.includes('multi') || text.includes('cross-platform') || text.includes('all platform')) {
-        platform = 'multi';
     }
 
     // Audience detection

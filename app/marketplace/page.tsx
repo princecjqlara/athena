@@ -71,11 +71,8 @@ const INDUSTRIES = [
 
 const PLATFORMS = [
     { value: '', label: 'All Platforms' },
-    { value: 'tiktok', label: 'TikTok' },
     { value: 'facebook', label: 'Facebook' },
     { value: 'instagram', label: 'Instagram' },
-    { value: 'youtube', label: 'YouTube' },
-    { value: 'multi', label: 'Multi-platform' },
 ];
 
 const AUDIENCES = [
@@ -153,6 +150,10 @@ export default function MarketplacePage() {
     const [requestReason, setRequestReason] = useState('');
     const [intendedUse, setIntendedUse] = useState('learning');
     const [submitting, setSubmitting] = useState(false);
+    
+    // Seeding state for Galaxy Orbs
+    const [seeding, setSeeding] = useState(false);
+    const [seedResult, setSeedResult] = useState<{ success: boolean; message: string } | null>(null);
 
     // Get user ID from localStorage
     const getUserId = () => {
@@ -390,6 +391,46 @@ export default function MarketplacePage() {
         }
     };
 
+    // Seed Galaxy Orbs with user's ad traits
+    const seedGalaxyOrbs = async () => {
+        setSeeding(true);
+        setSeedResult(null);
+        try {
+            const storedAds = JSON.parse(localStorage.getItem('ads') || '[]');
+            if (storedAds.length === 0) {
+                setSeedResult({ success: false, message: 'No ads to seed. Import some ads first!' });
+                return;
+            }
+
+            const userId = getUserId();
+            const response = await fetch('/api/pool/seed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ads: storedAds,
+                    contributorHash: userId,
+                }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setSeedResult({ 
+                    success: true, 
+                    message: `✨ ${data.message}` 
+                });
+                // Refresh the page to reload Galaxy Orbs
+                window.location.reload();
+            } else {
+                setSeedResult({ success: false, message: data.error || 'Failed to seed' });
+            }
+        } catch (error) {
+            console.error('Seed error:', error);
+            setSeedResult({ success: false, message: 'Failed to seed Galaxy Orbs' });
+        } finally {
+            setSeeding(false);
+        }
+    };
+
     const getStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; className: string }> = {
             none: { label: 'Request Access', className: styles.statusNone },
@@ -477,6 +518,65 @@ export default function MarketplacePage() {
                             (e.g., &quot;Get me data for business owners&quot;)
                         </span>
                     </button>
+
+                    {/* Seed Galaxy Orbs Button - shows when pool might be empty */}
+                    {generateMyDataPool() && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            marginBottom: '16px',
+                            padding: '12px 16px',
+                            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                        }}>
+                            <span style={{ fontSize: '0.9rem' }}>
+                                🚀 <strong>Seed Galaxy Orbs</strong> with your ad traits to visualize patterns
+                            </span>
+                            <button
+                                onClick={seedGalaxyOrbs}
+                                disabled={seeding}
+                                style={{
+                                    padding: '8px 16px',
+                                    background: seeding ? 'var(--bg-tertiary)' : 'var(--primary)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: seeding ? 'wait' : 'pointer',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                }}
+                            >
+                                {seeding ? (
+                                    <>
+                                        <span style={{ 
+                                            width: '14px', 
+                                            height: '14px', 
+                                            border: '2px solid rgba(255,255,255,0.3)',
+                                            borderTop: '2px solid white',
+                                            borderRadius: '50%',
+                                            animation: 'spin 1s linear infinite'
+                                        }}></span>
+                                        Seeding...
+                                    </>
+                                ) : (
+                                    '✨ Seed Now'
+                                )}
+                            </button>
+                            {seedResult && (
+                                <span style={{ 
+                                    fontSize: '0.85rem', 
+                                    color: seedResult.success ? 'var(--success)' : 'var(--error)' 
+                                }}>
+                                    {seedResult.message}
+                                </span>
+                            )}
+                        </div>
+                    )}
 
                     {/* Galaxy Orbs Visualization */}
                     <GalaxyOrbs

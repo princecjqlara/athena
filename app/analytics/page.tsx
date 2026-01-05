@@ -54,13 +54,6 @@ interface PerformanceForm {
 const PLATFORMS: { value: Platform; label: string; icon: string }[] = [
     { value: 'facebook', label: 'Facebook', icon: '📘' },
     { value: 'instagram', label: 'Instagram', icon: '📸' },
-    { value: 'tiktok', label: 'TikTok', icon: '🎵' },
-    { value: 'youtube', label: 'YouTube', icon: '▶️' },
-    { value: 'snapchat', label: 'Snapchat', icon: '👻' },
-    { value: 'pinterest', label: 'Pinterest', icon: '📌' },
-    { value: 'twitter', label: 'Twitter/X', icon: '🐦' },
-    { value: 'linkedin', label: 'LinkedIn', icon: '💼' },
-    { value: 'other', label: 'Other', icon: '📱' },
 ];
 
 const DAYS_OF_WEEK: { value: DayOfWeek; label: string }[] = [

@@ -685,11 +685,12 @@
 }
 
 .messageContent {
-    padding: 10px 14px;
+    padding: 12px 16px;
     border-radius: 16px;
     font-size: 0.875rem;
-    line-height: 1.5;
-    white-space: pre-wrap;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .userMessage .messageContent {
@@ -702,38 +703,188 @@
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border-bottom-left-radius: 4px;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.assistantMessage .messageContent > span,
+.assistantMessage .messageContent > div {
+    word-break: break-word;
 }
 
 /* Enhanced message formatting */
 .messageHeader {
     font-weight: 600;
-    margin: 8px 0 4px 0;
-    font-size: 0.9rem;
+    margin: 12px 0 8px 0;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .messageHeader:first-child {
     margin-top: 0;
 }
 
+.messageSectionHeader {
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 16px 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.3);
+    color: #a5b4fc;
+}
+
+.messageSectionHeader:first-child {
+    margin-top: 0;
+}
+
 .messageBullet {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 6px 0;
     padding-left: 4px;
-    margin: 4px 0;
-    line-height: 1.5;
+    line-height: 1.6;
+}
+
+.bulletIcon {
+    color: #6366F1;
+    font-weight: bold;
+    flex-shrink: 0;
+    margin-top: 2px;
 }
 
 .messageNumbered {
     margin: 8px 0;
     padding-left: 4px;
-    line-height: 1.5;
+    line-height: 1.6;
+}
+
+.messageLine {
+    display: block;
+    margin: 4px 0;
+    line-height: 1.6;
 }
 
 .messageBreak {
-    height: 8px;
+    height: 10px;
 }
 
 .boldText {
+    font-weight: 700;
+    color: #c4b5fd;
+}
+
+/* Value highlighting */
+.moneyValue {
     font-weight: 600;
-    color: var(--accent-primary, #6366F1);
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.15);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+.percentValue {
+    font-weight: 600;
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.15);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+.numericValue {
+    font-weight: 600;
+    color: #fbbf24;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+.metricValue {
+    font-weight: 600;
+    color: #f472b6;
+    background: rgba(244, 114, 182, 0.12);
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+/* Key-Value pairs */
+.messageKeyValue {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    margin: 4px 0;
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: 8px;
+    border-left: 3px solid #6366F1;
+}
+
+.keyLabel {
+    font-weight: 500;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.keyValue {
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+/* Table as Cards */
+.messageTable {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 12px 0;
+}
+
+.tableCard {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tableCard:first-child {
+    border-color: rgba(99, 102, 241, 0.4);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1));
+}
+
+.tableCardRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tableCardRow:last-child {
+    border-bottom: none;
+}
+
+.tableCardLabel {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tableCardValue {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
 }
 
 /* System/Action Result Messages */

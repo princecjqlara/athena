@@ -733,7 +733,7 @@ export default function CreateAdPage() {
                         <textarea
                             className={styles.textarea}
                             placeholder={`Example:
-TikTok vertical video, UGC style with curiosity hook.
+Instagram Reels vertical video, UGC style with curiosity hook.
 Female creator in her 20s talking about skincare.
 Raw authentic editing with fast cuts.
 Has subtitles and trending audio.

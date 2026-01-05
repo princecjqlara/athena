@@ -158,7 +158,7 @@ const TRAIT_OPTIONS = {
         'Curiosity', 'Shock', 'Question', 'Transformation', 'Story',
         'Problem Solution', 'Social Proof', 'Urgency', 'Benefit First'
     ],
-    platforms: ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'Snapchat'],
+    platforms: ['Facebook', 'Instagram'],
     editingStyles: [
         'Fast Cuts', 'Cinematic', 'Raw Authentic', 'UGC Style', 'Slow Motion',
         'Stop Motion', 'Split Screen', 'Before/After'
@@ -344,7 +344,7 @@ export default function MyAdsPage() {
                 body: JSON.stringify({
                     prompt: `Analyze this ad description and extract traits. Return JSON only:
 {
-  "platform": "Facebook|TikTok|Instagram|YouTube|Other",
+  "platform": "Facebook|Instagram",
   "hookType": "curiosity|shock|question|transformation|story|testimonial|demonstration|other",
   "categories": ["category1", "category2"],
   "traits": ["trait1", "trait2", "trait3"]
@@ -381,11 +381,9 @@ Ad description: ${adDescription}`,
             const detectedTraits: string[] = [];
             const detectedCategories: string[] = [];
 
-            // Detect platform
+            // Detect platform (Facebook & Instagram only)
             let platform = 'Facebook';
-            if (text.includes('tiktok')) platform = 'TikTok';
-            else if (text.includes('instagram')) platform = 'Instagram';
-            else if (text.includes('youtube')) platform = 'YouTube';
+            if (text.includes('instagram') || text.includes('ig') || text.includes('reels')) platform = 'Instagram';
 
             // Detect hook type
             let hookType = '';
@@ -1290,7 +1288,7 @@ Ad description: ${adDescription}`,
                                             className="form-textarea"
                                             value={adDescription}
                                             onChange={(e) => setAdDescription(e.target.value)}
-                                            placeholder="Example: This is a TikTok ad with fast-paced editing, uses a curiosity hook, includes text overlays and trending music. It's a product demo showing before/after transformation..."
+                                            placeholder="Example: This is a Facebook ad with fast-paced editing, uses a curiosity hook, includes text overlays and trending music. It's a product demo showing before/after transformation..."
                                             rows={4}
                                             style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }}
                                         />

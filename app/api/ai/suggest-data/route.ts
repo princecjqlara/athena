@@ -97,7 +97,7 @@ function generateFallbackSuggestions(businessType: string, targetAudience?: stri
             audience: 'gen_z',
             format: 'ugc',
             relevanceScore: 95,
-            reasoning: 'UGC content performs best for e-commerce conversions on TikTok and Instagram.',
+            reasoning: 'UGC content performs best for e-commerce conversions on Facebook and Instagram.',
             expectedInsights: ['Best hook types for product reveals', 'Optimal video length for conversions', 'Top-performing CTA styles']
         });
         suggestions.push({
