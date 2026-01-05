@@ -78,22 +78,22 @@ export default function PredictPage() {
 
             if (result.success && result.data) {
                 const traits = result.data;
-                
+
                 // Check if AI detected insufficient input
                 if (traits.insufficientInput || traits.confidence < 30) {
                     setParseError(
-                        traits.reasoning || 
+                        traits.reasoning ||
                         'Your description is too vague. Please provide more specific details about your ad (e.g., platform, style, hook type, features).'
                     );
                     setIsParsing(false);
                     return;
                 }
-                
+
                 setParsedTraits({
                     hookType: traits.hookType || 'curiosity',
                     editingStyle: traits.editingStyle || 'raw_authentic',
                     contentCategory: traits.contentCategory || 'ugc',
-                    platform: traits.platform || 'tiktok',
+                    platform: traits.platform || 'facebook',
                     hasSubtitles: traits.hasSubtitles ?? true,
                     hasTextOverlays: traits.hasTextOverlays ?? true,
                     isUGCStyle: traits.isUGCStyle ?? true,
@@ -132,12 +132,10 @@ export default function PredictPage() {
         }
 
         // Platform inference
-        let platform: Platform = 'tiktok';
+        let platform: Platform = 'facebook';
         if (lower.includes('instagram') || lower.includes('ig') || lower.includes('reels')) {
             platform = 'instagram';
-        } else if (lower.includes('youtube') || lower.includes('shorts')) {
-            platform = 'youtube';
-        } else if (lower.includes('facebook') || lower.includes('fb')) {
+        } else if (lower.includes('facebook') || lower.includes('fb') || lower.includes('meta')) {
             platform = 'facebook';
         }
 
@@ -258,7 +256,7 @@ export default function PredictPage() {
                         { factor: 'UGC Style', impact: parsedTraits.isUGCStyle ? 'positive' : 'negative', weight: parsedTraits.isUGCStyle ? 0.95 : 0.4 },
                         { factor: 'Hook Type', impact: mlResult.globalScore > 70 ? 'positive' : 'neutral', weight: 0.85 },
                         { factor: 'Subtitles', impact: parsedTraits.hasSubtitles ? 'positive' : 'negative', weight: parsedTraits.hasSubtitles ? 0.9 : 0.4 },
-                        { factor: 'Platform Choice', impact: parsedTraits.platform === 'tiktok' ? 'positive' : 'neutral', weight: 0.75 },
+                        { factor: 'Platform Choice', impact: parsedTraits.platform === 'facebook' ? 'positive' : 'neutral', weight: 0.75 },
                     ],
                     recommendations: [],
                     similar_videos: [],
