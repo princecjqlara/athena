@@ -328,3 +328,82 @@ export const getExtendedFeatureNames = (): string[] => {
     ];
 };
 
+// ===== ENHANCED FEATURE EXTRACTION WITH INTERACTIONS =====
+
+import { extractInteractionFeatures, getInteractionFeatureNames } from './feature-interactions';
+import { extractCategoricalEmbeddings, getTotalEmbeddingDim } from './categorical-embeddings';
+
+/**
+ * Extract enhanced features including interaction terms
+ * Total: 23 base + 4 interaction = 27 features
+ */
+export const extractEnhancedFeatures = (adData: Partial<ExtractedAdData>): {
+    features: number[];
+    featureNames: string[];
+    interactionFeatures: number[];
+    interactionNames: string[];
+} => {
+    // Get base features
+    const baseFeatures = extractExtendedFeatures(adData);
+    const baseNames = getExtendedFeatureNames();
+
+    // Get interaction features
+    const interactions = extractInteractionFeatures(adData);
+
+    return {
+        features: [...baseFeatures, ...interactions.interactionVector],
+        featureNames: [...baseNames, ...interactions.featureNames],
+        interactionFeatures: interactions.interactionVector,
+        interactionNames: interactions.featureNames,
+    };
+};
+
+/**
+ * Extract features with categorical embeddings (for neural network)
+ * Returns dense embedding representation
+ */
+export const extractEmbeddedFeatures = (adData: Partial<ExtractedAdData>): {
+    features: number[];
+    totalDim: number;
+} => {
+    // Get categorical embeddings
+    const embeddings = extractCategoricalEmbeddings(
+        adData.hookType,
+        adData.editingStyle,
+        adData.contentCategory,
+        adData.colorScheme,
+        adData.musicType,
+        adData.platform,
+        undefined, // dayOfWeek - not in ExtractedAdData
+        undefined  // timeOfDay - not in ExtractedAdData
+    );
+
+    // Add numerical features
+    const numericalFeatures = [
+        adData.hasTextOverlays ? 0.8 : 0.3,
+        adData.hasSubtitles ? 0.9 : 0.4,
+        adData.isUGCStyle ? 0.95 : 0.5,
+        adData.hasVoiceover ? 0.75 : 0.5,
+        Math.min((adData.numberOfActors || 1) / 5, 1),
+        adData.duration ? Math.min(adData.duration / 60, 1) : 0.5,
+        adData.curiosityGap ? 0.85 : 0.5,
+    ];
+
+    // Add interaction features
+    const interactions = extractInteractionFeatures(adData);
+
+    return {
+        features: [...embeddings.embeddings, ...numericalFeatures, ...interactions.interactionVector],
+        totalDim: getTotalEmbeddingDim() + numericalFeatures.length + interactions.interactionVector.length,
+    };
+};
+
+/**
+ * Get enhanced feature names including interactions
+ */
+export const getEnhancedFeatureNames = (): string[] => {
+    return [
+        ...getExtendedFeatureNames(),
+        ...getInteractionFeatureNames(),
+    ];
+};

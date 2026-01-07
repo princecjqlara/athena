@@ -17,6 +17,30 @@ export * from './campaign-optimizer';
 export * from './creative-strategy';
 export * from './creative-suggestions';
 
+// Phase 1: Feature Engineering (NEW)
+export * from './feature-interactions';
+export * from './categorical-embeddings';
+
+// Phase 2: Uncertainty Quantification (NEW)
+export * from './uncertainty';
+export * from './bayesian-confidence';
+
+// Phase 3: Multi-Task Learning (NEW)
+export * from './multi-task-model';
+export * from './multi-task-training';
+
+// Phase 4: Attention Mechanism (NEW)
+export * from './attention-model';
+
+// Phase 5: Temporal Modeling (NEW)
+export * from './temporal-model';
+
+// Phase 6: Contrastive Learning (NEW)
+export * from './contrastive-training';
+
+// Phase 7: Ensemble Methods (NEW)
+export * from './ensemble-model';
+
 
 import { AdEntry, ExtractedAdData, ExtractedResultsData, MLSystemState } from '@/types';
 import { getLearningStats, updatePredictionWithReality, analyzePredictionResult } from './feedback-loop';
