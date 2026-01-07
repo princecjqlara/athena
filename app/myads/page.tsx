@@ -1145,7 +1145,7 @@ export default function MyAdsPage() {
                         <div className={styles.modalOverlay} onClick={cancelEditing}>
                             <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
                                 <div className={styles.modalHeader}>
-                                    <h3>📥 Import Ad Data (JSON)</h3>
+                                    <h3>📥 Import Creatives (JSON)</h3>
                                     <button className="btn btn-ghost btn-icon" onClick={cancelEditing}>
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                             <line x1="18" y1="6" x2="6" y2="18" />
@@ -1179,9 +1179,9 @@ export default function MyAdsPage() {
 
                                     {/* JSON Input */}
                                     <div className={styles.traitSection}>
-                                        <h4>Paste JSON Data</h4>
+                                        <h4>Paste Creative Data</h4>
                                         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-sm)' }}>
-                                            Paste an array of ad objects. AI will validate and check for duplicates (10x checks).
+                                            Each JSON object = 1 creative (video/image). Not campaigns.
                                         </p>
                                         <textarea
                                             className="form-textarea"
@@ -1366,10 +1366,10 @@ export default function MyAdsPage() {
                                             setImportValidation(null);
                                             setEditingAdId(null);
 
-                                            alert(`✅ Successfully imported ${uniqueAds.length} ads!`);
+                                            alert(`✅ Successfully imported ${uniqueAds.length} creatives!`);
                                         }}
                                     >
-                                        Import {importValidation?.uniqueCount || 0} Ads
+                                        Import {importValidation?.uniqueCount || 0} Creatives
                                     </button>
                                 </div>
                             </div>

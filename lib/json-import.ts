@@ -419,23 +419,21 @@ export function generateImportSummary(
 
 export const JSON_EXAMPLE = `[
   {
-    "name": "Summer Sale Ad",
+    "name": "UGC Testimonial - Sarah v2",
     "platform": "facebook",
-    "hookType": "urgency",
-    "editingStyle": "fast-paced",
-    "categories": ["e-commerce", "sale"],
-    "traits": ["text-overlays", "trending-music", "ugc-style"],
-    "ctr": 2.5,
-    "cvr": 1.2,
-    "spend": 500,
-    "impressions": 50000
+    "hookType": "social-proof",
+    "editingStyle": "testimonial",
+    "categories": ["beauty"],
+    "traits": ["ugc-style", "selfie-camera", "trending-music"],
+    "ctr": 3.2,
+    "spend": 250
   },
   {
-    "name": "Product Demo Video",
+    "name": "Before-After Demo 15s",
     "platform": "tiktok",
     "hookType": "curiosity",
-    "editingStyle": "product-demo",
-    "categories": ["tech", "gadgets"],
-    "traits": ["before-after", "voiceover"]
+    "editingStyle": "fast-paced",
+    "categories": ["skincare"],
+    "traits": ["before-after", "text-overlays"]
   }
 ]`;
