@@ -140,7 +140,14 @@ export type MusicType =
 
 export type Platform =
   | 'facebook'
-  | 'instagram';
+  | 'instagram'
+  | 'tiktok'
+  | 'youtube'
+  | 'linkedin'
+  | 'snapchat'
+  | 'pinterest'
+  | 'twitter'
+  | 'other';
 
 export type DayOfWeek =
   | 'monday'
