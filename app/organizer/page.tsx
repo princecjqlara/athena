@@ -164,6 +164,17 @@ export default function OrganizerDashboard() {
     const [newMessage, setNewMessage] = useState({ toUserId: '', subject: '', content: '' });
     const [selectedRecipient, setSelectedRecipient] = useState<User | null>(null);
 
+    // Helper function to display user-friendly role names
+    const getRoleDisplayName = (role: string): string => {
+        switch (role) {
+            case 'organizer': return 'Super Admin';
+            case 'admin': return 'Admin';
+            case 'marketer': return 'Marketer';
+            case 'client': return 'Client';
+            default: return role;
+        }
+    };
+
     useEffect(() => {
         fetchData();
         checkImpersonation();
@@ -1039,7 +1050,7 @@ export default function OrganizerDashboard() {
                                             </td>
                                             <td>
                                                 <span className={`role-badge ${user.role}`}>
-                                                    {user.role}
+                                                    {getRoleDisplayName(user.role)}
                                                 </span>
                                             </td>
                                             <td>

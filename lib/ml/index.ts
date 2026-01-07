@@ -14,6 +14,8 @@ export * from './failure-taxonomy';
 export * from './risk-assessment';
 export * from './score-recalculation';
 export * from './campaign-optimizer';
+export * from './creative-strategy';
+export * from './creative-suggestions';
 
 
 import { AdEntry, ExtractedAdData, ExtractedResultsData, MLSystemState } from '@/types';

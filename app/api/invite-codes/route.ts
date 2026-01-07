@@ -112,7 +112,13 @@ export async function POST(request: NextRequest) {
             codeType = 'admin'; // Default for organizers
         }
     } else if (userRole === 'admin') {
-        codeType = 'marketer';
+        // Admins can generate codes for marketers and clients
+        const requestedType = body.roleType;
+        if (requestedType && ['marketer', 'client'].includes(requestedType)) {
+            codeType = requestedType;
+        } else {
+            codeType = 'marketer'; // Default for admins
+        }
     } else if (userRole === 'marketer') {
         codeType = 'client';
     } else {

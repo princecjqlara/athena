@@ -1,0 +1,116 @@
+{
+  "meta_strategy_documentation": {
+    "title": "Meta Andromeda Ads Strategy",
+    "source_reference": "Antonio Ventre - Copy My 4x ROAS Strategy",
+    "core_philosophy": {
+      "premise": "Creative as Targeting",
+      "description": "The algorithm now uses creative elements (visuals, hooks, copy) to identify audiences rather than manual targeting settings.",
+      "objective": "Achieve 'Creative Diversity' to signal the AI to reach distinct pockets of users.",
+      "golden_rule": "Do not test minor variations (button colors). Test completely distinct concepts."
+    },
+    "creative_mix_requirements": [
+      {
+        "type": "Problem_Solution",
+        "purpose": "Targets unaware users by highlighting specific pain points.",
+        "example": "Tired of back pain? This chair aligns your spine."
+      },
+      {
+        "type": "Us_Vs_Them",
+        "purpose": "Targets comparison shoppers by highlighting superiority.",
+        "example": "Split screen: Our Product (Green Checks) vs. Competitors (Red Xs)."
+      },
+      {
+        "type": "Founder_Story_BTS",
+        "purpose": "Builds trust and brand affinity.",
+        "example": "Selfie-style video explaining the 'Why' behind the brand."
+      },
+      {
+        "type": "UGC_Testimonial",
+        "purpose": "Social proof to validate the purchase.",
+        "example": "Customer unboxing and genuine reaction."
+      },
+      {
+        "type": "Direct_Offer_Static",
+        "purpose": "High-intent retargeting and quick sales.",
+        "example": "High-quality photo with text overlay: '50% OFF - Ends Tonight'."
+      }
+    ],
+    "campaign_structure": {
+      "testing_campaign": {
+        "alias": "The Sandpit",
+        "objective": "Sales / Conversions",
+        "budget_type": "ABO (Ad Set Budget Optimization)",
+        "targeting": "Broad (No interests, no lookalikes, open age/gender)",
+        "ad_set_structure": {
+          "methodology": "Concept Isolation",
+          "rule": "1 Ad Set = 1 Creative Concept",
+          "content": "3-5 distinct variations of that concept per ad set."
+        }
+      },
+      "scaling_campaign": {
+        "alias": "The Winners Circle",
+        "objective": "Sales / Conversions",
+        "budget_type": "CBO (Campaign Budget Optimization)",
+        "targeting": "Broad",
+        "execution_strategy": "Move only winning Post IDs from the Testing Campaign. Do not duplicate creatives; use existing IDs to keep social proof."
+      }
+    },
+    "creative_execution_workflow": {
+      "step_1_research": {
+        "questions_to_answer": [
+          "Who is this for?",
+          "What specific problem do they have?",
+          "What is their dream outcome?"
+        ]
+      },
+      "step_2_hook_creation": {
+        "visual_hook": "Pattern interrupt, weird motion, or bright colors.",
+        "audio_hook": "Strong statement or controversial opinion.",
+        "text_overlay": "Big, bold benefit statement immediately visible."
+      },
+      "step_3_format_variation": {
+        "formats_required": [
+          "9:16 Video (Reels/Stories)",
+          "4:5 Video (Feed)",
+          "Static Image",
+          "Carousel"
+        ]
+      },
+      "step_4_portfolio_balance": {
+        "safe_creatives": {
+          "percentage": "70%",
+          "description": "Proven angles, product-focused, clear benefits."
+        },
+        "wild_creatives": {
+          "percentage": "30%",
+          "description": "Memes, controversial takes, lo-fi/ugly ads."
+        }
+      }
+    },
+    "optimization_rules": {
+      "kill_rules": [
+        {
+          "condition": "Spend > 1x Target CPA AND 0 Sales",
+          "action": "Turn Off Ad"
+        },
+        {
+          "condition": "High CPC AND Low CTR",
+          "action": "Turn Off Ad (Creative is not stopping the scroll)"
+        }
+      ],
+      "scale_rules": [
+        {
+          "condition": "3+ Sales at or below Target CPA",
+          "action": "Extract Post ID and duplicate into CBO Scaling Campaign"
+        }
+      ]
+    },
+    "launch_checklist": [
+      "Select 3 distinct angles (e.g., Problem/Solution, UGC, Us vs. Them)",
+      "Create 3 variations for each angle (9 total assets)",
+      "Set up 3 Ad Sets in ABO Campaign (Broad Targeting)",
+      "Launch and hold for 48-72 hours",
+      "Analyze data, kill losers, migrate winners to CBO"
+    ]
+  }
+}

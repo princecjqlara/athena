@@ -5,7 +5,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 /**
  * GET /api/admin/users
- * Get all users in the organization
+ * Get all users in the organization + users invited by this admin
  */
 export async function GET(request: NextRequest) {
     if (!isSupabaseConfigured()) {
@@ -18,18 +18,66 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        let query = supabase.from('user_profiles').select('*');
+        // Organizers see all users
+        if (isOrganizer(user.profile)) {
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-        // Admins can only see their org, organizers see all
-        if (isAdmin(user.profile) && !isOrganizer(user.profile)) {
-            query = query.eq('org_id', user.profile.org_id);
+            if (error) throw error;
+            return NextResponse.json({ success: true, data });
         }
 
-        const { data, error } = await query.order('created_at', { ascending: false });
+        // For admins: fetch users in their org AND users they invited via invite codes
+        // Step 1: Get users with matching org_id
+        const orgUsers: any[] = [];
+        if (user.profile.org_id) {
+            const { data: orgData, error: orgError } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('org_id', user.profile.org_id)
+                .order('created_at', { ascending: false });
 
-        if (error) throw error;
+            if (!orgError && orgData) {
+                orgUsers.push(...orgData);
+            }
+        }
 
-        return NextResponse.json({ success: true, data });
+        // Step 2: Get user IDs invited by this admin via invite codes
+        const { data: inviteCodes, error: codesError } = await supabase
+            .from('invite_codes')
+            .select('used_by')
+            .eq('created_by', user.id)
+            .eq('is_used', true)
+            .not('used_by', 'is', null);
+
+        if (!codesError && inviteCodes && inviteCodes.length > 0) {
+            const invitedUserIds = inviteCodes.map(c => c.used_by).filter(Boolean);
+
+            if (invitedUserIds.length > 0) {
+                // Fetch profiles of invited users
+                const { data: invitedUsers, error: invitedError } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .in('id', invitedUserIds);
+
+                if (!invitedError && invitedUsers) {
+                    // Merge with org users, avoiding duplicates
+                    const existingIds = new Set(orgUsers.map(u => u.id));
+                    for (const invitedUser of invitedUsers) {
+                        if (!existingIds.has(invitedUser.id)) {
+                            orgUsers.push(invitedUser);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sort by created_at descending
+        orgUsers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        return NextResponse.json({ success: true, data: orgUsers });
     } catch (error) {
         console.error('[Admin] Error fetching users:', error);
         return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });

@@ -74,6 +74,7 @@ export function Sidebar() {
         <NavItem href="/myads" icon="ads" label="Ads Hub" collapsed={isCollapsed} active={isActive('/myads')} />
         <NavItem href="/results" icon="chart" label="Analytics" collapsed={isCollapsed} active={isActive('/results')} />
         <NavItem href="/mindmap" icon="mindmap" label="Algorithm" collapsed={isCollapsed} active={isActive('/mindmap')} />
+        <NavItem href="/strategy-tree" icon="tree" label="Strategy Tree" collapsed={isCollapsed} active={isActive('/strategy-tree')} />
         <NavItem href="/pipeline" icon="pipeline" label="Pipeline" collapsed={isCollapsed} active={isActive('/pipeline')} />
         <NavItem href="/marketplace" icon="marketplace" label="Marketplace" collapsed={isCollapsed} active={isActive('/marketplace')} />
         <NavItem href="/athena" icon="brain" label="Athena AI" collapsed={isCollapsed} active={isActive('/athena')} />
@@ -409,6 +410,14 @@ function NavItem({ href, icon, label, collapsed, active }: { href: string; icon:
         <circle cx="12" cy="12" r="10" />
         <line x1="2" y1="12" x2="22" y2="12" />
         <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+      </svg>
+    ),
+    tree: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22v-6" />
+        <path d="M12 8V2" />
+        <path d="M4 10a8 8 0 0116 0c0 4-3.5 6-8 6s-8-2-8-6z" />
+        <path d="M12 16c4.5 0 8-2 8-6" />
       </svg>
     ),
   };
