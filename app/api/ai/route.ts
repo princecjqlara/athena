@@ -1340,16 +1340,43 @@ Please provide a natural language explanation of these recommendations. Structur
 Be specific, reference the actual data (platforms, content types, etc.), and be helpful!`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildJsonValidationPrompt(data: any): string {
-  const ads = Array.isArray(data) ? data : (data.data || []);
-  const checkIndex = data.checkIndex || 0;
+/**
+ * Input type for JSON validation prompt
+ */
+interface JsonValidationInput {
+  data?: unknown[];
+  checkIndex?: number;
+}
+
+/**
+ * Build prompt for JSON import validation
+ * Accepts either an array of ads or an object with data and checkIndex
+ */
+function buildJsonValidationPrompt(input: unknown): string {
+  // Normalize input to extract ads array and checkIndex with safe defaults
+  let ads: unknown[] = [];
+  let checkIndex = 0;
+
+  if (Array.isArray(input)) {
+    // Direct array input
+    ads = input;
+  } else if (input && typeof input === 'object') {
+    // Object with data and checkIndex
+    const obj = input as JsonValidationInput;
+    ads = Array.isArray(obj.data) ? obj.data : [];
+    checkIndex = typeof obj.checkIndex === 'number' ? obj.checkIndex : 0;
+  }
+
+  // Guard against empty or invalid data
+  const adsToShow = ads.length > 0 ? ads.slice(0, 10) : [];
+  const totalCount = ads.length;
+  const additionalCount = totalCount > 10 ? totalCount - 10 : 0;
 
   return `You are validating ad creative data for import. This is check ${checkIndex + 1} of 10.
 
 DATA TO VALIDATE:
-${JSON.stringify(ads.slice(0, 10), null, 2)}
-${ads.length > 10 ? `... and ${ads.length - 10} more items` : ''}
+${JSON.stringify(adsToShow, null, 2)}
+${additionalCount > 0 ? `... and ${additionalCount} more items` : ''}
 
 VALIDATION RULES:
 1. Each item MUST have a "name" field (non-empty string)

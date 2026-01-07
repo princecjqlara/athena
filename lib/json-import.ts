@@ -240,22 +240,27 @@ function findDuplicate(
         }
 
         // Check same signature (platform + hook + category)
+        // Note: We check if input.contentCategory exists in existing.categories array
+        // since contentCategory is a single string while categories is an array
         if (
             existing.platform && existing.hookType &&
             input.platform === existing.platform &&
             input.hookType === existing.hookType &&
-            input.contentCategory === (existing.categories?.[0] || undefined)
+            input.contentCategory &&
+            existing.categories?.includes(input.contentCategory)
         ) {
             return { id: existing.id, name: existing.name, matchType: 'same_signature' };
         }
 
-        // Check similar traits (>80% overlap)
+        // Check similar traits (>80% overlap of the smaller set)
+        // This means at least 80% of the traits in the smaller set must exist in the larger set
         const inputTraits = new Set([...(input.categories || []), ...(input.traits || [])]);
         const existingTraits = new Set([...(existing.categories || []), ...(existing.traits || [])]);
 
         if (inputTraits.size > 0 && existingTraits.size > 0) {
             const overlap = [...inputTraits].filter(t => existingTraits.has(t)).length;
-            const similarity = overlap / Math.max(inputTraits.size, existingTraits.size);
+            // Use min to check if 80% of the smaller set overlaps
+            const similarity = overlap / Math.min(inputTraits.size, existingTraits.size);
 
             if (similarity >= 0.8) {
                 return { id: existing.id, name: existing.name, matchType: 'similar_traits' };
@@ -374,7 +379,7 @@ export function quickValidate(data: AdJsonData[]): ValidationResult {
 /**
  * Count total data points in storage
  */
-export function countDataPoints(storageKey: string = 'adVideos'): number {
+export function countDataPoints(storageKey: string = 'ads'): number {
     if (typeof window === 'undefined') return 0;
 
     try {

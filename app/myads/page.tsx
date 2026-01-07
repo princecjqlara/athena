@@ -1359,7 +1359,7 @@ export default function MyAdsPage() {
                                             // Add to state and localStorage
                                             const updatedAds = [...ads, ...newAds];
                                             setAds(updatedAds);
-                                            localStorage.setItem('adVideos', JSON.stringify(updatedAds));
+                                            localStorage.setItem('ads', JSON.stringify(updatedAds));
 
                                             // Reset modal
                                             setJsonInput('');
