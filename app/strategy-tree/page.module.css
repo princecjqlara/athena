@@ -15,7 +15,12 @@
 
 /* Header */
 .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .title {
@@ -362,4 +367,297 @@
 .emptyText {
     color: #64748b;
     font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+/* Import Button */
+.importButton {
+    background: rgba(99, 102, 241, 0.2);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    color: #a5b4fc;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.importButton:hover {
+    background: rgba(99, 102, 241, 0.3);
+    border-color: rgba(99, 102, 241, 0.6);
+}
+
+.container[data-theme="light"] .importButton {
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+}
+
+.importButtonLarge {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    color: #fff;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 1rem;
+}
+
+.importButtonLarge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+}
+
+/* Modal Overlay */
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.modal {
+    background: #1a1a1a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.container[data-theme="light"] .modal {
+    background: #fff;
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+.modalHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modalHeader h2 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin: 0;
+}
+
+.container[data-theme="light"] .modalHeader h2 {
+    color: #1e293b;
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.closeBtn:hover {
+    color: #f1f5f9;
+}
+
+.modalBody {
+    padding: 1.25rem;
+    overflow-y: auto;
+}
+
+.importOptions {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.uploadBtn {
+    background: rgba(74, 222, 128, 0.15);
+    border: 1px dashed rgba(74, 222, 128, 0.4);
+    color: #4ade80;
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.uploadBtn:hover {
+    background: rgba(74, 222, 128, 0.25);
+    border-color: rgba(74, 222, 128, 0.6);
+}
+
+.divider {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.75rem;
+    margin: 1rem 0;
+    position: relative;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 35%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.divider::before {
+    left: 0;
+}
+
+.divider::after {
+    right: 0;
+}
+
+.jsonInput {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.75rem;
+    color: #d1d5db;
+    font-family: 'Monaco', 'Consolas', monospace;
+    font-size: 0.8rem;
+    resize: vertical;
+    min-height: 120px;
+}
+
+.container[data-theme="light"] .jsonInput {
+    background: #f8fafc;
+    color: #374151;
+}
+
+.jsonInput:focus {
+    outline: none;
+    border-color: rgba(99, 102, 241, 0.5);
+}
+
+.importError {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    margin-top: 0.75rem;
+}
+
+.importPreview {
+    background: rgba(74, 222, 128, 0.1);
+    color: #86efac;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    margin-top: 0.75rem;
+}
+
+.dedupeNote {
+    color: #64748b;
+    font-size: 0.75rem;
+    margin-top: 0.75rem;
+    text-align: center;
+}
+
+.modalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cancelBtn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cancelBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.importBtn {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.importBtn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.importBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Toast Notifications */
+.toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    z-index: 1100;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.toast.success {
+    background: rgba(74, 222, 128, 0.9);
+    color: #052e16;
+}
+
+.toast.info {
+    background: rgba(99, 102, 241, 0.9);
+    color: #fff;
+}
+
+.toast.error {
+    background: rgba(239, 68, 68, 0.9);
+    color: #fff;
 }
