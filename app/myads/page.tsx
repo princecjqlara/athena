@@ -8,6 +8,7 @@ import SyncIndicator from '@/components/SyncIndicator';
 import { useFacebookSync } from '@/hooks/useFacebookSync';
 import dynamic from 'next/dynamic';
 import AdAnalyticsPanel from '@/components/AdAnalyticsPanel';
+import { parseAdJson, detectDuplicates, validateWithAI, countDataPoints, JSON_EXAMPLE } from '@/lib/json-import';
 
 // Lazy load tab content components
 const UploadPage = dynamic(() => import('../upload/page'), { ssr: false });
@@ -179,13 +180,17 @@ export default function MyAdsPage() {
     const [sortBy, setSortBy] = useState<'date' | 'score' | 'ctr' | 'spend'>('date');
     const [searchQuery, setSearchQuery] = useState('');
     const [editingAdId, setEditingAdId] = useState<string | null>(null);
-    const [editTraits, setEditTraits] = useState<{ categories: string[], traits: string[], hookType: string, platform: string }>({
-        categories: [],
-        traits: [],
-        hookType: '',
-        platform: ''
-    });
-    const [adDescription, setAdDescription] = useState('');  // Document-style input
+    // JSON Import state
+    const [jsonInput, setJsonInput] = useState('');
+    const [importValidation, setImportValidation] = useState<{
+        valid: boolean;
+        errors: string[];
+        duplicateCount: number;
+        uniqueCount: number;
+        checksCompleted: number;
+        checksPassed: number;
+    } | null>(null);
+    const [isValidating, setIsValidating] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);  // AI analysis state
     const [viewMode, setViewMode] = useState<'grid' | 'folders'>('folders');  // View mode toggle - default to folders
     const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());  // Expanded folder state
@@ -307,150 +312,22 @@ export default function MyAdsPage() {
         setAds(updatedAds);
     };
 
-    // Start editing traits for an ad
-    const startEditingTraits = (ad: Ad) => {
-        setEditingAdId(ad.id);
-        setEditTraits({
-            categories: ad.categories || [],
-            traits: ad.traits || [],
-            hookType: ad.extractedContent?.hookType || '',
-            platform: ad.extractedContent?.platform || ad.platform || 'Facebook'
-        });
-        // Build description from existing traits for document-style editing
-        const existingTraits = [...(ad.categories || []), ...(ad.traits || [])];
-        const description = existingTraits.length > 0
-            ? `Platform: ${ad.platform || 'Facebook'}\nHook: ${ad.extractedContent?.hookType || 'Unknown'}\nTraits: ${existingTraits.join(', ')}`
-            : '';
-        setAdDescription(description);
+    // Start JSON import modal (renamed from startEditingTraits for backward compat)
+    const startEditingTraits = (_ad: Ad) => {
+        // Now opens the JSON import modal instead of trait editing
+        setEditingAdId('json-import');
+        setJsonInput('');
+        setImportValidation(null);
     };
 
-    // Cancel editing
+    // Cancel editing/importing
     const cancelEditing = () => {
         setEditingAdId(null);
-        setEditTraits({ categories: [], traits: [], hookType: '', platform: '' });
-        setAdDescription('');
+        setJsonInput('');
+        setImportValidation(null);
     };
 
-    // Analyze description using AI to extract traits
-    const analyzeDescription = async () => {
-        if (!adDescription.trim()) return;
 
-        setIsAnalyzing(true);
-        try {
-            // Try AI analysis first
-            const response = await fetch('/api/ai', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: `Analyze this ad description and extract traits. Return JSON only:
-{
-  "platform": "Facebook|Instagram",
-  "hookType": "curiosity|shock|question|transformation|story|testimonial|demonstration|other",
-  "categories": ["category1", "category2"],
-  "traits": ["trait1", "trait2", "trait3"]
-}
-
-Ad description: ${adDescription}`,
-                })
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                if (result.success && result.data) {
-                    // Try to parse AI response
-                    try {
-                        const parsed = typeof result.data === 'string'
-                            ? JSON.parse(result.data.replace(/```json\n?|\n?```/g, '').trim())
-                            : result.data;
-
-                        setEditTraits({
-                            platform: parsed.platform || editTraits.platform,
-                            hookType: parsed.hookType || editTraits.hookType,
-                            categories: parsed.categories || editTraits.categories,
-                            traits: parsed.traits || editTraits.traits,
-                        });
-                        return;
-                    } catch (e) {
-                        console.log('AI parse failed, using keyword extraction');
-                    }
-                }
-            }
-
-            // Fallback: Simple keyword extraction
-            const text = adDescription.toLowerCase();
-            const detectedTraits: string[] = [];
-            const detectedCategories: string[] = [];
-
-            // Detect platform (Facebook & Instagram only)
-            let platform = 'Facebook';
-            if (text.includes('instagram') || text.includes('ig') || text.includes('reels')) platform = 'Instagram';
-
-            // Detect hook type
-            let hookType = '';
-            if (text.includes('curiosity')) hookType = 'curiosity';
-            else if (text.includes('question')) hookType = 'question';
-            else if (text.includes('transformation')) hookType = 'transformation';
-            else if (text.includes('story')) hookType = 'story';
-            else if (text.includes('testimonial') || text.includes('ugc')) hookType = 'testimonial';
-
-            // Detect traits
-            const traitKeywords = ['fast-paced', 'slow-motion', 'text overlay', 'music', 'voiceover', 'captions', 'before/after', 'demo', 'tutorial'];
-            traitKeywords.forEach(t => { if (text.includes(t)) detectedTraits.push(t); });
-
-            // Detect categories
-            const categoryKeywords = ['product', 'lifestyle', 'educational', 'entertainment', 'promo', 'sale'];
-            categoryKeywords.forEach(c => { if (text.includes(c)) detectedCategories.push(c); });
-
-            setEditTraits(prev => ({
-                ...prev,
-                platform: platform || prev.platform,
-                hookType: hookType || prev.hookType,
-                traits: detectedTraits.length > 0 ? detectedTraits : prev.traits,
-                categories: detectedCategories.length > 0 ? detectedCategories : prev.categories,
-            }));
-
-        } catch (error) {
-            console.error('Analysis failed:', error);
-        } finally {
-            setIsAnalyzing(false);
-        }
-    };
-
-    // Toggle a trait
-    const toggleTrait = (type: 'categories' | 'traits', value: string) => {
-        setEditTraits(prev => {
-            const list = prev[type];
-            return {
-                ...prev,
-                [type]: list.includes(value) ? list.filter(t => t !== value) : [...list, value]
-            };
-        });
-    };
-
-    // Save trait edits
-    const saveTraitEdits = () => {
-        if (!editingAdId) return;
-
-        const updatedAds = ads.map(a => {
-            if (a.id !== editingAdId) return a;
-            return {
-                ...a,
-                categories: editTraits.categories,
-                traits: editTraits.traits,
-                extractedContent: {
-                    ...a.extractedContent,
-                    hookType: editTraits.hookType,
-                    platform: editTraits.platform,
-                    contentCategory: editTraits.categories[0] || a.extractedContent?.contentCategory,
-                    customTraits: [...editTraits.categories, ...editTraits.traits]
-                }
-            };
-        });
-
-        localStorage.setItem('ads', JSON.stringify(updatedAds));
-        setAds(updatedAds);
-        cancelEditing();
-    };
 
     // Get linked ad by ID
     const getLinkedAd = (linkedAdId: string | undefined): Ad | null => {
@@ -1263,12 +1140,12 @@ Ad description: ${adDescription}`,
                         </div>
                     )}
 
-                    {/* Trait Editing Modal */}
+                    {/* JSON Import Modal */}
                     {editingAdId && (
                         <div className={styles.modalOverlay} onClick={cancelEditing}>
-                            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+                            <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
                                 <div className={styles.modalHeader}>
-                                    <h3>🏷️ Edit Ad Traits</h3>
+                                    <h3>📥 Import Ad Data (JSON)</h3>
                                     <button className="btn btn-ghost btn-icon" onClick={cancelEditing}>
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                             <line x1="18" y1="6" x2="6" y2="18" />
@@ -1277,145 +1154,222 @@ Ad description: ${adDescription}`,
                                     </button>
                                 </div>
 
-                                <div className={styles.modalContent}>
-                                    {/* Document-Style Input */}
+                                <div className={styles.modalContent} style={{ padding: 'var(--spacing-lg)' }}>
+                                    {/* Data Count Summary */}
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 'var(--spacing-md)',
+                                        marginBottom: 'var(--spacing-lg)',
+                                        padding: 'var(--spacing-md)',
+                                        background: 'rgba(99, 102, 241, 0.1)',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px solid rgba(99, 102, 241, 0.2)'
+                                    }}>
+                                        <div style={{ fontSize: '2rem' }}>📊</div>
+                                        <div>
+                                            <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>
+                                                {countDataPoints()} Ad Creatives
+                                            </div>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                Currently in your database
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* JSON Input */}
                                     <div className={styles.traitSection}>
-                                        <h4>Describe Your Ad</h4>
+                                        <h4>Paste JSON Data</h4>
                                         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-sm)' }}>
-                                            Describe your ad in plain text. AI will extract traits automatically.
+                                            Paste an array of ad objects. AI will validate and check for duplicates (10x checks).
                                         </p>
                                         <textarea
                                             className="form-textarea"
-                                            value={adDescription}
-                                            onChange={(e) => setAdDescription(e.target.value)}
-                                            placeholder="Example: This is a Facebook ad with fast-paced editing, uses a curiosity hook, includes text overlays and trending music. It's a product demo showing before/after transformation..."
-                                            rows={4}
-                                            style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }}
+                                            value={jsonInput}
+                                            onChange={(e) => {
+                                                setJsonInput(e.target.value);
+                                                setImportValidation(null);
+                                            }}
+                                            placeholder={JSON_EXAMPLE}
+                                            rows={10}
+                                            style={{
+                                                width: '100%',
+                                                marginBottom: 'var(--spacing-sm)',
+                                                fontFamily: 'monospace',
+                                                fontSize: '0.85rem'
+                                            }}
                                         />
                                         <button
                                             className="btn btn-secondary"
-                                            onClick={analyzeDescription}
-                                            disabled={isAnalyzing || !adDescription.trim()}
+                                            onClick={async () => {
+                                                if (!jsonInput.trim()) return;
+                                                setIsValidating(true);
+                                                setImportValidation(null);
+
+                                                try {
+                                                    // Parse JSON
+                                                    const { success, data, errors } = parseAdJson(jsonInput);
+
+                                                    if (!success) {
+                                                        setImportValidation({
+                                                            valid: false,
+                                                            errors,
+                                                            duplicateCount: 0,
+                                                            uniqueCount: 0,
+                                                            checksCompleted: 0,
+                                                            checksPassed: 0,
+                                                        });
+                                                        setIsValidating(false);
+                                                        return;
+                                                    }
+
+                                                    // Check for duplicates
+                                                    const existingAds = ads.map(a => ({
+                                                        id: a.id,
+                                                        name: a.name || a.extractedContent?.title,
+                                                        platform: a.platform || a.extractedContent?.platform,
+                                                        hookType: a.hook_type || a.extractedContent?.hookType,
+                                                        categories: a.categories,
+                                                        traits: a.traits,
+                                                    }));
+                                                    const dupResult = detectDuplicates(data, existingAds);
+
+                                                    // Run 10x AI validation
+                                                    const aiResult = await validateWithAI(data);
+
+                                                    setImportValidation({
+                                                        valid: aiResult.valid && dupResult.uniqueAds.length > 0,
+                                                        errors: aiResult.errors.length > 0 ? aiResult.errors : (dupResult.uniqueAds.length === 0 ? ['All entries are duplicates'] : []),
+                                                        duplicateCount: dupResult.duplicateCount,
+                                                        uniqueCount: dupResult.uniqueAds.length,
+                                                        checksCompleted: aiResult.checksCompleted,
+                                                        checksPassed: aiResult.checksPassed,
+                                                    });
+                                                } catch (error) {
+                                                    setImportValidation({
+                                                        valid: false,
+                                                        errors: [error instanceof Error ? error.message : 'Validation failed'],
+                                                        duplicateCount: 0,
+                                                        uniqueCount: 0,
+                                                        checksCompleted: 0,
+                                                        checksPassed: 0,
+                                                    });
+                                                }
+
+                                                setIsValidating(false);
+                                            }}
+                                            disabled={isValidating || !jsonInput.trim()}
                                             style={{ width: '100%' }}
                                         >
-                                            {isAnalyzing ? 'Analyzing...' : 'Extract Traits with AI'}
+                                            {isValidating ? 'Validating (10x AI checks)...' : '🔍 Validate & Check Duplicates'}
                                         </button>
                                     </div>
 
-                                    {/* Extracted Traits Preview */}
-                                    {(editTraits.platform || editTraits.hookType || editTraits.categories.length > 0 || editTraits.traits.length > 0) && (
-                                        <div className={styles.traitSection} style={{ background: 'rgba(59, 130, 246, 0.1)', padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)' }}>
-                                            <h4 style={{ marginBottom: 'var(--spacing-sm)' }}>Extracted Traits</h4>
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' }}>
-                                                {editTraits.platform && (
-                                                    <span className="tag tag-primary">{editTraits.platform}</span>
-                                                )}
-                                                {editTraits.hookType && (
-                                                    <span className="tag tag-secondary">{editTraits.hookType}</span>
-                                                )}
-                                                {editTraits.categories.map(cat => (
-                                                    <span key={cat} className="tag" style={{ background: 'var(--accent-secondary)', color: 'white' }}>{cat}</span>
-                                                ))}
-                                                {editTraits.traits.map(trait => (
-                                                    <span key={trait} className="tag">{trait}</span>
-                                                ))}
+                                    {/* Validation Results */}
+                                    {importValidation && (
+                                        <div className={styles.traitSection} style={{
+                                            marginTop: 'var(--spacing-lg)',
+                                            padding: 'var(--spacing-md)',
+                                            borderRadius: 'var(--radius-md)',
+                                            background: importValidation.valid ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                            border: `1px solid ${importValidation.valid ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                                        }}>
+                                            <h4 style={{ marginBottom: 'var(--spacing-sm)', color: importValidation.valid ? 'var(--success)' : 'var(--error)' }}>
+                                                {importValidation.valid ? '✅ Validation Passed' : '❌ Validation Failed'}
+                                            </h4>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
+                                                <div style={{ background: 'var(--bg-secondary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-sm)' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>AI Checks</div>
+                                                    <div style={{ fontWeight: 600 }}>{importValidation.checksPassed}/{importValidation.checksCompleted} passed</div>
+                                                </div>
+                                                <div style={{ background: 'var(--bg-secondary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-sm)' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Duplicates</div>
+                                                    <div style={{ fontWeight: 600, color: importValidation.duplicateCount > 0 ? 'var(--warning)' : 'var(--success)' }}>
+                                                        {importValidation.duplicateCount} found
+                                                    </div>
+                                                </div>
+                                                <div style={{ background: 'var(--bg-secondary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-sm)' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Unique Ads</div>
+                                                    <div style={{ fontWeight: 600, color: 'var(--success)' }}>{importValidation.uniqueCount} to add</div>
+                                                </div>
+                                                <div style={{ background: 'var(--bg-secondary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-sm)' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>New Total</div>
+                                                    <div style={{ fontWeight: 600 }}>{countDataPoints() + importValidation.uniqueCount}</div>
+                                                </div>
                                             </div>
+
+                                            {importValidation.errors.length > 0 && (
+                                                <div style={{ marginTop: 'var(--spacing-sm)' }}>
+                                                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--error)', marginBottom: '4px' }}>Errors:</div>
+                                                    <ul style={{ margin: 0, paddingLeft: 'var(--spacing-md)', fontSize: '0.85rem' }}>
+                                                        {importValidation.errors.map((err, i) => (
+                                                            <li key={i} style={{ color: 'var(--error)' }}>{err}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-
-                                    {/* Manual Options (Collapsible) */}
-                                    <details style={{ marginTop: 'var(--spacing-md)' }}>
-                                        <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                            Manual Options (click to expand)
-                                        </summary>
-                                        <div style={{ marginTop: 'var(--spacing-md)' }}>
-                                            {/* Platform */}
-                                            <div className={styles.traitSection}>
-                                                <h4>Platform</h4>
-                                                <div className={styles.traitGrid}>
-                                                    {TRAIT_OPTIONS.platforms.map(platform => (
-                                                        <button
-                                                            key={platform}
-                                                            className={`${styles.traitChip} ${editTraits.platform === platform ? styles.selected : ''}`}
-                                                            onClick={() => setEditTraits(prev => ({ ...prev, platform }))}
-                                                        >
-                                                            {platform}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Hook Type */}
-                                            <div className={styles.traitSection}>
-                                                <h4>Hook Type</h4>
-                                                <div className={styles.traitGrid}>
-                                                    {TRAIT_OPTIONS.hookTypes.map(hook => (
-                                                        <button
-                                                            key={hook}
-                                                            className={`${styles.traitChip} ${editTraits.hookType === hook ? styles.selected : ''}`}
-                                                            onClick={() => setEditTraits(prev => ({ ...prev, hookType: hook }))}
-                                                        >
-                                                            {hook}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Categories */}
-                                            <div className={styles.traitSection}>
-                                                <h4>Content Categories</h4>
-                                                <div className={styles.traitGrid}>
-                                                    {TRAIT_OPTIONS.categories.map(cat => (
-                                                        <button
-                                                            key={cat}
-                                                            className={`${styles.traitChip} ${editTraits.categories.includes(cat) ? styles.selected : ''}`}
-                                                            onClick={() => toggleTrait('categories', cat)}
-                                                        >
-                                                            {cat}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Editing Styles */}
-                                            <div className={styles.traitSection}>
-                                                <h4>Editing Style</h4>
-                                                <div className={styles.traitGrid}>
-                                                    {TRAIT_OPTIONS.editingStyles.map(style => (
-                                                        <button
-                                                            key={style}
-                                                            className={`${styles.traitChip} ${editTraits.traits.includes(style) ? styles.selected : ''}`}
-                                                            onClick={() => toggleTrait('traits', style)}
-                                                        >
-                                                            {style}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Features */}
-                                            <div className={styles.traitSection}>
-                                                <h4>Features</h4>
-                                                <div className={styles.traitGrid}>
-                                                    {TRAIT_OPTIONS.features.map(feature => (
-                                                        <button
-                                                            key={feature}
-                                                            className={`${styles.traitChip} ${editTraits.traits.includes(feature) ? styles.selected : ''}`}
-                                                            onClick={() => toggleTrait('traits', feature)}
-                                                        >
-                                                            {feature}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </details>
                                 </div>
 
                                 <div className={styles.modalFooter}>
                                     <button className="btn btn-secondary" onClick={cancelEditing}>Cancel</button>
-                                    <button className="btn btn-primary" onClick={saveTraitEdits}>
-                                        Save Traits
+                                    <button
+                                        className="btn btn-primary"
+                                        disabled={!importValidation?.valid || importValidation?.uniqueCount === 0}
+                                        onClick={async () => {
+                                            if (!importValidation?.valid) return;
+
+                                            // Parse and import the unique ads
+                                            const { data } = parseAdJson(jsonInput);
+                                            const existingAds = ads.map(a => ({
+                                                id: a.id,
+                                                name: a.name || a.extractedContent?.title,
+                                                platform: a.platform || a.extractedContent?.platform,
+                                                hookType: a.hook_type || a.extractedContent?.hookType,
+                                                categories: a.categories,
+                                                traits: a.traits,
+                                            }));
+                                            const { uniqueAds } = detectDuplicates(data, existingAds);
+
+                                            // Convert to Ad format and add
+                                            const newAds: Ad[] = uniqueAds.map((ad, i) => ({
+                                                id: `imported-${Date.now()}-${i}`,
+                                                name: ad.name,
+                                                platform: ad.platform,
+                                                hook_type: ad.hookType,
+                                                categories: ad.categories,
+                                                traits: ad.traits,
+                                                extractedContent: {
+                                                    title: ad.name,
+                                                    platform: ad.platform,
+                                                    hookType: ad.hookType,
+                                                    contentCategory: ad.contentCategory,
+                                                },
+                                                adInsights: {
+                                                    impressions: ad.impressions,
+                                                    clicks: ad.clicks,
+                                                    spend: ad.spend,
+                                                    ctr: ad.ctr,
+                                                },
+                                                uploadDate: new Date().toISOString(),
+                                            }));
+
+                                            // Add to state and localStorage
+                                            const updatedAds = [...ads, ...newAds];
+                                            setAds(updatedAds);
+                                            localStorage.setItem('adVideos', JSON.stringify(updatedAds));
+
+                                            // Reset modal
+                                            setJsonInput('');
+                                            setImportValidation(null);
+                                            setEditingAdId(null);
+
+                                            alert(`✅ Successfully imported ${uniqueAds.length} ads!`);
+                                        }}
+                                    >
+                                        Import {importValidation?.uniqueCount || 0} Ads
                                     </button>
                                 </div>
                             </div>

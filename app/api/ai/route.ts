@@ -27,12 +27,7 @@ export async function POST(request: NextRequest) {
         prompt = buildPredictionPrompt(data);
         break;
 
-      case 'parse_ad_traits':
-        systemMessage = `You are an expert AI advertising analyst. Extract ad traits from natural language descriptions.
-        Identify the hook type, editing style, content category, platform, and various features from user descriptions.
-        Always respond with valid JSON. Be thorough in your analysis and make reasonable inferences.`;
-        prompt = buildTraitExtractionPrompt(data.description);
-        break;
+
 
       case 'analyze-patterns':
         systemMessage = 'You are an expert advertising analyst. Analyze video ad data and identify winning patterns. Respond only with valid JSON.';
@@ -265,6 +260,18 @@ Be conversational, helpful, and always reference their actual Facebook/Instagram
         prompt = buildCampaignRecommendationPrompt(data.adTraits, data.recommendations, data.goals);
         break;
 
+      case 'validate_json_import':
+        // AI validation for JSON import with deduplication check
+        systemMessage = `You are an expert data validator for advertising data. Analyze the provided JSON data and validate:
+        1. Data structure correctness
+        2. Field values are reasonable/valid
+        3. Check for potential duplicates or inconsistencies
+        4. Identify any data quality issues
+        
+        Be strict but fair. Focus on catching real issues, not minor formatting differences.`;
+        prompt = buildJsonValidationPrompt(data);
+        break;
+
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
@@ -367,50 +374,7 @@ Return a JSON object with exactly this structure:
 }`;
 }
 
-function buildTraitExtractionPrompt(description: string): string {
-  return `Extract ad traits from this natural language description of an ad:
 
-"${description}"
-
-**CRITICAL ANTI-HALLUCINATION RULES:**
-1. If the description is VAGUE, MEANINGLESS, or LACKS SPECIFIC DETAILS about an ad (e.g., "etc etc", "test", "asdf", random words), you MUST:
-   - Set confidence to 20 or lower
-   - Set insufficientInput to true
-   - Set reasoning to explain that the input lacks meaningful information
-   - Use null for fields you cannot determine
-   - DO NOT make up or invent specific traits
-
-2. Only extract traits that are ACTUALLY DESCRIBED or STRONGLY IMPLIED by the text
-3. Do NOT default to "common high-performing traits" when input is unclear
-4. If you cannot determine a trait from the description, use null instead of guessing
-
-Analyze the description and identify ONLY the ad traits that are explicitly mentioned or clearly implied.
-
-Return a JSON object with exactly this structure:
-{
-  "hookType": "curiosity" | "shock" | "before_after" | "question" | "story" | null,
-  "editingStyle": "raw_authentic" | "fast_cuts" | "dynamic" | "cinematic" | null,
-  "contentCategory": "ugc" | "testimonial" | "lifestyle" | "product_demo" | null,
-  "platform": "tiktok" | "instagram" | "youtube" | "facebook" | null,
-  "hasSubtitles": true | false | null,
-  "hasTextOverlays": true | false | null,
-  "isUGCStyle": true | false | null,
-  "hasVoiceover": true | false | null,
-  "musicType": "trending" | "upbeat" | "emotional" | "voiceover_only" | "original" | null,
-  "colorScheme": "vibrant" | "muted" | "dark" | "bright" | "natural" | null,
-  "numberOfActors": <number> | null,
-  "confidence": <0-100 how confident you are - USE 20 OR BELOW for vague/meaningless input>,
-  "reasoning": "<explanation - be HONEST if input lacks detail>",
-  "insufficientInput": <true if the description is too vague to extract meaningful traits, false otherwise>
-}
-
-Field definitions:
-- "hookType": What grabs attention first (curiosity = makes viewer want to know more, shock = surprising/unexpected, before_after = transformation, question = asks a question, story = narrative-driven)
-- "editingStyle": How the video is cut (raw_authentic = minimal editing, fast_cuts = quick transitions, dynamic = energetic with effects, cinematic = polished/professional)
-- "contentCategory": Type of content (ugc = user-generated content, testimonial = customer review/story, lifestyle = aspirational, product_demo = showing how product works)
-
-Remember: It is BETTER to return null fields with low confidence than to HALLUCINATE traits that weren't described!`;
-}
 
 function buildPatternPrompt(videos: Array<{
   hookType: string;
@@ -1043,49 +1007,49 @@ function buildChatPrompt(
   // Build demographics summary
   const demographicsText = context.demographics && Object.keys(context.demographics).length > 0
     ? Object.entries(context.demographics)
-        .sort((a, b) => b[1].impressions - a[1].impressions)
-        .slice(0, 10)
-        .map(([key, data]) => {
-          const [gender, age] = key.split('_');
-          return `- ${gender} ${age}: ${data.impressions.toLocaleString()} impressions`;
-        })
-        .join('\n')
+      .sort((a, b) => b[1].impressions - a[1].impressions)
+      .slice(0, 10)
+      .map(([key, data]) => {
+        const [gender, age] = key.split('_');
+        return `- ${gender} ${age}: ${data.impressions.toLocaleString()} impressions`;
+      })
+      .join('\n')
     : 'No demographic data available';
 
   // Build placement summary
   const placementsText = context.placements && Object.keys(context.placements).length > 0
     ? Object.entries(context.placements)
-        .sort((a, b) => b[1].impressions - a[1].impressions)
-        .slice(0, 5)
-        .map(([key, data]) => `- ${key}: ${data.impressions.toLocaleString()} impressions, $${data.spend.toFixed(2)} spent`)
-        .join('\n')
+      .sort((a, b) => b[1].impressions - a[1].impressions)
+      .slice(0, 5)
+      .map(([key, data]) => `- ${key}: ${data.impressions.toLocaleString()} impressions, $${data.spend.toFixed(2)} spent`)
+      .join('\n')
     : 'No placement data available';
 
   // Build regions summary
   const regionsText = context.regions && Object.keys(context.regions).length > 0
     ? Object.entries(context.regions)
-        .sort((a, b) => b[1].impressions - a[1].impressions)
-        .slice(0, 5)
-        .map(([country, data]) => `- ${country}: ${data.impressions.toLocaleString()} impressions`)
-        .join('\n')
+      .sort((a, b) => b[1].impressions - a[1].impressions)
+      .slice(0, 5)
+      .map(([country, data]) => `- ${country}: ${data.impressions.toLocaleString()} impressions`)
+      .join('\n')
     : 'No regional data available';
 
   // Build detailed ads summary with performance
   const detailedAdsText = context.allAds && context.allAds.length > 0
     ? context.allAds
-        .sort((a, b) => (b.actualScore || b.predictedScore || 0) - (a.actualScore || a.predictedScore || 0))
-        .slice(0, 15)
-        .map(ad => {
-          const metrics = ad.metrics;
-          const demoSummary = ad.demographics && ad.demographics.length > 0
-            ? ` | Top demo: ${ad.demographics.sort((a, b) => b.impressions - a.impressions)[0]?.gender} ${ad.demographics.sort((a, b) => b.impressions - a.impressions)[0]?.age}`
-            : '';
-          return `- "${ad.title}" (${ad.platform || 'unknown'})
+      .sort((a, b) => (b.actualScore || b.predictedScore || 0) - (a.actualScore || a.predictedScore || 0))
+      .slice(0, 15)
+      .map(ad => {
+        const metrics = ad.metrics;
+        const demoSummary = ad.demographics && ad.demographics.length > 0
+          ? ` | Top demo: ${ad.demographics.sort((a, b) => b.impressions - a.impressions)[0]?.gender} ${ad.demographics.sort((a, b) => b.impressions - a.impressions)[0]?.age}`
+          : '';
+        return `- "${ad.title}" (${ad.platform || 'unknown'})
     Hook: ${ad.hookType || 'N/A'} | Category: ${ad.contentCategory || 'N/A'}
     Predicted: ${ad.predictedScore || 'N/A'}% | Actual: ${ad.actualScore || 'N/A'}%
     ${metrics ? `Spend: $${metrics.spend.toFixed(2)} | CTR: ${metrics.ctr.toFixed(2)}% | ${metrics.resultType}: ${metrics.conversions || metrics.leads || metrics.messages || 0}${demoSummary}` : 'No metrics'}`;
-        })
-        .join('\n')
+      })
+      .join('\n')
     : context.recentAds.map(a => `- "${a.title || 'Untitled'}" (${a.platform || 'unknown'}) - Predicted: ${a.predicted || 'N/A'}%, Actual: ${a.actual || 'N/A'}%`).join('\n');
 
   return `USER'S COMPLETE AD DATA (YOU HAVE FULL ACCESS):
@@ -1376,3 +1340,40 @@ Please provide a natural language explanation of these recommendations. Structur
 Be specific, reference the actual data (platforms, content types, etc.), and be helpful!`;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildJsonValidationPrompt(data: any): string {
+  const ads = Array.isArray(data) ? data : (data.data || []);
+  const checkIndex = data.checkIndex || 0;
+
+  return `You are validating ad creative data for import. This is check ${checkIndex + 1} of 10.
+
+DATA TO VALIDATE:
+${JSON.stringify(ads.slice(0, 10), null, 2)}
+${ads.length > 10 ? `... and ${ads.length - 10} more items` : ''}
+
+VALIDATION RULES:
+1. Each item MUST have a "name" field (non-empty string)
+2. "platform" should be one of: facebook, instagram, tiktok, youtube, other
+3. "hookType" should be a valid hook type (curiosity, problem-solution, social-proof, etc.)
+4. "categories" and "traits" should be arrays of strings
+5. Numeric fields (ctr, cvr, roas, spend, impressions) should be valid numbers
+
+CHECK FOR:
+1. Invalid or missing required fields
+2. Unreasonable values (e.g., CTR > 100%, negative spend)
+3. Potential duplicates (same exact names)
+4. Inconsistent data (e.g., clicks > impressions)
+5. Data quality issues
+
+Return JSON:
+{
+  "valid": true|false,
+  "errors": ["List of critical issues that prevent import"],
+  "warnings": ["List of non-critical issues to note"],
+  "validCount": <number of valid items>,
+  "invalidCount": <number of invalid items>,
+  "duplicatesDetected": <number of potential duplicates>,
+  "confidence": <0-100 how confident in this validation>,
+  "suggestions": ["Suggestions to improve data quality"]
+}`;
+}
