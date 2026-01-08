@@ -422,18 +422,16 @@ export const JSON_EXAMPLE = `[
     "name": "UGC Testimonial - Sarah v2",
     "platform": "facebook",
     "hookType": "social-proof",
-    "editingStyle": "testimonial",
-    "categories": ["beauty"],
-    "traits": ["ugc-style", "selfie-camera", "trending-music"],
-    "ctr": 3.2,
-    "spend": 250
+    "contentCategory": "beauty",
+    "categories": ["beauty", "skincare"],
+    "traits": ["ugc-style", "selfie-camera", "trending-music"]
   },
   {
     "name": "Before-After Demo 15s",
     "platform": "tiktok",
     "hookType": "curiosity",
-    "editingStyle": "fast-paced",
+    "contentCategory": "skincare",
     "categories": ["skincare"],
-    "traits": ["before-after", "text-overlays"]
+    "traits": ["before-after", "text-overlays", "fast-paced"]
   }
 ]`;

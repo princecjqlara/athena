@@ -317,7 +317,7 @@ export default function MyAdsPage() {
         // Set the ad ID being edited
         setEditingAdId(ad.id);
 
-        // Convert ad to JSON for editing
+        // Convert ad to JSON for editing (creative traits only, not performance data)
         const adJson = {
             name: ad.name || ad.extractedContent?.title || 'Untitled',
             platform: ad.platform || ad.extractedContent?.platform || 'facebook',
@@ -325,9 +325,6 @@ export default function MyAdsPage() {
             contentCategory: ad.extractedContent?.contentCategory || '',
             categories: ad.categories || [],
             traits: ad.traits || [],
-            ctr: ad.adInsights?.ctr || ad.ctr,
-            spend: ad.adInsights?.spend || ad.spend,
-            impressions: ad.adInsights?.impressions || ad.impressions,
         };
 
         // Pretty print the JSON
