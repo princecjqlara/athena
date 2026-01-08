@@ -125,27 +125,6 @@ export default function UploadPage() {
                 setExtractedData(extracted);
                 await calculatePrediction(extracted);
 
-                // Automatically save AI-suggested learned traits
-                if (extracted.learnedTraitsToCreate && extracted.learnedTraitsToCreate.length > 0) {
-                    console.log('[Upload] Saving AI-suggested learned traits:', extracted.learnedTraitsToCreate.length);
-                    for (const traitToCreate of extracted.learnedTraitsToCreate) {
-                        try {
-                            await fetch('/api/ai/learned-traits', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    traitName: traitToCreate.traitName,
-                                    traitCategory: traitToCreate.traitCategory,
-                                    definition: traitToCreate.definition,
-                                    addedBy: 'ai_extraction'
-                                })
-                            });
-                        } catch (traitError) {
-                            console.warn('[Upload] Failed to save learned trait:', traitToCreate.traitName, traitError);
-                        }
-                    }
-                }
-
                 setStep('preview');
             } else {
                 // Use fallback extraction

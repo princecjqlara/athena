@@ -4,19 +4,20 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import styles from './page.module.css';
 import { useTheme } from '@/components/ThemeProvider';
 import { buildStrategyTree } from '@/lib/ml/creative-strategy';
-import { generateSuggestions, analyzePortfolio } from '@/lib/ml/creative-suggestions';
+import { generateSuggestions, analyzePortfolio, getAvoidanceAdvice, analyzeHistoricalPatterns, CreativeSuggestion, PortfolioAnalysis, AvoidanceAdvice, HistoricalPattern } from '@/lib/ml/creative-suggestions';
 
 // Types
-interface OrbNode {
+interface MindMapNode {
     id: string;
     label: string;
-    type: 'center' | 'category' | 'item' | 'leaf';
-    score: number;
+    type: 'center' | 'branch' | 'subbranch' | 'leaf';
     color: string;
     x: number;
     y: number;
     radius: number;
     parentId?: string;
+    angle?: number;
+    score?: number;
     adsCount?: number;
 }
 
@@ -29,19 +30,21 @@ interface AdData {
     [key: string]: unknown;
 }
 
-// Vibrant color palette
-const COLORS = ['#FF6B9D', '#4ADE80', '#FBBF24', '#38BDF8', '#F97316', '#A78BFA', '#22D3EE'];
+// Vibrant color palette matching the reference image
+const BRANCH_COLORS = {
+    pink: '#E91E8C',
+    green: '#8BC53F',
+    blue: '#00A0E3',
+    orange: '#F7931E',
+    red: '#ED1C24',
+    teal: '#00BCD4',
+    purple: '#9C27B0',
+};
 
-function getColor(index: number, score: number): string {
-    if (score >= 80) return '#4ADE80';
-    if (score >= 65) return '#FBBF24';
-    if (score >= 50) return '#38BDF8';
-    return '#EF4444';
-}
+const COLOR_ARRAY = Object.values(BRANCH_COLORS);
 
 // Deduplication utilities
 function generateAdHash(ad: AdData): string {
-    // Create a unique hash based on key identifying fields
     const fields = [
         ad.facebookAdId || '',
         ad.name || '',
@@ -50,7 +53,6 @@ function generateAdHash(ad: AdData): string {
         JSON.stringify(ad.adInsights?.spend || 0),
     ].join('|');
 
-    // Simple hash function
     let hash = 0;
     for (let i = 0; i < fields.length; i++) {
         const char = fields.charCodeAt(i);
@@ -73,12 +75,9 @@ function deduplicateAds(existingAds: AdData[], newAds: AdData[]): {
 
     for (const ad of newAds) {
         const hash = generateAdHash(ad);
-
-        // Check by hash or ID
         if (existingHashes.has(hash) || existingIds.has(ad.id)) {
             duplicates++;
         } else {
-            // Assign new ID if missing or duplicate
             const newAd = {
                 ...ad,
                 id: ad.id || `imported-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -96,75 +95,95 @@ function deduplicateAds(existingAds: AdData[], newAds: AdData[]): {
     };
 }
 
-// Simplified organic layout
-function createLayout(tree: ReturnType<typeof buildStrategyTree>): OrbNode[] {
+// Create organic mind map layout
+function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMapNode[] {
     if (!tree) return [];
 
-    const nodes: OrbNode[] = [];
-    const cx = 450, cy = 300;
+    const nodes: MindMapNode[] = [];
+    const cx = 500, cy = 350;
+    const centerRadius = 55;
 
-    // Center node
+    // Center node - "STRATEGY" hub
     nodes.push({
         id: tree.id,
-        label: 'Strategy',
+        label: 'STRATEGY',
         type: 'center',
+        color: BRANCH_COLORS.green,
+        x: cx,
+        y: cy,
+        radius: centerRadius,
         score: tree.score,
-        color: '#FF6B9D',
-        x: cx, y: cy,
-        radius: 50,
         adsCount: tree.adsCount
     });
 
-    // Platforms
-    tree.children.forEach((platform, i) => {
-        const angle = (i / tree.children.length) * Math.PI * 2 - Math.PI / 2;
-        const dist = 160;
+    const branchCount = Math.min(tree.children.length, 6);
+    const angleStep = (Math.PI * 2) / Math.max(branchCount, 1);
+
+    // Main branches (platforms/categories)
+    tree.children.slice(0, 6).forEach((platform, i) => {
+        const baseAngle = angleStep * i - Math.PI / 2;
+        const jitter = (Math.random() - 0.5) * 0.2;
+        const angle = baseAngle + jitter;
+        const dist = 140 + Math.random() * 20;
         const px = cx + Math.cos(angle) * dist;
         const py = cy + Math.sin(angle) * dist;
+        const branchColor = COLOR_ARRAY[i % COLOR_ARRAY.length];
 
         nodes.push({
             id: platform.id,
-            label: platform.label,
-            type: 'category',
-            score: platform.score,
-            color: COLORS[i % COLORS.length],
-            x: px, y: py,
-            radius: 38,
+            label: platform.label.toUpperCase(),
+            type: 'branch',
+            color: branchColor,
+            x: px,
+            y: py,
+            radius: 42,
             parentId: tree.id,
+            angle: angle,
+            score: platform.score,
             adsCount: platform.adsCount
         });
 
-        // Creative types
-        platform.children.forEach((ctype, j) => {
-            const tAngle = angle + (j - (platform.children.length - 1) / 2) * 0.5;
-            const tx = px + Math.cos(tAngle) * 90;
-            const ty = py + Math.sin(tAngle) * 90;
+        // Sub-branches extending outward
+        const subCount = Math.min(platform.children.length, 5);
+        platform.children.slice(0, 5).forEach((ctype, j) => {
+            const spreadAngle = 0.35;
+            const subAngle = angle + (j - (subCount - 1) / 2) * spreadAngle;
+            const subDist = 85 + Math.random() * 15;
+            const tx = px + Math.cos(subAngle) * subDist;
+            const ty = py + Math.sin(subAngle) * subDist;
 
             nodes.push({
                 id: ctype.id,
-                label: ctype.label.replace(/_/g, ' ').substring(0, 12),
-                type: 'item',
-                score: ctype.score,
-                color: getColor(j, ctype.score),
-                x: tx, y: ty,
-                radius: 28,
+                label: ctype.label.replace(/_/g, ' ').toUpperCase().substring(0, 10),
+                type: 'subbranch',
+                color: branchColor,
+                x: tx,
+                y: ty,
+                radius: 32,
                 parentId: platform.id,
+                angle: subAngle,
+                score: ctype.score,
                 adsCount: ctype.adsCount
             });
 
-            // Ads (leaves)
-            ctype.children.forEach((ad, k) => {
-                const aAngle = tAngle + (k - (ctype.children.length - 1) / 2) * 0.4;
+            // Leaf nodes (individual ads/items)
+            const leafCount = Math.min(ctype.children.length, 4);
+            ctype.children.slice(0, 4).forEach((ad, k) => {
+                const leafSpread = 0.4;
+                const leafAngle = subAngle + (k - (leafCount - 1) / 2) * leafSpread;
+                const leafDist = 50 + Math.random() * 12;
+
                 nodes.push({
                     id: ad.id,
-                    label: '',
+                    label: ad.label?.substring(0, 8).toUpperCase() || '',
                     type: 'leaf',
-                    score: ad.score,
-                    color: getColor(k, ad.score),
-                    x: tx + Math.cos(aAngle) * 50,
-                    y: ty + Math.sin(aAngle) * 50,
-                    radius: 12,
-                    parentId: ctype.id
+                    color: branchColor,
+                    x: tx + Math.cos(leafAngle) * leafDist,
+                    y: ty + Math.sin(leafAngle) * leafDist,
+                    radius: 22,
+                    parentId: ctype.id,
+                    angle: leafAngle,
+                    score: ad.score
                 });
             });
         });
@@ -208,7 +227,7 @@ function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
                 count: ads.length,
                 sample: ads[0]?.name || ads[0]?.id || 'Ad data'
             });
-        } catch (err) {
+        } catch {
             setError('Invalid JSON format');
             setPreview(null);
         }
@@ -232,7 +251,7 @@ function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
             setJsonText('');
             setPreview(null);
             onClose();
-        } catch (err) {
+        } catch {
             setError('Failed to parse JSON');
         }
     };
@@ -303,7 +322,7 @@ function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
     );
 }
 
-// Import Result Toast
+// Toast Component
 interface ToastProps {
     message: string;
     type: 'success' | 'info' | 'error';
@@ -323,10 +342,195 @@ function Toast({ message, type, onClose }: ToastProps) {
     );
 }
 
+// AI Suggestions Panel Component
+interface AISuggestionsPanelProps {
+    suggestions: CreativeSuggestion[];
+    portfolio: PortfolioAnalysis | null;
+    patterns: HistoricalPattern[];
+    avoidance: AvoidanceAdvice[];
+}
+
+function AISuggestionsPanel({ suggestions, portfolio, patterns, avoidance }: AISuggestionsPanelProps) {
+    const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
+
+    const getPriorityColor = (priority: 'high' | 'medium' | 'low') => {
+        switch (priority) {
+            case 'high': return '#8BC53F';
+            case 'medium': return '#00A0E3';
+            case 'low': return '#F7931E';
+        }
+    };
+
+    const topSuggestions = suggestions.slice(0, 3);
+    const topPatterns = patterns.filter(p => p.successRate >= 60).slice(0, 4);
+
+    return (
+        <div className={styles.aiSuggestionsPanel}>
+            {/* What's Next Section */}
+            <div className={styles.aiSection}>
+                <div className={styles.aiSectionTitle}>
+                    <span>🎯</span> What&apos;s Next
+                </div>
+                {topSuggestions.length > 0 ? (
+                    <div className={styles.suggestionsStack}>
+                        {topSuggestions.map(suggestion => (
+                            <div
+                                key={suggestion.id}
+                                className={styles.suggestionCard}
+                                style={{ borderLeftColor: getPriorityColor(suggestion.priority) }}
+                            >
+                                <div className={styles.suggestionHeader}>
+                                    <span
+                                        className={styles.priorityBadge}
+                                        style={{ backgroundColor: `${getPriorityColor(suggestion.priority)}20`, color: getPriorityColor(suggestion.priority) }}
+                                    >
+                                        {suggestion.priority.toUpperCase()}
+                                    </span>
+                                    <span className={styles.confidenceBadge}>
+                                        {suggestion.confidence}% conf
+                                    </span>
+                                </div>
+                                <div className={styles.suggestionTitle}>{suggestion.title}</div>
+                                <div className={styles.suggestionReason}>{suggestion.reason}</div>
+                                <div className={styles.suggestionScore}>
+                                    Predicted Score: <strong>{suggestion.predictedScore}%</strong>
+                                </div>
+                                <button
+                                    className={styles.expandBtn}
+                                    onClick={() => setExpandedSuggestion(
+                                        expandedSuggestion === suggestion.id ? null : suggestion.id
+                                    )}
+                                >
+                                    {expandedSuggestion === suggestion.id ? '▲ Hide Details' : '▼ View Implementation'}
+                                </button>
+                                {expandedSuggestion === suggestion.id && (
+                                    <div className={styles.implementationDetails}>
+                                        <div className={styles.detailRow}>
+                                            <span>Format:</span>
+                                            <span>{suggestion.implementation.format}</span>
+                                        </div>
+                                        <div className={styles.detailRow}>
+                                            <span>Hook:</span>
+                                            <span>{suggestion.implementation.hook}</span>
+                                        </div>
+                                        <div className={styles.detailRow}>
+                                            <span>Duration:</span>
+                                            <span>{suggestion.implementation.duration}</span>
+                                        </div>
+                                        <div className={styles.exampleBox}>
+                                            <strong>Example:</strong> {suggestion.implementation.example}
+                                        </div>
+                                        {suggestion.basedOn.length > 0 && (
+                                            <div className={styles.basedOnList}>
+                                                <strong>Why this works:</strong>
+                                                <ul>
+                                                    {suggestion.basedOn.slice(0, 3).map((reason, i) => (
+                                                        <li key={i}>{reason}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className={styles.emptyHint}>Import ads to see suggestions</div>
+                )}
+            </div>
+
+            {/* Portfolio Health Section */}
+            {portfolio && (
+                <div className={styles.aiSection}>
+                    <div className={styles.aiSectionTitle}>
+                        <span>📊</span> Portfolio Health
+                    </div>
+                    <div className={styles.healthGrid}>
+                        <div className={styles.healthStat}>
+                            <span className={styles.healthValue}>{portfolio.balanceScore}%</span>
+                            <span className={styles.healthLabel}>Balance</span>
+                        </div>
+                        <div className={styles.healthStat}>
+                            <span className={styles.healthValue}>{portfolio.totalAds}</span>
+                            <span className={styles.healthLabel}>Total Ads</span>
+                        </div>
+                        <div className={styles.healthStat}>
+                            <span className={styles.healthValue}>{portfolio.safeWildRatio.safe}/{portfolio.safeWildRatio.wild}</span>
+                            <span className={styles.healthLabel}>Safe/Wild</span>
+                        </div>
+                    </div>
+                    {portfolio.gaps.length > 0 && (
+                        <div className={styles.gapsWarning}>
+                            <strong>Missing:</strong> {portfolio.gaps.map(g => g.replace(/_/g, ' ')).join(', ')}
+                        </div>
+                    )}
+                    {portfolio.recommendations.length > 0 && (
+                        <div className={styles.recommendationsList}>
+                            {portfolio.recommendations.slice(0, 2).map((rec, i) => (
+                                <div key={i} className={styles.recommendationItem}>💡 {rec}</div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Winning Patterns Section */}
+            {topPatterns.length > 0 && (
+                <div className={styles.aiSection}>
+                    <div className={styles.aiSectionTitle}>
+                        <span>⚡</span> Winning Patterns
+                    </div>
+                    <div className={styles.patternsList}>
+                        {topPatterns.map((pattern, i) => (
+                            <div key={i} className={styles.patternItem}>
+                                <span className={styles.patternName}>
+                                    {pattern.feature.replace(/_/g, ' ').replace(/:/g, ': ')}
+                                </span>
+                                <span className={styles.patternSuccess} style={{
+                                    color: pattern.successRate >= 70 ? '#8BC53F' : '#F7931E'
+                                }}>
+                                    {pattern.successRate}%
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Avoidance Advice Section */}
+            {avoidance.length > 0 && (
+                <div className={styles.aiSection}>
+                    <div className={styles.aiSectionTitle}>
+                        <span>⚠️</span> Avoid These
+                    </div>
+                    <div className={styles.avoidanceList}>
+                        {avoidance.slice(0, 2).map((advice, i) => (
+                            <div key={i} className={styles.warningCard}>
+                                <div className={styles.warningHeader}>
+                                    <span className={styles.warningPattern}>{advice.pattern}</span>
+                                    <span className={styles.failureRate}>{advice.failureRate}% fail</span>
+                                </div>
+                                <div className={styles.warningReason}>{advice.reason}</div>
+                                {advice.examples.length > 0 && (
+                                    <div className={styles.fixSuggestions}>
+                                        <strong>Fix:</strong> {advice.examples.slice(0, 2).join(' • ')}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function StrategyTreePage() {
     const [ads, setAds] = useState<AdData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selected, setSelected] = useState<OrbNode | null>(null);
+    const [selected, setSelected] = useState<MindMapNode | null>(null);
+    const [hoveredNode, setHoveredNode] = useState<string | null>(null);
     const [showImportModal, setShowImportModal] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
     const { resolvedTheme } = useTheme();
@@ -348,12 +552,9 @@ export default function StrategyTreePage() {
 
     const handleImport = useCallback((newAds: AdData[]) => {
         const result = deduplicateAds(ads, newAds);
-
-        // Save to localStorage
         localStorage.setItem('ads', JSON.stringify(result.merged));
         setAds(result.merged);
 
-        // Show result toast
         if (result.duplicates > 0) {
             setToast({
                 message: `Added ${result.added} ad(s), skipped ${result.duplicates} duplicate(s)`,
@@ -374,14 +575,8 @@ export default function StrategyTreePage() {
         setZoom(z => Math.min(Math.max(z * delta, 0.3), 3));
     }, []);
 
-    const handleZoomIn = useCallback(() => {
-        setZoom(z => Math.min(z * 1.2, 3));
-    }, []);
-
-    const handleZoomOut = useCallback(() => {
-        setZoom(z => Math.max(z * 0.8, 0.3));
-    }, []);
-
+    const handleZoomIn = useCallback(() => setZoom(z => Math.min(z * 1.2, 3)), []);
+    const handleZoomOut = useCallback(() => setZoom(z => Math.max(z * 0.8, 0.3)), []);
     const handleResetView = useCallback(() => {
         setZoom(1);
         setPan({ x: 0, y: 0 });
@@ -389,7 +584,7 @@ export default function StrategyTreePage() {
 
     // Pan handlers
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        if (e.button !== 0) return; // Only left click
+        if (e.button !== 0) return;
         setIsPanning(true);
         setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     }, [pan]);
@@ -402,14 +597,12 @@ export default function StrategyTreePage() {
         });
     }, [isPanning, panStart]);
 
-    const handleMouseUp = useCallback(() => {
-        setIsPanning(false);
-    }, []);
+    const handleMouseUp = useCallback(() => setIsPanning(false), []);
 
     const nodes = useMemo(() => {
         if (ads.length === 0) return [];
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return createLayout(buildStrategyTree(ads as any));
+        return createMindMapLayout(buildStrategyTree(ads as any));
     }, [ads]);
 
     const portfolio = useMemo(() => {
@@ -424,9 +617,24 @@ export default function StrategyTreePage() {
         return generateSuggestions(ads as any);
     }, [ads]);
 
-    // Get connections
+    const patterns = useMemo(() => {
+        if (ads.length === 0) return [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return analyzeHistoricalPatterns(ads as any);
+    }, [ads]);
+
+    const avoidance = useMemo(() => {
+        if (ads.length === 0) return [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return getAvoidanceAdvice(ads as any);
+    }, [ads]);
+
+    // Panel tab state
+    const [activeTab, setActiveTab] = useState<'node' | 'ai'>('ai');
+
+    // Get connections between nodes
     const connections = useMemo(() => {
-        const conns: { from: OrbNode; to: OrbNode }[] = [];
+        const conns: { from: MindMapNode; to: MindMapNode }[] = [];
         nodes.forEach(n => {
             if (n.parentId) {
                 const parent = nodes.find(p => p.id === n.parentId);
@@ -436,12 +644,34 @@ export default function StrategyTreePage() {
         return conns;
     }, [nodes]);
 
+    // Generate curved path for organic connections
+    const generateCurvePath = (from: MindMapNode, to: MindMapNode): string => {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Start and end at circle edges
+        const startX = from.x + (dx / dist) * from.radius;
+        const startY = from.y + (dy / dist) * from.radius;
+        const endX = to.x - (dx / dist) * to.radius;
+        const endY = to.y - (dy / dist) * to.radius;
+
+        // Control point for organic curve
+        const midX = (startX + endX) / 2;
+        const midY = (startY + endY) / 2;
+        const curveFactor = 0.15;
+        const cx = midX + (-dy * curveFactor);
+        const cy = midY + (dx * curveFactor);
+
+        return `M ${startX} ${startY} Q ${cx} ${cy} ${endX} ${endY}`;
+    };
+
     if (loading) {
         return (
             <div className={styles.container} data-theme={resolvedTheme}>
                 <div className={styles.loading}>
                     <div className={styles.spinner} />
-                    <span>Loading...</span>
+                    <span>Loading Mind Map...</span>
                 </div>
             </div>
         );
@@ -451,8 +681,8 @@ export default function StrategyTreePage() {
         <div className={styles.container} data-theme={resolvedTheme}>
             <div className={styles.header}>
                 <h1 className={styles.title}>
-                    <span className={styles.titleIcon}>🌐</span>
-                    Strategy Network
+                    <span className={styles.titleIcon}>🧠</span>
+                    Strategy Mind Map
                 </h1>
                 <button
                     className={styles.importButton}
@@ -464,7 +694,7 @@ export default function StrategyTreePage() {
 
             <div className={styles.mainLayout}>
                 <div
-                    className={styles.networkContainer}
+                    className={styles.mindmapContainer}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
@@ -474,9 +704,9 @@ export default function StrategyTreePage() {
                 >
                     {ads.length === 0 ? (
                         <div className={styles.emptyState}>
-                            <div className={styles.emptyIcon}>🌐</div>
-                            <div className={styles.emptyTitle}>No Ads Yet</div>
-                            <div className={styles.emptyText}>Import ads to build your network</div>
+                            <div className={styles.emptyIcon}>🧠</div>
+                            <div className={styles.emptyTitle}>Build Your Mind Map</div>
+                            <div className={styles.emptyText}>Import your ad data to visualize strategy connections</div>
                             <button
                                 className={styles.importButtonLarge}
                                 onClick={() => setShowImportModal(true)}
@@ -496,143 +726,114 @@ export default function StrategyTreePage() {
 
                             <svg
                                 ref={svgRef}
-                                viewBox="0 0 900 600"
-                                className={styles.networkSvg}
+                                viewBox="0 0 1000 700"
+                                className={styles.mindmapSvg}
+                                preserveAspectRatio="xMidYMid meet"
                             >
-                                {/* Background gradient */}
+                                {/* Light gradient background */}
                                 <defs>
-                                    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
-                                        <stop offset="0%" stopColor="rgba(99, 102, 241, 0.15)" />
+                                    <radialGradient id="bgGradient" cx="50%" cy="50%" r="60%">
+                                        <stop offset="0%" stopColor="rgba(255, 255, 255, 0.08)" />
                                         <stop offset="100%" stopColor="transparent" />
                                     </radialGradient>
-                                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                                        <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+
+                                    {/* Glow filters for nodes */}
+                                    <filter id="nodeGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                        <feGaussianBlur stdDeviation="3" result="blur" />
                                         <feMerge>
-                                            <feMergeNode in="coloredBlur" />
+                                            <feMergeNode in="blur" />
                                             <feMergeNode in="SourceGraphic" />
                                         </feMerge>
                                     </filter>
-                                    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-                                        <feGaussianBlur stdDeviation="8" result="blur" />
-                                        <feComposite in="blur" in2="SourceGraphic" operator="over" />
+
+                                    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+                                        <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3" />
                                     </filter>
                                 </defs>
 
-                                {/* Background circle glow */}
-                                <circle cx="450" cy="300" r="280" fill="url(#bgGlow)" />
+                                {/* Subtle background circle */}
+                                <circle cx="500" cy="350" r="320" fill="url(#bgGradient)" />
 
-                                {/* Pan/Zoom transform group */}
-                                <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`} style={{ transformOrigin: '450px 300px' }}>
-                                    {/* Animated connection lines */}
-                                    <g>
-                                        {connections.map((c, i) => {
-                                            const dx = c.to.x - c.from.x;
-                                            const dy = c.to.y - c.from.y;
-                                            const d = Math.sqrt(dx * dx + dy * dy);
-                                            const sx = c.from.x + (dx / d) * c.from.radius;
-                                            const sy = c.from.y + (dy / d) * c.from.radius;
-                                            const ex = c.to.x - (dx / d) * c.to.radius;
-                                            const ey = c.to.y - (dy / d) * c.to.radius;
-                                            const mx = (sx + ex) / 2 + (-dy * 0.2);
-                                            const my = (sy + ey) / 2 + (dx * 0.2);
+                                {/* Transform group for pan/zoom */}
+                                <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`} style={{ transformOrigin: '500px 350px' }}>
 
-                                            return (
-                                                <path
-                                                    key={i}
-                                                    d={`M ${sx} ${sy} Q ${mx} ${my} ${ex} ${ey}`}
-                                                    fill="none"
-                                                    stroke={`url(#grad-${i % 7})`}
-                                                    strokeWidth={c.from.type === 'center' ? 3 : 2}
-                                                    opacity={0.7}
-                                                    className={styles.connectionLine}
-                                                />
-                                            );
-                                        })}
+                                    {/* Connection lines - organic curves */}
+                                    <g className={styles.connectionsGroup}>
+                                        {connections.map((conn, i) => (
+                                            <path
+                                                key={`conn-${i}`}
+                                                d={generateCurvePath(conn.from, conn.to)}
+                                                fill="none"
+                                                stroke={conn.to.color}
+                                                strokeWidth={conn.from.type === 'center' ? 4 : conn.to.type === 'leaf' ? 2 : 3}
+                                                strokeLinecap="round"
+                                                opacity={hoveredNode === conn.to.id || hoveredNode === conn.from.id ? 1 : 0.7}
+                                                className={styles.connectionLine}
+                                            />
+                                        ))}
                                     </g>
 
-                                    {/* Gradient definitions for connections */}
-                                    <defs>
-                                        {COLORS.map((color, i) => (
-                                            <linearGradient key={i} id={`grad-${i}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                                                <stop offset="0%" stopColor={color} stopOpacity="0.8" />
-                                                <stop offset="100%" stopColor={color} stopOpacity="0.3" />
-                                            </linearGradient>
-                                        ))}
-                                    </defs>
+                                    {/* Nodes */}
+                                    <g className={styles.nodesGroup}>
+                                        {nodes.map(node => {
+                                            const isHovered = hoveredNode === node.id;
+                                            const isSelected = selected?.id === node.id;
+                                            const scale = isHovered ? 1.1 : 1;
 
-                                    {/* Enhanced Nodes with glow */}
-                                    <g>
-                                        {nodes.map(n => (
-                                            <g
-                                                key={n.id}
-                                                onClick={(e) => { e.stopPropagation(); setSelected(n); }}
-                                                style={{ cursor: 'pointer' }}
-                                                className={styles.nodeGroup}
-                                            >
-                                                {/* Outer glow ring */}
-                                                <circle
-                                                    cx={n.x} cy={n.y} r={n.radius + 8}
-                                                    fill="none"
-                                                    stroke={n.color}
-                                                    strokeWidth="2"
-                                                    opacity={selected?.id === n.id ? 0.6 : 0.15}
-                                                    className={styles.glowRing}
-                                                />
-                                                {/* Main circle with gradient */}
-                                                <circle
-                                                    cx={n.x} cy={n.y} r={n.radius}
-                                                    fill={n.color}
-                                                    stroke={selected?.id === n.id ? '#fff' : 'rgba(255,255,255,0.3)'}
-                                                    strokeWidth={selected?.id === n.id ? 3 : 1}
-                                                    filter={n.type === 'center' ? 'url(#glow)' : undefined}
-                                                    className={styles.nodeCircle}
-                                                />
-                                                {/* Shine/highlight */}
-                                                <circle
-                                                    cx={n.x - n.radius * 0.25}
-                                                    cy={n.y - n.radius * 0.25}
-                                                    r={n.radius * 0.3}
-                                                    fill="rgba(255,255,255,0.25)"
-                                                />
-                                                {/* Label */}
-                                                {n.type !== 'leaf' && (
-                                                    <text
-                                                        x={n.x} y={n.y}
-                                                        textAnchor="middle"
-                                                        dominantBaseline="middle"
-                                                        fontSize={n.type === 'center' ? 14 : 10}
-                                                        fontWeight="700"
-                                                        fill="#fff"
-                                                        style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
-                                                    >
-                                                        {n.label}
-                                                    </text>
-                                                )}
-                                                {/* Score badge */}
-                                                {n.type !== 'center' && n.type !== 'leaf' && (
-                                                    <g>
-                                                        <circle
-                                                            cx={n.x + n.radius * 0.7}
-                                                            cy={n.y - n.radius * 0.7}
-                                                            r={11}
-                                                            fill="#111"
-                                                            stroke={n.color}
-                                                            strokeWidth="2"
-                                                        />
+                                            return (
+                                                <g
+                                                    key={node.id}
+                                                    className={styles.nodeGroup}
+                                                    onClick={(e) => { e.stopPropagation(); setSelected(node); }}
+                                                    onMouseEnter={() => setHoveredNode(node.id)}
+                                                    onMouseLeave={() => setHoveredNode(null)}
+                                                    style={{ cursor: 'pointer' }}
+                                                >
+                                                    {/* Main bubble */}
+                                                    <circle
+                                                        cx={node.x}
+                                                        cy={node.y}
+                                                        r={node.radius * scale}
+                                                        fill={node.color}
+                                                        filter={isHovered || isSelected ? 'url(#nodeGlow)' : 'url(#dropShadow)'}
+                                                        stroke={isSelected ? '#fff' : 'none'}
+                                                        strokeWidth={isSelected ? 3 : 0}
+                                                        className={styles.nodeBubble}
+                                                    />
+
+                                                    {/* Highlight/shine effect */}
+                                                    <ellipse
+                                                        cx={node.x - node.radius * 0.25}
+                                                        cy={node.y - node.radius * 0.25}
+                                                        rx={node.radius * 0.35}
+                                                        ry={node.radius * 0.25}
+                                                        fill="rgba(255, 255, 255, 0.25)"
+                                                        className={styles.nodeShine}
+                                                    />
+
+                                                    {/* Label text */}
+                                                    {(node.type !== 'leaf' || node.label) && (
                                                         <text
-                                                            x={n.x + n.radius * 0.7}
-                                                            y={n.y - n.radius * 0.7 + 4}
+                                                            x={node.x}
+                                                            y={node.y}
                                                             textAnchor="middle"
-                                                            fontSize="8"
-                                                            fontWeight="bold"
+                                                            dominantBaseline="middle"
                                                             fill="#fff"
+                                                            fontSize={
+                                                                node.type === 'center' ? 12 :
+                                                                    node.type === 'branch' ? 9 :
+                                                                        node.type === 'subbranch' ? 7 : 6
+                                                            }
+                                                            fontWeight="700"
+                                                            fontFamily="Arial, sans-serif"
+                                                            className={styles.nodeLabel}
                                                         >
-                                                            {n.score}
+                                                            {node.label}
                                                         </text>
-                                                    </g>
-                                                )}
-                                            </g>
-                                        ))}
+                                                    )}
+                                                </g>
+                                            );
+                                        })}
                                     </g>
                                 </g>
                             </svg>
@@ -640,54 +841,63 @@ export default function StrategyTreePage() {
                     )}
                 </div>
 
+                {/* Details Panel */}
                 <div className={styles.detailsPanel}>
-                    {selected ? (
+                    {/* Panel Tabs */}
+                    <div className={styles.panelTabs}>
+                        <button
+                            className={`${styles.tabButton} ${activeTab === 'ai' ? styles.activeTab : ''}`}
+                            onClick={() => { setActiveTab('ai'); setSelected(null); }}
+                        >
+                            🤖 AI Insights
+                        </button>
+                        <button
+                            className={`${styles.tabButton} ${activeTab === 'node' ? styles.activeTab : ''}`}
+                            onClick={() => setActiveTab('node')}
+                        >
+                            📍 Node Info
+                        </button>
+                    </div>
+
+                    {activeTab === 'ai' ? (
+                        <AISuggestionsPanel
+                            suggestions={suggestions}
+                            portfolio={portfolio}
+                            patterns={patterns}
+                            avoidance={avoidance}
+                        />
+                    ) : selected ? (
                         <>
                             <div className={styles.panelHeader}>
                                 <div className={styles.nodeColorDot} style={{ backgroundColor: selected.color }} />
-                                <div className={styles.panelTitle}>{selected.label || 'Ad'}</div>
+                                <div className={styles.panelTitle}>{selected.label || 'Item'}</div>
                             </div>
-                            <div className={styles.scoreDisplay}>
-                                <span className={styles.scoreValue} style={{ color: selected.color }}>
-                                    {selected.score}%
-                                </span>
-                                <span className={styles.scoreLabel}>
-                                    {selected.score >= 80 ? 'EXCELLENT' : selected.score >= 65 ? 'GOOD' : selected.score >= 50 ? 'NEUTRAL' : 'NEEDS WORK'}
-                                </span>
+                            <div className={styles.nodeTypeTag} style={{ backgroundColor: `${selected.color}20`, color: selected.color }}>
+                                {selected.type.toUpperCase()}
                             </div>
-                            {selected.adsCount && (
+                            {selected.score !== undefined && (
+                                <div className={styles.scoreDisplay}>
+                                    <span className={styles.scoreValue} style={{ color: selected.color }}>
+                                        {selected.score}%
+                                    </span>
+                                    <span className={styles.scoreLabel}>
+                                        {selected.score >= 80 ? 'EXCELLENT' : selected.score >= 65 ? 'GOOD' : selected.score >= 50 ? 'NEUTRAL' : 'NEEDS WORK'}
+                                    </span>
+                                </div>
+                            )}
+                            {selected.adsCount !== undefined && selected.adsCount > 0 && (
                                 <div className={styles.statRow}>
-                                    <span>Ads</span>
+                                    <span>Connected Ads</span>
                                     <span>{selected.adsCount}</span>
                                 </div>
                             )}
                         </>
                     ) : (
-                        <>
-                            <div className={styles.panelTitle}>📊 Select a Node</div>
-                            <p className={styles.panelHint}>Click any node to view details</p>
-                            {portfolio && (
-                                <div className={styles.portfolioPreview}>
-                                    <div className={styles.statRow}>
-                                        <span>Total Ads</span>
-                                        <span>{portfolio.totalAds}</span>
-                                    </div>
-                                    <div className={styles.statRow}>
-                                        <span>Balance</span>
-                                        <span>{portfolio.balanceScore}%</span>
-                                    </div>
-                                </div>
-                            )}
-                            {suggestions.length > 0 && (
-                                <div className={styles.suggestionBox}>
-                                    <div className={styles.insightTitle}>💡 Suggestion</div>
-                                    <div className={styles.suggestionName}>{suggestions[0].title}</div>
-                                    <div className={styles.suggestionScore}>
-                                        Predicted: {suggestions[0].predictedScore}%
-                                    </div>
-                                </div>
-                            )}
-                        </>
+                        <div className={styles.nodeSelectHint}>
+                            <div className={styles.hintIcon}>📍</div>
+                            <div className={styles.panelTitle}>Select a Node</div>
+                            <p className={styles.panelHint}>Click any bubble on the map to view its details</p>
+                        </div>
                     )}
                 </div>
             </div>

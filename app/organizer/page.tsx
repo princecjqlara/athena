@@ -131,7 +131,7 @@ export default function OrganizerDashboard() {
     }>>([]);
     const [showAddTrait, setShowAddTrait] = useState(false);
     const [newTrait, setNewTrait] = useState({ traitName: '', traitCategory: 'Custom', definition: '', businessType: '' });
-    
+
     // Bulk import state
     const [showBulkImport, setShowBulkImport] = useState(false);
     const [bulkTraitsJson, setBulkTraitsJson] = useState('');
@@ -567,7 +567,7 @@ export default function OrganizerDashboard() {
             }
 
             setBulkImportResult(result);
-            
+
             // Refresh traits list
             fetchLearnedTraits();
 
@@ -985,12 +985,14 @@ export default function OrganizerDashboard() {
                 <button
                     className={`tab ${activeTab === 'traits' ? 'active' : ''}`}
                     onClick={() => setActiveTab('traits')}
+                    style={{ display: 'none' }}
                 >
                     🧬 Traits
                 </button>
                 <button
                     className={`tab ${activeTab === 'ai-traits' ? 'active' : ''}`}
                     onClick={() => setActiveTab('ai-traits')}
+                    style={{ display: 'none' }}
                 >
                     🤖 AI Traits
                 </button>
@@ -1423,7 +1425,7 @@ export default function OrganizerDashboard() {
                                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
                                     Paste JSON data containing traits. AI will automatically detect and merge duplicates.
                                 </p>
-                                
+
                                 <div style={{ marginBottom: '12px' }}>
                                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.9rem' }}>JSON Data</label>
                                     <textarea
@@ -1438,11 +1440,11 @@ export default function OrganizerDashboard() {
 Or single object:
 { "trait_name": "fastCuts", "definition": "Quick editing transitions" }`}
                                         rows={8}
-                                        style={{ 
-                                            width: '100%', 
-                                            padding: '12px', 
-                                            borderRadius: '8px', 
-                                            border: '1px solid var(--border)', 
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border)',
                                             background: 'var(--bg-tertiary)',
                                             fontFamily: 'monospace',
                                             fontSize: '0.85rem'
@@ -1452,9 +1454,9 @@ Or single object:
 
                                 {/* Import Result */}
                                 {bulkImportResult && (
-                                    <div style={{ 
-                                        padding: '12px', 
-                                        borderRadius: '8px', 
+                                    <div style={{
+                                        padding: '12px',
+                                        borderRadius: '8px',
                                         marginBottom: '12px',
                                         background: bulkImportResult.errors.length > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
                                         border: `1px solid ${bulkImportResult.errors.length > 0 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`
@@ -1477,16 +1479,16 @@ Or single object:
                                     </div>
                                 )}
 
-                                <button 
-                                    onClick={bulkImportTraits} 
+                                <button
+                                    onClick={bulkImportTraits}
                                     disabled={isBulkImporting || !bulkTraitsJson.trim()}
-                                    style={{ 
-                                        padding: '12px 24px', 
-                                        background: isBulkImporting ? 'var(--text-muted)' : 'var(--success)', 
-                                        border: 'none', 
-                                        borderRadius: '8px', 
-                                        cursor: isBulkImporting ? 'not-allowed' : 'pointer', 
-                                        color: 'white', 
+                                    style={{
+                                        padding: '12px 24px',
+                                        background: isBulkImporting ? 'var(--text-muted)' : 'var(--success)',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: isBulkImporting ? 'not-allowed' : 'pointer',
+                                        color: 'white',
                                         fontWeight: 600,
                                         display: 'flex',
                                         alignItems: 'center',
