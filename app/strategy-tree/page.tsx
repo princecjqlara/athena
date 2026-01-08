@@ -255,46 +255,84 @@ function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
         try {
             const data = JSON.parse(cleanText);
             return { data: Array.isArray(data) ? data : [data], warnings };
-        } catch (e) {
+        } catch {
             // Continue with fixes
         }
 
         // Fix 1: Try removing trailing commas
-        cleanText = cleanText.replace(/,(\s*[}\]])/g, '$1');
+        let fixedText = cleanText.replace(/,(\s*[}\]])/g, '$1');
         try {
-            const data = JSON.parse(cleanText);
+            const data = JSON.parse(fixedText);
             warnings.push('Fixed trailing commas');
             return { data: Array.isArray(data) ? data : [data], warnings };
-        } catch (e) {
+        } catch {
             // Continue
         }
 
-        // Fix 2: Try wrapping single object in array
+        // Fix 2: Handle multiple objects without array (}{  or }\n{ patterns)
+        // This fixes "Unexpected non-whitespace character after JSON" errors
+        fixedText = cleanText.replace(/\}\s*\{/g, '},{');
+        if (!fixedText.startsWith('[')) {
+            fixedText = `[${fixedText}]`;
+        }
+        try {
+            const data = JSON.parse(fixedText);
+            warnings.push('Fixed multiple objects without array wrapper');
+            return { data: Array.isArray(data) ? data : [data], warnings };
+        } catch {
+            // Continue
+        }
+
+        // Fix 3: Try wrapping single object in array
         if (!cleanText.startsWith('[')) {
             try {
                 const data = JSON.parse(`[${cleanText}]`);
                 warnings.push('Wrapped object in array');
                 return { data, warnings };
-            } catch (e) {
+            } catch {
                 // Continue
             }
         }
 
-        // Fix 3: Try extracting any valid JSON objects from text
-        const objectMatches = cleanText.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
-        if (objectMatches && objectMatches.length > 0) {
-            const validObjects: unknown[] = [];
-            for (const match of objectMatches) {
-                try {
-                    validObjects.push(JSON.parse(match));
-                } catch {
-                    // Skip invalid object
+        // Fix 4: Handle newline-separated JSON objects
+        const lines = cleanText.split(/\n/).filter(l => l.trim());
+        const lineObjects: unknown[] = [];
+        for (const line of lines) {
+            try {
+                lineObjects.push(JSON.parse(line.trim()));
+            } catch {
+                // Skip invalid lines
+            }
+        }
+        if (lineObjects.length > 0) {
+            warnings.push(`Parsed ${lineObjects.length} line-separated JSON objects`);
+            return { data: lineObjects, warnings };
+        }
+
+        // Fix 5: Try extracting any valid JSON objects from text using balanced brace matching
+        const extractedObjects: unknown[] = [];
+        let depth = 0;
+        let start = -1;
+        for (let i = 0; i < cleanText.length; i++) {
+            if (cleanText[i] === '{') {
+                if (depth === 0) start = i;
+                depth++;
+            } else if (cleanText[i] === '}') {
+                depth--;
+                if (depth === 0 && start !== -1) {
+                    const objectStr = cleanText.substring(start, i + 1);
+                    try {
+                        extractedObjects.push(JSON.parse(objectStr));
+                    } catch {
+                        // Skip invalid object
+                    }
+                    start = -1;
                 }
             }
-            if (validObjects.length > 0) {
-                warnings.push(`Extracted ${validObjects.length} valid objects from malformed JSON`);
-                return { data: validObjects, warnings };
-            }
+        }
+        if (extractedObjects.length > 0) {
+            warnings.push(`Extracted ${extractedObjects.length} valid objects from text`);
+            return { data: extractedObjects, warnings };
         }
 
         throw new Error('Could not parse JSON even with lenient parsing');
