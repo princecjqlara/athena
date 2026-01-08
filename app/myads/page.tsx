@@ -1411,27 +1411,47 @@ export default function MyAdsPage() {
                                                 }));
                                                 const { uniqueAds } = detectDuplicates(data, existingAds);
 
-                                                // Convert to Ad format and add
+                                                // Convert to Ad format and add (matching full Ad shape)
                                                 const newAds: Ad[] = uniqueAds.map((ad, i) => ({
-                                                    id: `imported-${Date.now()}-${i}`,
+                                                    id: `json-import-${Date.now()}-${i}`,
                                                     name: ad.name,
-                                                    platform: ad.platform,
+                                                    platform: ad.platform || 'facebook',
                                                     hook_type: ad.hookType,
-                                                    categories: ad.categories,
-                                                    traits: ad.traits,
+                                                    categories: ad.categories || [],
+                                                    traits: ad.traits || [],
+                                                    // Import metadata
+                                                    importedAt: new Date().toISOString(),
+                                                    importedFromFacebook: false,
+                                                    // Status fields
+                                                    status: 'active' as const,
+                                                    userStatus: 'active' as const,
+                                                    hasResults: false,
+                                                    successScore: undefined,
+                                                    // Media info
+                                                    mediaType: 'video' as const,
+                                                    // Campaign/AdSet info (optional objects)
+                                                    campaign: undefined,
+                                                    adset: undefined,
+                                                    // Extracted content
                                                     extractedContent: {
                                                         title: ad.name,
-                                                        platform: ad.platform,
+                                                        platform: ad.platform || 'facebook',
                                                         hookType: ad.hookType,
                                                         contentCategory: ad.contentCategory,
+                                                        mediaType: 'video',
                                                     },
+                                                    // adInsights matching interface
                                                     adInsights: {
                                                         impressions: ad.impressions,
                                                         clicks: ad.clicks,
                                                         spend: ad.spend,
                                                         ctr: ad.ctr,
+                                                        reach: undefined,
+                                                        cpc: undefined,
+                                                        cpm: undefined,
+                                                        leads: undefined,
+                                                        purchases: undefined,
                                                     },
-                                                    uploadDate: new Date().toISOString(),
                                                 }));
 
                                                 // Add to state and localStorage
