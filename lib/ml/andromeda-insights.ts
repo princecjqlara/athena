@@ -314,8 +314,14 @@ export function generateWinningInsight(
         confidenceLevel = 'medium';
     }
 
+    // Guard: skip ads without a valid id
+    const adId = ad.id ?? ad.facebookAdId ?? ad.adId;
+    if (!adId || typeof adId !== 'string') {
+        return null;
+    }
+
     return {
-        adId: ad.id as string,
+        adId,
         score,
         winningTraits: traits.map(t => t.replace(/_/g, ' ').replace(/:/g, ': ')),
         creativeType,
