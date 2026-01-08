@@ -30,6 +30,51 @@ export interface AdJsonData {
     impressions?: number;
     clicks?: number;
     conversions?: number;
+    // Video analysis data (optional - for dense multimodal annotations)
+    videoAnalysis?: {
+        duration_ms?: number;
+        fps?: number;
+        shots?: Array<{
+            shot_id: string;
+            start_ms: number;
+            end_ms: number;
+            shot_type?: string;
+            camera_motion?: string;
+            transition_in?: string;
+            transition_out?: string;
+            scene_description?: string;
+            [key: string]: unknown; // Allow custom fields
+        }>;
+        audio_segments?: Array<{
+            start_ms: number;
+            end_ms: number;
+            type: string;
+            speaker_id?: string;
+            [key: string]: unknown;
+        }>;
+        on_screen_text?: Array<{
+            start_ms: number;
+            end_ms: number;
+            text: string;
+            purpose?: string;
+            [key: string]: unknown;
+        }>;
+        object_tracks?: Array<{
+            object_id: string;
+            category: string;
+            start_ms: number;
+            end_ms: number;
+            [key: string]: unknown;
+        }>;
+        timeline_events?: Array<{
+            t_ms: number;
+            event_type: string;
+            [key: string]: unknown;
+        }>;
+        [key: string]: unknown; // Allow any additional analysis layers
+    };
+    // Allow any custom fields
+    [key: string]: unknown;
 }
 
 export interface ValidationResult {
@@ -130,13 +175,14 @@ function validateAdItem(item: unknown, index: number): string[] {
         errors.push(`${prefix}: Missing or invalid 'name' field`);
     }
 
-    // Optional validations
-    if (ad.platform && !VALID_PLATFORMS.includes(String(ad.platform).toLowerCase())) {
-        errors.push(`${prefix}: Invalid platform '${ad.platform}'`);
+    // Optional type validations (allow any string values for flexibility)
+    // Platform and hookType can be custom - no strict validation
+    if (ad.platform && typeof ad.platform !== 'string') {
+        errors.push(`${prefix}: 'platform' must be a string`);
     }
 
-    if (ad.hookType && !VALID_HOOK_TYPES.includes(String(ad.hookType).toLowerCase())) {
-        errors.push(`${prefix}: Invalid hookType '${ad.hookType}'`);
+    if (ad.hookType && typeof ad.hookType !== 'string') {
+        errors.push(`${prefix}: 'hookType' must be a string`);
     }
 
     if (ad.categories && !Array.isArray(ad.categories)) {
@@ -158,14 +204,15 @@ function validateAdItem(item: unknown, index: number): string[] {
 }
 
 /**
- * Normalize ad data to consistent format
+ * Normalize ad data to consistent format, preserving all custom fields
  */
 function normalizeAdData(item: Record<string, unknown>): AdJsonData {
-    return {
+    // Extract known fields
+    const normalized: AdJsonData = {
         name: String(item.name).trim(),
         platform: item.platform ? String(item.platform).toLowerCase() : undefined,
-        hookType: item.hookType ? String(item.hookType).toLowerCase() : undefined,
-        editingStyle: item.editingStyle ? String(item.editingStyle).toLowerCase() : undefined,
+        hookType: item.hookType ? String(item.hookType) : undefined,
+        editingStyle: item.editingStyle ? String(item.editingStyle) : undefined,
         contentCategory: item.contentCategory ? String(item.contentCategory) : undefined,
         categories: Array.isArray(item.categories) ? item.categories.map(String) : [],
         traits: Array.isArray(item.traits) ? item.traits.map(String) : [],
@@ -177,6 +224,26 @@ function normalizeAdData(item: Record<string, unknown>): AdJsonData {
         clicks: typeof item.clicks === 'number' ? item.clicks : undefined,
         conversions: typeof item.conversions === 'number' ? item.conversions : undefined,
     };
+
+    // Pass through videoAnalysis if present
+    if (item.videoAnalysis && typeof item.videoAnalysis === 'object') {
+        normalized.videoAnalysis = item.videoAnalysis as AdJsonData['videoAnalysis'];
+    }
+
+    // Pass through any other custom fields
+    const knownFields = new Set([
+        'name', 'platform', 'hookType', 'editingStyle', 'contentCategory',
+        'categories', 'traits', 'ctr', 'cvr', 'roas', 'spend', 'impressions',
+        'clicks', 'conversions', 'videoAnalysis'
+    ]);
+
+    for (const [key, value] of Object.entries(item)) {
+        if (!knownFields.has(key) && value !== undefined) {
+            normalized[key] = value;
+        }
+    }
+
+    return normalized;
 }
 
 // ============================================

@@ -68,6 +68,19 @@ interface Ad {
     impressions?: number;
     spend?: number;
     hasResults?: boolean;
+    // Video analysis data (from dense multimodal annotations)
+    videoAnalysis?: {
+        duration_ms?: number;
+        fps?: number;
+        shots?: unknown[];
+        audio_segments?: unknown[];
+        on_screen_text?: unknown[];
+        object_tracks?: unknown[];
+        timeline_events?: unknown[];
+        [key: string]: unknown;
+    };
+    // Custom user-defined fields
+    customData?: Record<string, unknown>;
     // AI Prediction fields
     predictedScore?: number;
     predictionDetails?: {
@@ -1449,6 +1462,8 @@ export default function MyAdsPage() {
                                                         leads: undefined,
                                                         purchases: undefined,
                                                     },
+                                                    // Video analysis data (if provided)
+                                                    videoAnalysis: ad.videoAnalysis,
                                                 }));
 
                                                 // Add to state and localStorage
