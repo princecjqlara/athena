@@ -5,6 +5,7 @@ import styles from './page.module.css';
 import { useTheme } from '@/components/ThemeProvider';
 import { buildStrategyTree } from '@/lib/ml/creative-strategy';
 import { generateSuggestions, analyzePortfolio, getAvoidanceAdvice, analyzeHistoricalPatterns, CreativeSuggestion, PortfolioAnalysis, AvoidanceAdvice, HistoricalPattern } from '@/lib/ml/creative-suggestions';
+import { analyzeWinningAds, WinningInsight } from '@/lib/ml/andromeda-insights';
 
 // Types
 interface MindMapNode {
@@ -42,6 +43,31 @@ const BRANCH_COLORS = {
 };
 
 const COLOR_ARRAY = Object.values(BRANCH_COLORS);
+
+// Performance-based color calculation
+// Green = good performance (70+), Yellow/Orange = medium (40-70), Red = poor (<40)
+function getPerformanceColor(score: number | undefined): string {
+    if (score === undefined) return '#64748b'; // Gray for no data
+    if (score >= 75) return '#22c55e'; // Bright green - excellent
+    if (score >= 60) return '#84cc16'; // Lime - good
+    if (score >= 45) return '#eab308'; // Yellow - average
+    if (score >= 30) return '#f97316'; // Orange - below average
+    return '#ef4444'; // Red - poor
+}
+
+// Get gradient ID based on branch color
+function getGradientId(color: string): string {
+    const colorMap: Record<string, string> = {
+        '#E91E8C': 'url(#grad-pink)',
+        '#8BC53F': 'url(#grad-green)',
+        '#00A0E3': 'url(#grad-blue)',
+        '#F7931E': 'url(#grad-orange)',
+        '#ED1C24': 'url(#grad-red)',
+        '#00BCD4': 'url(#grad-teal)',
+        '#9C27B0': 'url(#grad-purple)',
+    };
+    return colorMap[color] || color;
+}
 
 // Deduplication utilities
 function generateAdHash(ad: AdData): string {
@@ -629,6 +655,20 @@ export default function StrategyTreePage() {
         return getAvoidanceAdvice(ads as any);
     }, [ads]);
 
+    // Analyze winning ads for "Why It Worked" insights
+    const winningInsights = useMemo(() => {
+        if (ads.length === 0) return [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return analyzeWinningAds(ads as any, 70);
+    }, [ads]);
+
+    // Create a map of insights by ad ID for quick lookup
+    const insightsMap = useMemo(() => {
+        const map = new Map<string, WinningInsight>();
+        winningInsights.forEach(insight => map.set(insight.adId, insight));
+        return map;
+    }, [winningInsights]);
+
     // Panel tab state
     const [activeTab, setActiveTab] = useState<'node' | 'ai'>('ai');
 
@@ -749,6 +789,53 @@ export default function StrategyTreePage() {
                                     <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
                                         <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3" />
                                     </filter>
+
+                                    {/* Connection line glow filter */}
+                                    <filter id="lineGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                        <feGaussianBlur stdDeviation="2" result="glow" />
+                                        <feMerge>
+                                            <feMergeNode in="glow" />
+                                            <feMergeNode in="glow" />
+                                            <feMergeNode in="SourceGraphic" />
+                                        </feMerge>
+                                    </filter>
+
+                                    {/* Gradient definitions for each branch color */}
+                                    <linearGradient id="grad-pink" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#E91E8C" stopOpacity="0.4" />
+                                        <stop offset="50%" stopColor="#E91E8C" stopOpacity="1" />
+                                        <stop offset="100%" stopColor="#FF69B4" stopOpacity="0.6" />
+                                    </linearGradient>
+                                    <linearGradient id="grad-green" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#8BC53F" stopOpacity="0.4" />
+                                        <stop offset="50%" stopColor="#8BC53F" stopOpacity="1" />
+                                        <stop offset="100%" stopColor="#A8E063" stopOpacity="0.6" />
+                                    </linearGradient>
+                                    <linearGradient id="grad-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#00A0E3" stopOpacity="0.4" />
+                                        <stop offset="50%" stopColor="#00A0E3" stopOpacity="1" />
+                                        <stop offset="100%" stopColor="#00D4FF" stopOpacity="0.6" />
+                                    </linearGradient>
+                                    <linearGradient id="grad-orange" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#F7931E" stopOpacity="0.4" />
+                                        <stop offset="50%" stopColor="#F7931E" stopOpacity="1" />
+                                        <stop offset="100%" stopColor="#FFB347" stopOpacity="0.6" />
+                                    </linearGradient>
+                                    <linearGradient id="grad-red" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#ED1C24" stopOpacity="0.4" />
+                                        <stop offset="50%" stopColor="#ED1C24" stopOpacity="1" />
+                                        <stop offset="100%" stopColor="#FF6B6B" stopOpacity="0.6" />
+                                    </linearGradient>
+                                    <linearGradient id="grad-teal" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#00BCD4" stopOpacity="0.4" />
+                                        <stop offset="50%" stopColor="#00BCD4" stopOpacity="1" />
+                                        <stop offset="100%" stopColor="#4DD0E1" stopOpacity="0.6" />
+                                    </linearGradient>
+                                    <linearGradient id="grad-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#9C27B0" stopOpacity="0.4" />
+                                        <stop offset="50%" stopColor="#9C27B0" stopOpacity="1" />
+                                        <stop offset="100%" stopColor="#CE93D8" stopOpacity="0.6" />
+                                    </linearGradient>
                                 </defs>
 
                                 {/* Subtle background circle */}
@@ -757,20 +844,38 @@ export default function StrategyTreePage() {
                                 {/* Transform group for pan/zoom */}
                                 <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`} style={{ transformOrigin: '500px 350px' }}>
 
-                                    {/* Connection lines - organic curves */}
+                                    {/* Connection lines - organic curves with gradients */}
                                     <g className={styles.connectionsGroup}>
-                                        {connections.map((conn, i) => (
-                                            <path
-                                                key={`conn-${i}`}
-                                                d={generateCurvePath(conn.from, conn.to)}
-                                                fill="none"
-                                                stroke={conn.to.color}
-                                                strokeWidth={conn.from.type === 'center' ? 4 : conn.to.type === 'leaf' ? 2 : 3}
-                                                strokeLinecap="round"
-                                                opacity={hoveredNode === conn.to.id || hoveredNode === conn.from.id ? 1 : 0.7}
-                                                className={styles.connectionLine}
-                                            />
-                                        ))}
+                                        {connections.map((conn, i) => {
+                                            const isHighlighted = hoveredNode === conn.to.id || hoveredNode === conn.from.id;
+                                            const strokeWidth = conn.from.type === 'center' ? 5 : conn.to.type === 'leaf' ? 2.5 : 3.5;
+
+                                            return (
+                                                <g key={`conn-${i}`}>
+                                                    {/* Glow layer (behind) */}
+                                                    <path
+                                                        d={generateCurvePath(conn.from, conn.to)}
+                                                        fill="none"
+                                                        stroke={conn.to.color}
+                                                        strokeWidth={strokeWidth + 4}
+                                                        strokeLinecap="round"
+                                                        opacity={isHighlighted ? 0.4 : 0.15}
+                                                        className={styles.connectionGlow}
+                                                    />
+                                                    {/* Main line */}
+                                                    <path
+                                                        d={generateCurvePath(conn.from, conn.to)}
+                                                        fill="none"
+                                                        stroke={getGradientId(conn.to.color)}
+                                                        strokeWidth={strokeWidth}
+                                                        strokeLinecap="round"
+                                                        opacity={isHighlighted ? 1 : 0.85}
+                                                        className={styles.connectionLine}
+                                                        filter={isHighlighted ? 'url(#lineGlow)' : undefined}
+                                                    />
+                                                </g>
+                                            );
+                                        })}
                                     </g>
 
                                     {/* Nodes */}
@@ -779,6 +884,10 @@ export default function StrategyTreePage() {
                                             const isHovered = hoveredNode === node.id;
                                             const isSelected = selected?.id === node.id;
                                             const scale = isHovered ? 1.1 : 1;
+                                            // Use performance color for leaf nodes, branch color for others
+                                            const nodeColor = node.type === 'leaf' || node.type === 'subbranch'
+                                                ? getPerformanceColor(node.score)
+                                                : node.color;
 
                                             return (
                                                 <g
@@ -789,12 +898,25 @@ export default function StrategyTreePage() {
                                                     onMouseLeave={() => setHoveredNode(null)}
                                                     style={{ cursor: 'pointer' }}
                                                 >
+                                                    {/* Performance ring for nodes with scores */}
+                                                    {node.score !== undefined && node.type !== 'center' && (
+                                                        <circle
+                                                            cx={node.x}
+                                                            cy={node.y}
+                                                            r={node.radius * scale + 4}
+                                                            fill="none"
+                                                            stroke={getPerformanceColor(node.score)}
+                                                            strokeWidth={2}
+                                                            opacity={0.6}
+                                                            className={styles.performanceRing}
+                                                        />
+                                                    )}
                                                     {/* Main bubble */}
                                                     <circle
                                                         cx={node.x}
                                                         cy={node.y}
                                                         r={node.radius * scale}
-                                                        fill={node.color}
+                                                        fill={nodeColor}
                                                         filter={isHovered || isSelected ? 'url(#nodeGlow)' : 'url(#dropShadow)'}
                                                         stroke={isSelected ? '#fff' : 'none'}
                                                         strokeWidth={isSelected ? 3 : 0}
@@ -810,6 +932,31 @@ export default function StrategyTreePage() {
                                                         fill="rgba(255, 255, 255, 0.25)"
                                                         className={styles.nodeShine}
                                                     />
+
+                                                    {/* Insight indicator - shows on high-performing ads with traits */}
+                                                    {node.type === 'leaf' && insightsMap.has(node.id) && (
+                                                        <g className={styles.insightIndicator}>
+                                                            {/* Pulsing glow */}
+                                                            <circle
+                                                                cx={node.x + node.radius * 0.6}
+                                                                cy={node.y - node.radius * 0.6}
+                                                                r={6}
+                                                                fill="#fbbf24"
+                                                                className={styles.insightPulse}
+                                                            />
+                                                            {/* Star icon */}
+                                                            <text
+                                                                x={node.x + node.radius * 0.6}
+                                                                y={node.y - node.radius * 0.6}
+                                                                textAnchor="middle"
+                                                                dominantBaseline="central"
+                                                                fontSize={8}
+                                                                fill="#1e293b"
+                                                            >
+                                                                ★
+                                                            </text>
+                                                        </g>
+                                                    )}
 
                                                     {/* Label text */}
                                                     {(node.type !== 'leaf' || node.label) && (
