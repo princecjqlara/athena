@@ -331,6 +331,13 @@ export default function StrategyTreePage() {
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
     const { resolvedTheme } = useTheme();
 
+    // Pan & Zoom state
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+    const svgRef = useRef<SVGSVGElement>(null);
+
     useEffect(() => {
         try {
             const stored = localStorage.getItem('ads');
@@ -359,6 +366,45 @@ export default function StrategyTreePage() {
             });
         }
     }, [ads]);
+
+    // Zoom handlers
+    const handleWheel = useCallback((e: React.WheelEvent) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        setZoom(z => Math.min(Math.max(z * delta, 0.3), 3));
+    }, []);
+
+    const handleZoomIn = useCallback(() => {
+        setZoom(z => Math.min(z * 1.2, 3));
+    }, []);
+
+    const handleZoomOut = useCallback(() => {
+        setZoom(z => Math.max(z * 0.8, 0.3));
+    }, []);
+
+    const handleResetView = useCallback(() => {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+    }, []);
+
+    // Pan handlers
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        if (e.button !== 0) return; // Only left click
+        setIsPanning(true);
+        setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }, [pan]);
+
+    const handleMouseMove = useCallback((e: React.MouseEvent) => {
+        if (!isPanning) return;
+        setPan({
+            x: e.clientX - panStart.x,
+            y: e.clientY - panStart.y
+        });
+    }, [isPanning, panStart]);
+
+    const handleMouseUp = useCallback(() => {
+        setIsPanning(false);
+    }, []);
 
     const nodes = useMemo(() => {
         if (ads.length === 0) return [];
@@ -417,7 +463,15 @@ export default function StrategyTreePage() {
             </div>
 
             <div className={styles.mainLayout}>
-                <div className={styles.networkContainer}>
+                <div
+                    className={styles.networkContainer}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onWheel={handleWheel}
+                    style={{ cursor: isPanning ? 'grabbing' : 'grab' }}
+                >
                     {ads.length === 0 ? (
                         <div className={styles.emptyState}>
                             <div className={styles.emptyIcon}>🌐</div>
@@ -431,96 +485,158 @@ export default function StrategyTreePage() {
                             </button>
                         </div>
                     ) : (
-                        <svg viewBox="0 0 900 600" className={styles.networkSvg}>
-                            {/* Connections */}
-                            <g>
-                                {connections.map((c, i) => {
-                                    const dx = c.to.x - c.from.x;
-                                    const dy = c.to.y - c.from.y;
-                                    const d = Math.sqrt(dx * dx + dy * dy);
-                                    const sx = c.from.x + (dx / d) * c.from.radius;
-                                    const sy = c.from.y + (dy / d) * c.from.radius;
-                                    const ex = c.to.x - (dx / d) * c.to.radius;
-                                    const ey = c.to.y - (dy / d) * c.to.radius;
-                                    const mx = (sx + ex) / 2 + (-dy * 0.15);
-                                    const my = (sy + ey) / 2 + (dx * 0.15);
+                        <>
+                            {/* Zoom Controls */}
+                            <div className={styles.zoomControls}>
+                                <button onClick={handleZoomIn} title="Zoom In">+</button>
+                                <span className={styles.zoomLevel}>{Math.round(zoom * 100)}%</span>
+                                <button onClick={handleZoomOut} title="Zoom Out">−</button>
+                                <button onClick={handleResetView} title="Reset View" className={styles.resetBtn}>⟲</button>
+                            </div>
 
-                                    return (
-                                        <path
-                                            key={i}
-                                            d={`M ${sx} ${sy} Q ${mx} ${my} ${ex} ${ey}`}
-                                            fill="none"
-                                            stroke={c.from.color}
-                                            strokeWidth={c.from.type === 'center' ? 4 : 3}
-                                            opacity={0.6}
-                                        />
-                                    );
-                                })}
-                            </g>
+                            <svg
+                                ref={svgRef}
+                                viewBox="0 0 900 600"
+                                className={styles.networkSvg}
+                            >
+                                {/* Background gradient */}
+                                <defs>
+                                    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+                                        <stop offset="0%" stopColor="rgba(99, 102, 241, 0.15)" />
+                                        <stop offset="100%" stopColor="transparent" />
+                                    </radialGradient>
+                                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                                        <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                                        <feMerge>
+                                            <feMergeNode in="coloredBlur" />
+                                            <feMergeNode in="SourceGraphic" />
+                                        </feMerge>
+                                    </filter>
+                                    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                        <feGaussianBlur stdDeviation="8" result="blur" />
+                                        <feComposite in="blur" in2="SourceGraphic" operator="over" />
+                                    </filter>
+                                </defs>
 
-                            {/* Nodes */}
-                            <g>
-                                {nodes.map(n => (
-                                    <g
-                                        key={n.id}
-                                        onClick={() => setSelected(n)}
-                                        style={{ cursor: 'pointer' }}
-                                    >
-                                        <circle
-                                            cx={n.x} cy={n.y} r={n.radius + 3}
-                                            fill="none" stroke={n.color} strokeWidth="2"
-                                            opacity={selected?.id === n.id ? 0.8 : 0.3}
-                                        />
-                                        <circle
-                                            cx={n.x} cy={n.y} r={n.radius}
-                                            fill={n.color}
-                                            stroke={selected?.id === n.id ? '#fff' : 'rgba(255,255,255,0.2)'}
-                                            strokeWidth={selected?.id === n.id ? 2 : 1}
-                                        />
-                                        <circle
-                                            cx={n.x - n.radius * 0.2}
-                                            cy={n.y - n.radius * 0.2}
-                                            r={n.radius * 0.25}
-                                            fill="rgba(255,255,255,0.2)"
-                                        />
-                                        {n.type !== 'leaf' && (
-                                            <text
-                                                x={n.x} y={n.y}
-                                                textAnchor="middle"
-                                                dominantBaseline="middle"
-                                                fontSize={n.type === 'center' ? 12 : 9}
-                                                fontWeight="600"
-                                                fill="#fff"
-                                            >
-                                                {n.label}
-                                            </text>
-                                        )}
-                                        {n.type !== 'center' && n.type !== 'leaf' && (
-                                            <g>
-                                                <circle
-                                                    cx={n.x + n.radius * 0.65}
-                                                    cy={n.y - n.radius * 0.65}
-                                                    r={9}
-                                                    fill="#1f2937"
-                                                    stroke={n.color}
-                                                    strokeWidth="1.5"
+                                {/* Background circle glow */}
+                                <circle cx="450" cy="300" r="280" fill="url(#bgGlow)" />
+
+                                {/* Pan/Zoom transform group */}
+                                <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`} style={{ transformOrigin: '450px 300px' }}>
+                                    {/* Animated connection lines */}
+                                    <g>
+                                        {connections.map((c, i) => {
+                                            const dx = c.to.x - c.from.x;
+                                            const dy = c.to.y - c.from.y;
+                                            const d = Math.sqrt(dx * dx + dy * dy);
+                                            const sx = c.from.x + (dx / d) * c.from.radius;
+                                            const sy = c.from.y + (dy / d) * c.from.radius;
+                                            const ex = c.to.x - (dx / d) * c.to.radius;
+                                            const ey = c.to.y - (dy / d) * c.to.radius;
+                                            const mx = (sx + ex) / 2 + (-dy * 0.2);
+                                            const my = (sy + ey) / 2 + (dx * 0.2);
+
+                                            return (
+                                                <path
+                                                    key={i}
+                                                    d={`M ${sx} ${sy} Q ${mx} ${my} ${ex} ${ey}`}
+                                                    fill="none"
+                                                    stroke={`url(#grad-${i % 7})`}
+                                                    strokeWidth={c.from.type === 'center' ? 3 : 2}
+                                                    opacity={0.7}
+                                                    className={styles.connectionLine}
                                                 />
-                                                <text
-                                                    x={n.x + n.radius * 0.65}
-                                                    y={n.y - n.radius * 0.65 + 3}
-                                                    textAnchor="middle"
-                                                    fontSize="7"
-                                                    fontWeight="bold"
-                                                    fill="#fff"
-                                                >
-                                                    {n.score}
-                                                </text>
-                                            </g>
-                                        )}
+                                            );
+                                        })}
                                     </g>
-                                ))}
-                            </g>
-                        </svg>
+
+                                    {/* Gradient definitions for connections */}
+                                    <defs>
+                                        {COLORS.map((color, i) => (
+                                            <linearGradient key={i} id={`grad-${i}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stopColor={color} stopOpacity="0.8" />
+                                                <stop offset="100%" stopColor={color} stopOpacity="0.3" />
+                                            </linearGradient>
+                                        ))}
+                                    </defs>
+
+                                    {/* Enhanced Nodes with glow */}
+                                    <g>
+                                        {nodes.map(n => (
+                                            <g
+                                                key={n.id}
+                                                onClick={(e) => { e.stopPropagation(); setSelected(n); }}
+                                                style={{ cursor: 'pointer' }}
+                                                className={styles.nodeGroup}
+                                            >
+                                                {/* Outer glow ring */}
+                                                <circle
+                                                    cx={n.x} cy={n.y} r={n.radius + 8}
+                                                    fill="none"
+                                                    stroke={n.color}
+                                                    strokeWidth="2"
+                                                    opacity={selected?.id === n.id ? 0.6 : 0.15}
+                                                    className={styles.glowRing}
+                                                />
+                                                {/* Main circle with gradient */}
+                                                <circle
+                                                    cx={n.x} cy={n.y} r={n.radius}
+                                                    fill={n.color}
+                                                    stroke={selected?.id === n.id ? '#fff' : 'rgba(255,255,255,0.3)'}
+                                                    strokeWidth={selected?.id === n.id ? 3 : 1}
+                                                    filter={n.type === 'center' ? 'url(#glow)' : undefined}
+                                                    className={styles.nodeCircle}
+                                                />
+                                                {/* Shine/highlight */}
+                                                <circle
+                                                    cx={n.x - n.radius * 0.25}
+                                                    cy={n.y - n.radius * 0.25}
+                                                    r={n.radius * 0.3}
+                                                    fill="rgba(255,255,255,0.25)"
+                                                />
+                                                {/* Label */}
+                                                {n.type !== 'leaf' && (
+                                                    <text
+                                                        x={n.x} y={n.y}
+                                                        textAnchor="middle"
+                                                        dominantBaseline="middle"
+                                                        fontSize={n.type === 'center' ? 14 : 10}
+                                                        fontWeight="700"
+                                                        fill="#fff"
+                                                        style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
+                                                    >
+                                                        {n.label}
+                                                    </text>
+                                                )}
+                                                {/* Score badge */}
+                                                {n.type !== 'center' && n.type !== 'leaf' && (
+                                                    <g>
+                                                        <circle
+                                                            cx={n.x + n.radius * 0.7}
+                                                            cy={n.y - n.radius * 0.7}
+                                                            r={11}
+                                                            fill="#111"
+                                                            stroke={n.color}
+                                                            strokeWidth="2"
+                                                        />
+                                                        <text
+                                                            x={n.x + n.radius * 0.7}
+                                                            y={n.y - n.radius * 0.7 + 4}
+                                                            textAnchor="middle"
+                                                            fontSize="8"
+                                                            fontWeight="bold"
+                                                            fill="#fff"
+                                                        >
+                                                            {n.score}
+                                                        </text>
+                                                    </g>
+                                                )}
+                                            </g>
+                                        ))}
+                                    </g>
+                                </g>
+                            </svg>
+                        </>
                     )}
                 </div>
 

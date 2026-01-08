@@ -81,15 +81,96 @@
     height: 100%;
     min-height: 500px;
     display: block;
+    user-select: none;
+}
+
+/* Zoom Controls */
+.zoomControls {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(17, 17, 17, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 0.5rem;
+    z-index: 10;
+}
+
+.zoomControls button {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+    border-radius: 8px;
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.zoomControls button:hover {
+    background: rgba(99, 102, 241, 0.4);
+    color: #fff;
+    transform: scale(1.05);
+}
+
+.zoomLevel {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #94a3b8;
+    min-width: 45px;
+    text-align: center;
+}
+
+.resetBtn {
+    margin-left: 0.25rem;
+}
+
+/* Connection Lines */
+.connectionLine {
+    transition: opacity 0.3s ease, stroke-width 0.2s ease;
+}
+
+.connectionLine:hover {
+    opacity: 1 !important;
+    stroke-width: 4px;
+}
+
+/* Node Group Animations */
+.nodeGroup {
+    transition: transform 0.2s ease;
+}
+
+.nodeGroup:hover {
+    transform: scale(1.08);
+}
+
+.nodeGroup:hover .nodeCircle {
+    filter: brightness(1.2);
+}
+
+.glowRing {
+    transition: opacity 0.3s ease, r 0.2s ease;
+}
+
+.nodeGroup:hover .glowRing {
+    opacity: 0.5;
+}
+
+.nodeCircle {
+    transition: all 0.2s ease;
 }
 
 /* Curved Connections */
 .curvedConnection {
     transition: opacity 0.3s ease;
-}
-
-.connections path:hover {
-    opacity: 0.8 !important;
 }
 
 /* Orb Nodes */
