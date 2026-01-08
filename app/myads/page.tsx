@@ -312,9 +312,31 @@ export default function MyAdsPage() {
         setAds(updatedAds);
     };
 
-    // Start JSON import modal (renamed from startEditingTraits for backward compat)
-    const startEditingTraits = (_ad: Ad) => {
-        // Now opens the JSON import modal instead of trait editing
+    // Start editing a specific ad's JSON or open import modal
+    const startEditingTraits = (ad: Ad) => {
+        // Set the ad ID being edited
+        setEditingAdId(ad.id);
+
+        // Convert ad to JSON for editing
+        const adJson = {
+            name: ad.name || ad.extractedContent?.title || 'Untitled',
+            platform: ad.platform || ad.extractedContent?.platform || 'facebook',
+            hookType: ad.hook_type || ad.extractedContent?.hookType || '',
+            contentCategory: ad.extractedContent?.contentCategory || '',
+            categories: ad.categories || [],
+            traits: ad.traits || [],
+            ctr: ad.adInsights?.ctr || ad.ctr,
+            spend: ad.adInsights?.spend || ad.spend,
+            impressions: ad.adInsights?.impressions || ad.impressions,
+        };
+
+        // Pretty print the JSON
+        setJsonInput(JSON.stringify([adJson], null, 2));
+        setImportValidation(null);
+    };
+
+    // Open blank import modal (for bulk import)
+    const openImportModal = () => {
         setEditingAdId('json-import');
         setJsonInput('');
         setImportValidation(null);
@@ -1140,12 +1162,12 @@ export default function MyAdsPage() {
                         </div>
                     )}
 
-                    {/* JSON Import Modal */}
+                    {/* JSON Edit/Import Modal */}
                     {editingAdId && (
                         <div className={styles.modalOverlay} onClick={cancelEditing}>
                             <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
                                 <div className={styles.modalHeader}>
-                                    <h3>📥 Import Creatives (JSON)</h3>
+                                    <h3>{editingAdId === 'json-import' ? '📥 Import Creatives (JSON)' : '✏️ Edit Creative (JSON)'}</h3>
                                     <button className="btn btn-ghost btn-icon" onClick={cancelEditing}>
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                             <line x1="18" y1="6" x2="6" y2="18" />
@@ -1179,9 +1201,11 @@ export default function MyAdsPage() {
 
                                     {/* JSON Input */}
                                     <div className={styles.traitSection}>
-                                        <h4>Paste Creative Data</h4>
+                                        <h4>{editingAdId === 'json-import' ? 'Paste Creative Data' : 'Edit JSON'}</h4>
                                         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 'var(--spacing-sm)' }}>
-                                            Each JSON object = 1 creative (video/image). Not campaigns.
+                                            {editingAdId === 'json-import'
+                                                ? 'Each JSON object = 1 creative (video/image). Not campaigns.'
+                                                : 'Edit the JSON below to update this creative\'s traits and metadata.'}
                                         </p>
                                         <textarea
                                             className="form-textarea"
@@ -1315,62 +1339,117 @@ export default function MyAdsPage() {
 
                                 <div className={styles.modalFooter}>
                                     <button className="btn btn-secondary" onClick={cancelEditing}>Cancel</button>
-                                    <button
-                                        className="btn btn-primary"
-                                        disabled={!importValidation?.valid || importValidation?.uniqueCount === 0}
-                                        onClick={async () => {
-                                            if (!importValidation?.valid) return;
 
-                                            // Parse and import the unique ads
-                                            const { data } = parseAdJson(jsonInput);
-                                            const existingAds = ads.map(a => ({
-                                                id: a.id,
-                                                name: a.name || a.extractedContent?.title,
-                                                platform: a.platform || a.extractedContent?.platform,
-                                                hookType: a.hook_type || a.extractedContent?.hookType,
-                                                categories: a.categories,
-                                                traits: a.traits,
-                                            }));
-                                            const { uniqueAds } = detectDuplicates(data, existingAds);
+                                    {/* Edit Mode: Save Changes Button */}
+                                    {editingAdId !== 'json-import' ? (
+                                        <button
+                                            className="btn btn-primary"
+                                            disabled={!jsonInput.trim()}
+                                            onClick={() => {
+                                                try {
+                                                    const { success, data, errors } = parseAdJson(jsonInput);
+                                                    if (!success || data.length === 0) {
+                                                        alert(`❌ Invalid JSON: ${errors.join(', ')}`);
+                                                        return;
+                                                    }
 
-                                            // Convert to Ad format and add
-                                            const newAds: Ad[] = uniqueAds.map((ad, i) => ({
-                                                id: `imported-${Date.now()}-${i}`,
-                                                name: ad.name,
-                                                platform: ad.platform,
-                                                hook_type: ad.hookType,
-                                                categories: ad.categories,
-                                                traits: ad.traits,
-                                                extractedContent: {
-                                                    title: ad.name,
+                                                    // Update the existing ad with new data
+                                                    const editedData = data[0]; // Take first item
+                                                    const updatedAds = ads.map(a => {
+                                                        if (a.id !== editingAdId) return a;
+                                                        return {
+                                                            ...a,
+                                                            name: editedData.name,
+                                                            platform: editedData.platform,
+                                                            hook_type: editedData.hookType,
+                                                            categories: editedData.categories,
+                                                            traits: editedData.traits,
+                                                            extractedContent: {
+                                                                ...a.extractedContent,
+                                                                title: editedData.name,
+                                                                platform: editedData.platform,
+                                                                hookType: editedData.hookType,
+                                                                contentCategory: editedData.contentCategory,
+                                                            },
+                                                            adInsights: {
+                                                                ...a.adInsights,
+                                                                ctr: editedData.ctr ?? a.adInsights?.ctr,
+                                                                spend: editedData.spend ?? a.adInsights?.spend,
+                                                                impressions: editedData.impressions ?? a.adInsights?.impressions,
+                                                            },
+                                                        };
+                                                    });
+
+                                                    setAds(updatedAds);
+                                                    localStorage.setItem('ads', JSON.stringify(updatedAds));
+                                                    cancelEditing();
+                                                    alert('✅ Creative updated!');
+                                                } catch (error) {
+                                                    alert(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                                }
+                                            }}
+                                        >
+                                            💾 Save Changes
+                                        </button>
+                                    ) : (
+                                        /* Import Mode: Import Creatives Button */
+                                        <button
+                                            className="btn btn-primary"
+                                            disabled={!importValidation?.valid || importValidation?.uniqueCount === 0}
+                                            onClick={async () => {
+                                                if (!importValidation?.valid) return;
+
+                                                // Parse and import the unique ads
+                                                const { data } = parseAdJson(jsonInput);
+                                                const existingAds = ads.map(a => ({
+                                                    id: a.id,
+                                                    name: a.name || a.extractedContent?.title,
+                                                    platform: a.platform || a.extractedContent?.platform,
+                                                    hookType: a.hook_type || a.extractedContent?.hookType,
+                                                    categories: a.categories,
+                                                    traits: a.traits,
+                                                }));
+                                                const { uniqueAds } = detectDuplicates(data, existingAds);
+
+                                                // Convert to Ad format and add
+                                                const newAds: Ad[] = uniqueAds.map((ad, i) => ({
+                                                    id: `imported-${Date.now()}-${i}`,
+                                                    name: ad.name,
                                                     platform: ad.platform,
-                                                    hookType: ad.hookType,
-                                                    contentCategory: ad.contentCategory,
-                                                },
-                                                adInsights: {
-                                                    impressions: ad.impressions,
-                                                    clicks: ad.clicks,
-                                                    spend: ad.spend,
-                                                    ctr: ad.ctr,
-                                                },
-                                                uploadDate: new Date().toISOString(),
-                                            }));
+                                                    hook_type: ad.hookType,
+                                                    categories: ad.categories,
+                                                    traits: ad.traits,
+                                                    extractedContent: {
+                                                        title: ad.name,
+                                                        platform: ad.platform,
+                                                        hookType: ad.hookType,
+                                                        contentCategory: ad.contentCategory,
+                                                    },
+                                                    adInsights: {
+                                                        impressions: ad.impressions,
+                                                        clicks: ad.clicks,
+                                                        spend: ad.spend,
+                                                        ctr: ad.ctr,
+                                                    },
+                                                    uploadDate: new Date().toISOString(),
+                                                }));
 
-                                            // Add to state and localStorage
-                                            const updatedAds = [...ads, ...newAds];
-                                            setAds(updatedAds);
-                                            localStorage.setItem('ads', JSON.stringify(updatedAds));
+                                                // Add to state and localStorage
+                                                const updatedAds = [...ads, ...newAds];
+                                                setAds(updatedAds);
+                                                localStorage.setItem('ads', JSON.stringify(updatedAds));
 
-                                            // Reset modal
-                                            setJsonInput('');
-                                            setImportValidation(null);
-                                            setEditingAdId(null);
+                                                // Reset modal
+                                                setJsonInput('');
+                                                setImportValidation(null);
+                                                setEditingAdId(null);
 
-                                            alert(`✅ Successfully imported ${uniqueAds.length} creatives!`);
-                                        }}
-                                    >
-                                        Import {importValidation?.uniqueCount || 0} Creatives
-                                    </button>
+                                                alert(`✅ Successfully imported ${uniqueAds.length} creatives!`);
+                                            }}
+                                        >
+                                            Import {importValidation?.uniqueCount || 0} Creatives
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
