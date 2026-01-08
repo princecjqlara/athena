@@ -72,9 +72,7 @@ export function Sidebar() {
       <nav className="sidebar-nav">
         <NavItem href="/" icon="dashboard" label="Dashboard" collapsed={isCollapsed} active={isActive('/')} />
         <NavItem href="/myads" icon="ads" label="Ads Hub" collapsed={isCollapsed} active={isActive('/myads')} />
-        <NavItem href="/results" icon="chart" label="Analytics" collapsed={isCollapsed} active={isActive('/results')} />
         <NavItem href="/mindmap" icon="mindmap" label="Algorithm" collapsed={isCollapsed} active={isActive('/mindmap')} />
-        <NavItem href="/strategy-tree" icon="tree" label="Strategy Tree" collapsed={isCollapsed} active={isActive('/strategy-tree')} />
         <NavItem href="/pipeline" icon="pipeline" label="Pipeline" collapsed={isCollapsed} active={isActive('/pipeline')} />
         <NavItem href="/marketplace" icon="marketplace" label="Marketplace" collapsed={isCollapsed} active={isActive('/marketplace')} />
         <NavItem href="/athena" icon="brain" label="Athena AI" collapsed={isCollapsed} active={isActive('/athena')} />
