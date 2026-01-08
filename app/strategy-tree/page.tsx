@@ -246,17 +246,100 @@ function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
         reader.readAsText(file);
     };
 
+    // Lenient JSON parsing - tries to fix common issues
+    const lenientParse = (text: string): { data: unknown[]; warnings: string[] } => {
+        const warnings: string[] = [];
+        let cleanText = text.trim();
+
+        // Try direct parse first
+        try {
+            const data = JSON.parse(cleanText);
+            return { data: Array.isArray(data) ? data : [data], warnings };
+        } catch (e) {
+            // Continue with fixes
+        }
+
+        // Fix 1: Try removing trailing commas
+        cleanText = cleanText.replace(/,(\s*[}\]])/g, '$1');
+        try {
+            const data = JSON.parse(cleanText);
+            warnings.push('Fixed trailing commas');
+            return { data: Array.isArray(data) ? data : [data], warnings };
+        } catch (e) {
+            // Continue
+        }
+
+        // Fix 2: Try wrapping single object in array
+        if (!cleanText.startsWith('[')) {
+            try {
+                const data = JSON.parse(`[${cleanText}]`);
+                warnings.push('Wrapped object in array');
+                return { data, warnings };
+            } catch (e) {
+                // Continue
+            }
+        }
+
+        // Fix 3: Try extracting any valid JSON objects from text
+        const objectMatches = cleanText.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+        if (objectMatches && objectMatches.length > 0) {
+            const validObjects: unknown[] = [];
+            for (const match of objectMatches) {
+                try {
+                    validObjects.push(JSON.parse(match));
+                } catch {
+                    // Skip invalid object
+                }
+            }
+            if (validObjects.length > 0) {
+                warnings.push(`Extracted ${validObjects.length} valid objects from malformed JSON`);
+                return { data: validObjects, warnings };
+            }
+        }
+
+        throw new Error('Could not parse JSON even with lenient parsing');
+    };
+
+    // Validate that an item looks like ad data
+    const isValidAdData = (item: unknown): boolean => {
+        if (!item || typeof item !== 'object') return false;
+        const obj = item as Record<string, unknown>;
+        // Accept if it has any of these identifiers or ad-like properties
+        return !!(obj.id || obj.facebookAdId || obj.adId || obj.name ||
+            obj.extractedContent || obj.adInsights || obj.creativeId);
+    };
+
     const parseAndPreview = (text: string) => {
         try {
             setError('');
-            const data = JSON.parse(text);
-            const ads = Array.isArray(data) ? data : [data];
+            const { data, warnings } = lenientParse(text);
+
+            // Filter to valid ad-like items
+            const validAds = data.filter(isValidAdData);
+            const skipped = data.length - validAds.length;
+
+            if (validAds.length === 0) {
+                setError('No valid ad data found in JSON');
+                setPreview(null);
+                return;
+            }
+
+            let warningText = '';
+            if (skipped > 0) {
+                warningText = ` (${skipped} invalid items skipped)`;
+            }
+            if (warnings.length > 0) {
+                warningText += ` • ${warnings.join(', ')}`;
+            }
+
             setPreview({
-                count: ads.length,
-                sample: ads[0]?.name || ads[0]?.id || 'Ad data'
+                count: validAds.length,
+                sample: ((validAds[0] as Record<string, unknown>)?.name as string) ||
+                    ((validAds[0] as Record<string, unknown>)?.id as string) ||
+                    'Ad data' + (warningText ? warningText : '')
             });
         } catch {
-            setError('Invalid JSON format');
+            setError('Unable to parse JSON - please check format');
             setPreview(null);
         }
     };
@@ -273,9 +356,15 @@ function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
 
     const handleImport = () => {
         try {
-            const data = JSON.parse(jsonText);
-            const ads = Array.isArray(data) ? data : [data];
-            onImport(ads);
+            const { data } = lenientParse(jsonText);
+            const validAds = data.filter(isValidAdData);
+
+            if (validAds.length === 0) {
+                setError('No valid ad data to import');
+                return;
+            }
+
+            onImport(validAds as AdData[]);
             setJsonText('');
             setPreview(null);
             onClose();
