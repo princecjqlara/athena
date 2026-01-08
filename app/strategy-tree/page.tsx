@@ -148,9 +148,9 @@ function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMa
     // Main branches (platforms/categories)
     tree.children.slice(0, 6).forEach((platform, i) => {
         const baseAngle = angleStep * i - Math.PI / 2;
-        const jitter = (Math.random() - 0.5) * 0.2;
-        const angle = baseAngle + jitter;
-        const dist = 140 + Math.random() * 20;
+        // Reduced jitter to prevent overlap
+        const angle = baseAngle;
+        const dist = 180; // Increased from 140 for more spacing
         const px = cx + Math.cos(angle) * dist;
         const py = cy + Math.sin(angle) * dist;
         const branchColor = COLOR_ARRAY[i % COLOR_ARRAY.length];
@@ -172,9 +172,10 @@ function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMa
         // Sub-branches extending outward
         const subCount = Math.min(platform.children.length, 5);
         platform.children.slice(0, 5).forEach((ctype, j) => {
-            const spreadAngle = 0.35;
+            // Wider spread angle to prevent overlap
+            const spreadAngle = 0.5; // Increased from 0.35
             const subAngle = angle + (j - (subCount - 1) / 2) * spreadAngle;
-            const subDist = 85 + Math.random() * 15;
+            const subDist = 110; // Increased from 85 for more spacing
             const tx = px + Math.cos(subAngle) * subDist;
             const ty = py + Math.sin(subAngle) * subDist;
 
@@ -185,7 +186,7 @@ function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMa
                 color: branchColor,
                 x: tx,
                 y: ty,
-                radius: 32,
+                radius: 28, // Slightly smaller to reduce overlap
                 parentId: platform.id,
                 angle: subAngle,
                 score: ctype.score,
@@ -195,9 +196,10 @@ function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMa
             // Leaf nodes (individual ads/items)
             const leafCount = Math.min(ctype.children.length, 4);
             ctype.children.slice(0, 4).forEach((ad, k) => {
-                const leafSpread = 0.4;
+                // Wider leaf spread to prevent overlap
+                const leafSpread = 0.55; // Increased from 0.4
                 const leafAngle = subAngle + (k - (leafCount - 1) / 2) * leafSpread;
-                const leafDist = 50 + Math.random() * 12;
+                const leafDist = 65; // Increased from 50 for more spacing
 
                 nodes.push({
                     id: ad.id,
@@ -206,7 +208,7 @@ function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMa
                     color: branchColor,
                     x: tx + Math.cos(leafAngle) * leafDist,
                     y: ty + Math.sin(leafAngle) * leafDist,
-                    radius: 22,
+                    radius: 18, // Slightly smaller to reduce overlap
                     parentId: ctype.id,
                     angle: leafAngle,
                     score: ad.score
