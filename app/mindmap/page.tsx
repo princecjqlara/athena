@@ -444,7 +444,7 @@ export default function MindMapPage() {
     // Metrics panel state
     const [showMetrics, setShowMetrics] = useState(false);
 
-    // Targeting Coverage Panel state
+    // Targeting Coverage Panel state - show by default for discoverability, persist to localStorage
     const [showTargetingPanel, setShowTargetingPanel] = useState(true);
     const [targetingPanelCollapsed, setTargetingPanelCollapsed] = useState(false);
     const [aiSuggestions, setAiSuggestions] = useState<Array<{ title: string; reason: string; priority: 'high' | 'medium' | 'low' }>>([]);
@@ -455,7 +455,7 @@ export default function MindMapPage() {
     const isDragging = useRef(false);
     const lastMouse = useRef({ x: 0, y: 0 });
 
-    // Load ads and custom trait groups from localStorage
+    // Load ads, custom trait groups, and panel preferences from localStorage
     useEffect(() => {
         const stored = localStorage.getItem('ads');
         if (stored) {
@@ -469,6 +469,13 @@ export default function MindMapPage() {
         if (storedGroups) {
             setCustomTraitGroups(JSON.parse(storedGroups));
         }
+
+        // Load targeting panel preference - if user has explicitly hidden it before, respect that
+        const panelPref = localStorage.getItem('showTargetingPanel');
+        if (panelPref !== null) {
+            setShowTargetingPanel(panelPref === 'true');
+        }
+        // Otherwise keep default (true) for first-time users
     }, []);
 
     // Generate 3D nodes from ads - EXPANDED to extract 30+ trait categories
@@ -2664,8 +2671,8 @@ export default function MindMapPage() {
                                                 <div
                                                     key={idx}
                                                     className={`${styles.suggestionCard} ${suggestion.priority === 'high' ? styles.highPriority :
-                                                            suggestion.priority === 'medium' ? styles.mediumPriority :
-                                                                styles.lowPriority
+                                                        suggestion.priority === 'medium' ? styles.mediumPriority :
+                                                            styles.lowPriority
                                                         }`}
                                                 >
                                                     <span className={`${styles.suggestionPriority} ${styles[suggestion.priority]}`}>
@@ -2764,8 +2771,9 @@ export default function MindMapPage() {
                 </div>
             )}
 
-            {/* Parent Group Legend - Collapsible */}
+            {/* Parent Group Legend - Collapsible (HIDDEN) */}
             <div className={styles.legend} style={{
+                display: 'none',
                 width: legendCollapsed ? 'auto' : '220px',
                 padding: legendCollapsed ? 'var(--spacing-sm)' : 'var(--spacing-lg)'
             }}>

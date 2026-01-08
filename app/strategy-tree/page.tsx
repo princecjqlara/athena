@@ -11,7 +11,7 @@ import { analyzeWinningAds, WinningInsight } from '@/lib/ml/andromeda-insights';
 interface MindMapNode {
     id: string;
     label: string;
-    type: 'center' | 'branch' | 'subbranch' | 'leaf';
+    type: 'center' | 'branch' | 'subbranch' | 'leaf' | 'suggestion';
     color: string;
     x: number;
     y: number;
@@ -20,6 +20,9 @@ interface MindMapNode {
     angle?: number;
     score?: number;
     adsCount?: number;
+    predictedScore?: number;
+    priority?: 'high' | 'medium' | 'low';
+    isSuggestion?: boolean;
 }
 
 interface AdData {
@@ -121,8 +124,11 @@ function deduplicateAds(existingAds: AdData[], newAds: AdData[]): {
     };
 }
 
-// Create organic mind map layout
-function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMapNode[] {
+// Create organic mind map layout with suggestions
+function createMindMapLayout(
+    tree: ReturnType<typeof buildStrategyTree>,
+    suggestions: CreativeSuggestion[] = []
+): MindMapNode[] {
     if (!tree) return [];
 
     const nodes: MindMapNode[] = [];
@@ -148,9 +154,8 @@ function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMa
     // Main branches (platforms/categories)
     tree.children.slice(0, 6).forEach((platform, i) => {
         const baseAngle = angleStep * i - Math.PI / 2;
-        // Reduced jitter to prevent overlap
         const angle = baseAngle;
-        const dist = 180; // Increased from 140 for more spacing
+        const dist = 180;
         const px = cx + Math.cos(angle) * dist;
         const py = cy + Math.sin(angle) * dist;
         const branchColor = COLOR_ARRAY[i % COLOR_ARRAY.length];
@@ -172,10 +177,9 @@ function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMa
         // Sub-branches extending outward
         const subCount = Math.min(platform.children.length, 5);
         platform.children.slice(0, 5).forEach((ctype, j) => {
-            // Wider spread angle to prevent overlap
-            const spreadAngle = 0.5; // Increased from 0.35
+            const spreadAngle = 0.5;
             const subAngle = angle + (j - (subCount - 1) / 2) * spreadAngle;
-            const subDist = 110; // Increased from 85 for more spacing
+            const subDist = 110;
             const tx = px + Math.cos(subAngle) * subDist;
             const ty = py + Math.sin(subAngle) * subDist;
 
@@ -186,7 +190,7 @@ function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMa
                 color: branchColor,
                 x: tx,
                 y: ty,
-                radius: 28, // Slightly smaller to reduce overlap
+                radius: 28,
                 parentId: platform.id,
                 angle: subAngle,
                 score: ctype.score,
@@ -196,10 +200,9 @@ function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMa
             // Leaf nodes (individual ads/items)
             const leafCount = Math.min(ctype.children.length, 4);
             ctype.children.slice(0, 4).forEach((ad, k) => {
-                // Wider leaf spread to prevent overlap
-                const leafSpread = 0.55; // Increased from 0.4
+                const leafSpread = 0.55;
                 const leafAngle = subAngle + (k - (leafCount - 1) / 2) * leafSpread;
-                const leafDist = 65; // Increased from 50 for more spacing
+                const leafDist = 65;
 
                 nodes.push({
                     id: ad.id,
@@ -208,12 +211,43 @@ function createMindMapLayout(tree: ReturnType<typeof buildStrategyTree>): MindMa
                     color: branchColor,
                     x: tx + Math.cos(leafAngle) * leafDist,
                     y: ty + Math.sin(leafAngle) * leafDist,
-                    radius: 18, // Slightly smaller to reduce overlap
+                    radius: 18,
                     parentId: ctype.id,
                     angle: leafAngle,
                     score: ad.score
                 });
             });
+        });
+    });
+
+    // === ADD SUGGESTION NODES ===
+    // Position suggestions on the right side as special gold/purple circles
+    const topSuggestions = suggestions.filter(s => s.priority === 'high' || s.predictedScore >= 60).slice(0, 5);
+    const suggestionStartAngle = -Math.PI / 4; // Start at top-right
+    const suggestionSpread = Math.PI / 3; // Spread across 60 degrees
+
+    topSuggestions.forEach((suggestion, i) => {
+        const angle = suggestionStartAngle + (i / Math.max(topSuggestions.length - 1, 1)) * suggestionSpread;
+        const dist = 320; // Outer ring for suggestions
+
+        // Color based on priority
+        const suggestionColor = suggestion.priority === 'high' ? '#FFB800' : // Gold for high priority
+            suggestion.priority === 'medium' ? '#9C27B0' : // Purple for medium
+                '#00BCD4'; // Teal for low
+
+        nodes.push({
+            id: suggestion.id,
+            label: suggestion.type.replace(/_/g, ' ').substring(0, 12).toUpperCase(),
+            type: 'suggestion',
+            color: suggestionColor,
+            x: cx + Math.cos(angle) * dist,
+            y: cy + Math.sin(angle) * dist,
+            radius: 35,
+            parentId: tree.id,
+            angle: angle,
+            predictedScore: suggestion.predictedScore,
+            priority: suggestion.priority,
+            isSuggestion: true
         });
     });
 
@@ -757,7 +791,8 @@ export default function StrategyTreePage() {
     const nodes = useMemo(() => {
         if (ads.length === 0) return [];
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return createMindMapLayout(buildStrategyTree(ads as any));
+        const generatedSuggestions = generateSuggestions(ads as any);
+        return createMindMapLayout(buildStrategyTree(ads as any), generatedSuggestions);
     }, [ads]);
 
     const portfolio = useMemo(() => {
@@ -1087,18 +1122,67 @@ export default function StrategyTreePage() {
                                                         </g>
                                                     )}
 
+                                                    {/* Suggestion node special styling */}
+                                                    {node.type === 'suggestion' && (
+                                                        <g>
+                                                            {/* Dashed outer ring */}
+                                                            <circle
+                                                                cx={node.x}
+                                                                cy={node.y}
+                                                                r={node.radius + 5}
+                                                                fill="none"
+                                                                stroke={node.color}
+                                                                strokeWidth={2}
+                                                                strokeDasharray="4 3"
+                                                                opacity={0.6}
+                                                            />
+                                                            {/* Lightbulb badge */}
+                                                            <circle
+                                                                cx={node.x + node.radius * 0.7}
+                                                                cy={node.y - node.radius * 0.7}
+                                                                r={10}
+                                                                fill="#fff"
+                                                                stroke={node.color}
+                                                                strokeWidth={2}
+                                                            />
+                                                            <text
+                                                                x={node.x + node.radius * 0.7}
+                                                                y={node.y - node.radius * 0.7}
+                                                                textAnchor="middle"
+                                                                dominantBaseline="central"
+                                                                fontSize={10}
+                                                            >
+                                                                💡
+                                                            </text>
+                                                            {/* Predicted score below */}
+                                                            {node.predictedScore !== undefined && (
+                                                                <text
+                                                                    x={node.x}
+                                                                    y={node.y + node.radius + 14}
+                                                                    textAnchor="middle"
+                                                                    fill={node.color}
+                                                                    fontSize={10}
+                                                                    fontWeight="700"
+                                                                >
+                                                                    {node.predictedScore}% predicted
+                                                                </text>
+                                                            )}
+                                                        </g>
+                                                    )}
+
                                                     {/* Label text */}
                                                     {(node.type !== 'leaf' || node.label) && (
                                                         <text
                                                             x={node.x}
-                                                            y={node.y}
+                                                            y={node.type === 'suggestion' ? node.y - 4 : node.y}
                                                             textAnchor="middle"
                                                             dominantBaseline="middle"
                                                             fill="#fff"
                                                             fontSize={
                                                                 node.type === 'center' ? 12 :
                                                                     node.type === 'branch' ? 9 :
-                                                                        node.type === 'subbranch' ? 7 : 6
+                                                                        node.type === 'suggestion' ? 8 :
+                                                                            node.type === 'subbranch' ? 7 : 6
                                                             }
                                                             fontWeight="700"
                                                             fontFamily="Arial, sans-serif"
@@ -1117,8 +1201,8 @@ export default function StrategyTreePage() {
                     )}
                 </div>
 
-                {/* Details Panel */}
-                <div className={styles.detailsPanel}>
+                {/* Details Panel - Hidden for full-width visualization */}
+                <div className={styles.detailsPanel} style={{ display: 'none' }}>
                     {/* Panel Tabs */}
                     <div className={styles.panelTabs}>
                         <button
