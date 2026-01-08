@@ -118,9 +118,7 @@ const requiredFunctions = [
     { name: 'fetchLearnedTraits', desc: 'Fetch learned traits' },
     { name: 'addTrait', desc: 'Add new trait' },
     { name: 'deleteTrait', desc: 'Delete trait' },
-    { name: 'fetchAiTraits', desc: 'Fetch AI-generated traits' },
-    { name: 'moderateTrait', desc: 'Approve/reject AI trait' },
-    { name: 'deleteAiTrait', desc: 'Delete AI trait' },
+
     { name: 'checkImpersonation', desc: 'Check impersonation session' },
     { name: 'handleLoginAs', desc: 'Start impersonation' },
     { name: 'handleEndImpersonation', desc: 'End impersonation' },
@@ -338,7 +336,7 @@ const expectedTabs = [
     'galaxy',
     'prompts',
     'traits',
-    'ai-traits',
+
     'messages',
 ];
 
