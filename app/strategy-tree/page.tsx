@@ -832,8 +832,27 @@ export default function StrategyTreePage() {
 
     const nodes = useMemo(() => {
         if (ads.length === 0) return [];
+
+        // Only generate suggestions if we have at least 3 ads with REAL performance scores
+        // This prevents showing predictions based on hardcoded industry averages
+        const adsWithScores = ads.filter(ad => {
+            // Check if ad has real performance data (not just defaults)
+            const score = (ad as { successScore?: number }).successScore;
+            const insights = (ad as { adInsights?: { ctr?: number; roas?: number; spend?: number } }).adInsights;
+            const hasRealScore = typeof score === 'number' && score > 0;
+            const hasRealInsights = insights && (
+                (typeof insights.ctr === 'number' && insights.ctr > 0) ||
+                (typeof insights.roas === 'number' && insights.roas > 0) ||
+                (typeof insights.spend === 'number' && insights.spend > 0)
+            );
+            return hasRealScore || hasRealInsights;
+        });
+
+        // Only show suggestions if user has enough real data
+        const hasEnoughRealData = adsWithScores.length >= 3;
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const generatedSuggestions = generateSuggestions(ads as any);
+        const generatedSuggestions = hasEnoughRealData ? generateSuggestions(ads as any) : [];
         return createMindMapLayout(buildStrategyTree(ads as any), generatedSuggestions);
     }, [ads]);
 
