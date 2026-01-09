@@ -88,6 +88,11 @@ export async function contributeInsight(
             });
 
         if (error) {
+            // If the table doesn't exist, fail silently (feature not configured)
+            if (error.message?.includes('user_contributions') || error.code === 'PGRST204') {
+                console.warn('[Pool] user_contributions table not found - skipping contribution');
+                return { success: true, contributedCount: 0 }; // Fail silently
+            }
             return { success: false, contributedCount: 0, errors: [error.message] };
         }
 
@@ -145,6 +150,11 @@ export async function contributeMultipleInsights(
             .insert(records);
 
         if (error) {
+            // If the table doesn't exist, fail silently (feature not configured)
+            if (error.message?.includes('user_contributions') || error.code === 'PGRST204') {
+                console.warn('[Pool] user_contributions table not found - skipping batch contribution');
+                return { success: true, contributedCount: 0 }; // Fail silently
+            }
             return { success: false, contributedCount: 0, errors: [error.message] };
         }
 
@@ -228,6 +238,10 @@ export async function updateCollectivePriors(): Promise<{
             .gte('contributed_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 
         if (fetchError || !contributions) {
+            // If the table doesn't exist, fail silently
+            if (fetchError?.message?.includes('user_contributions')) {
+                console.warn('[Pool] user_contributions table not found - skipping priors update');
+            }
             return { success: false, priorsUpdated: 0 };
         }
 

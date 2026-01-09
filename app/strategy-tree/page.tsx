@@ -6,6 +6,8 @@ import { useTheme } from '@/components/ThemeProvider';
 import { buildStrategyTree } from '@/lib/ml/creative-strategy';
 import { generateSuggestions, analyzePortfolio, getAvoidanceAdvice, analyzeHistoricalPatterns, CreativeSuggestion, PortfolioAnalysis, AvoidanceAdvice, HistoricalPattern } from '@/lib/ml/creative-suggestions';
 import { analyzeWinningAds, WinningInsight } from '@/lib/ml/andromeda-insights';
+import { analyzeFacets, FacetAd, FacetInsights, CreativeSuggestion as FacetSuggestion } from '@/lib/ml/facet-intelligence';
+import { standardAdsToFacetAds } from '@/lib/ml/facet-converter';
 
 // Types
 interface MindMapNode {
@@ -23,6 +25,16 @@ interface MindMapNode {
     predictedScore?: number;
     priority?: 'high' | 'medium' | 'low';
     isSuggestion?: boolean;
+    // New fields for suggestion traits (Antonio approach)
+    traits?: string[];  // e.g., ['curiosity', 'UGC', 'tiktok', 'subtitles']
+    creativeType?: string;  // e.g., 'Problem_Solution', 'UGC_Testimonial'
+    implementation?: {
+        format: string;
+        hook: string;
+        example: string;
+        platform: string;
+    };
+    basedOn?: string[];  // Reasons why this is suggested
 }
 
 interface AdData {
@@ -222,7 +234,18 @@ function createMindMapLayout(
 
     // === ADD SUGGESTION NODES ===
     // Position suggestions on the right side as special gold/purple circles
-    const topSuggestions = suggestions.filter(s => s.priority === 'high' || s.predictedScore >= 60).slice(0, 5);
+    // Filter for unique creative types and high priority suggestions
+    const seenTypes = new Set<string>();
+    const topSuggestions = suggestions
+        .filter(s => s.priority === 'high' || s.predictedScore >= 60)
+        .filter(s => {
+            // Ensure unique creative types (Antonio approach: test distinct concepts)
+            if (seenTypes.has(s.type)) return false;
+            seenTypes.add(s.type);
+            return true;
+        })
+        .slice(0, 5);
+
     const suggestionStartAngle = -Math.PI / 4; // Start at top-right
     const suggestionSpread = Math.PI / 3; // Spread across 60 degrees
 
@@ -234,6 +257,20 @@ function createMindMapLayout(
         const suggestionColor = suggestion.priority === 'high' ? '#FFB800' : // Gold for high priority
             suggestion.priority === 'medium' ? '#9C27B0' : // Purple for medium
                 '#00BCD4'; // Teal for low
+
+        // Build traits array from implementation details (Antonio approach)
+        const traits: string[] = [];
+        if (suggestion.implementation?.hook) traits.push(suggestion.implementation.hook);
+        if (suggestion.implementation?.format) traits.push(suggestion.implementation.format);
+        if (suggestion.implementation?.platform) traits.push(suggestion.implementation.platform);
+        // Add any derived traits from basedOn
+        suggestion.basedOn?.forEach(reason => {
+            // Extract trait names from reason text like "UGC style typically adds +12 points"
+            const match = reason.match(/^([A-Za-z_]+)\s+(?:style|hook|format)?/i);
+            if (match && match[1] && !traits.includes(match[1])) {
+                traits.push(match[1]);
+            }
+        });
 
         nodes.push({
             id: suggestion.id,
@@ -247,7 +284,12 @@ function createMindMapLayout(
             angle: angle,
             predictedScore: suggestion.predictedScore,
             priority: suggestion.priority,
-            isSuggestion: true
+            isSuggestion: true,
+            // New Antonio approach fields
+            creativeType: suggestion.type,
+            traits: traits.length > 0 ? traits : [suggestion.implementation?.hook || 'custom'],
+            implementation: suggestion.implementation,
+            basedOn: suggestion.basedOn,
         });
     });
 
@@ -833,6 +875,41 @@ export default function StrategyTreePage() {
         return map;
     }, [winningInsights]);
 
+    // Facet-based intelligence analysis for co-occurrence and unique suggestions
+    const facetInsights = useMemo((): FacetInsights | null => {
+        if (ads.length < 3) return null;
+        try {
+            // Convert ads to FacetAd format
+            const facetAds = standardAdsToFacetAds(ads.map(ad => ({
+                id: ad.id,
+                extractedContent: ad.extractedContent as {
+                    hookType?: string;
+                    platform?: string;
+                    contentCategory?: string;
+                    editingStyle?: string;
+                    musicType?: string;
+                    colorScheme?: string;
+                    hasSubtitles?: boolean;
+                    isUGCStyle?: boolean;
+                    hasVoiceover?: boolean;
+                    traits?: string[];
+                },
+                successScore: typeof ad.successScore === 'number' ? ad.successScore : undefined,
+                adInsights: ad.adInsights as {
+                    ctr?: number;
+                    roas?: number;
+                    conversions?: number;
+                } | undefined,
+            })));
+
+            if (facetAds.length < 3) return null;
+            return analyzeFacets(facetAds);
+        } catch (error) {
+            console.error('[Strategy Tree] Facet analysis error:', error);
+            return null;
+        }
+    }, [ads]);
+
     // Panel tab state
     const [activeTab, setActiveTab] = useState<'node' | 'ai'>('ai');
 
@@ -1158,14 +1235,45 @@ export default function StrategyTreePage() {
                                                             {node.predictedScore !== undefined && (
                                                                 <text
                                                                     x={node.x}
-                                                                    y={node.y + node.radius + 14}
+                                                                    y={node.y + node.radius + 12}
                                                                     textAnchor="middle"
                                                                     fill={node.color}
-                                                                    fontSize={10}
+                                                                    fontSize={9}
                                                                     fontWeight="700"
                                                                 >
                                                                     {node.predictedScore}% predicted
                                                                 </text>
+                                                            )}
+                                                            {/* Traits display - Show what traits to use */}
+                                                            {node.traits && node.traits.length > 0 && (
+                                                                <g>
+                                                                    {/* Background for trait pills */}
+                                                                    <rect
+                                                                        x={node.x - 55}
+                                                                        y={node.y + node.radius + 22}
+                                                                        width={110}
+                                                                        height={Math.ceil(node.traits.length / 2) * 14 + 8}
+                                                                        rx={6}
+                                                                        fill="rgba(0,0,0,0.7)"
+                                                                        stroke={node.color}
+                                                                        strokeWidth={1}
+                                                                        opacity={0.9}
+                                                                    />
+                                                                    {/* Trait labels */}
+                                                                    {node.traits.slice(0, 4).map((trait, idx) => (
+                                                                        <text
+                                                                            key={`trait-${idx}`}
+                                                                            x={node.x + (idx % 2 === 0 ? -28 : 28)}
+                                                                            y={node.y + node.radius + 34 + Math.floor(idx / 2) * 13}
+                                                                            textAnchor="middle"
+                                                                            fill="#fff"
+                                                                            fontSize={7}
+                                                                            fontWeight="500"
+                                                                        >
+                                                                            {trait.replace(/_/g, ' ').toUpperCase().substring(0, 10)}
+                                                                        </text>
+                                                                    ))}
+                                                                </g>
                                                             )}
                                                         </g>
                                                     )}
