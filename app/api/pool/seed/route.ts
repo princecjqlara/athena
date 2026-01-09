@@ -43,11 +43,11 @@ export async function POST(request: NextRequest) {
         for (const ad of ads) {
             const content = ad.extractedContent || {};
             const insights = ad.adInsights || {};
-            
+
             // Calculate success score (0-100 scale, converted to z-score)
-            const successScore = ad.successScore || 
+            const successScore = ad.successScore ||
                 (insights.ctr ? Math.min(100, Math.round(insights.ctr * 20)) : 50);
-            
+
             // Convert success score to z-score (-2 to +2 range)
             const zScore = ((successScore - 50) / 25);
 
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
             if (content.isUGCStyle) traits.push('ugc:yes');
             if (content.hasVoiceover) traits.push('voiceover:yes');
             if (content.mediaType) traits.push(`media:${content.mediaType}`);
-            
+
             // Extended traits
             if (content.ctaType) traits.push(`cta:${content.ctaType}`);
             if (content.pacing) traits.push(`pacing:${content.pacing}`);
@@ -131,12 +131,21 @@ export async function POST(request: NextRequest) {
             .from('user_contributions')
             .insert(records);
 
+        // Handle missing table gracefully
         if (insertError) {
-            console.error('Insert error:', insertError);
-            return NextResponse.json(
-                { success: false, error: 'Failed to insert contributions: ' + insertError.message },
-                { status: 500 }
-            );
+            const isMissingTable = insertError.message?.includes('user_contributions') ||
+                insertError.message?.includes('schema cache') ||
+                insertError.code === 'PGRST205';
+            if (isMissingTable) {
+                console.warn('[Seed] user_contributions table not found - skipping contribution insert');
+                // Continue to still try to seed collective_priors
+            } else {
+                console.error('Insert error:', insertError);
+                return NextResponse.json(
+                    { success: false, error: 'Failed to insert contributions: ' + insertError.message },
+                    { status: 500 }
+                );
+            }
         }
 
         // Now aggregate into collective_priors
@@ -161,50 +170,79 @@ export async function POST(request: NextRequest) {
 
         // Upsert to collective_priors
         let priorsUpdated = 0;
+        let tablesMissing = false;
+
         for (const [feature, agg] of featureAggregates) {
-            // First check if exists
-            const { data: existing } = await supabase
-                .from('collective_priors')
-                .select('*')
-                .eq('feature_name', feature)
-                .single();
-
-            if (existing) {
-                // Update existing
-                const newCount = existing.contribution_count + agg.count;
-                const newSum = existing.weight_sum + agg.sum;
-                const { error } = await supabase
+            try {
+                // First check if exists
+                const { data: existing, error: selectError } = await supabase
                     .from('collective_priors')
-                    .update({
-                        weight_sum: newSum,
-                        contribution_count: newCount,
-                        avg_weight: newSum / newCount,
-                        confidence: Math.min(1, newCount / 50), // Faster confidence buildup for demo
-                        positive_outcomes: existing.positive_outcomes + agg.positive,
-                        negative_outcomes: existing.negative_outcomes + agg.negative,
-                        last_updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', existing.id);
+                    .select('*')
+                    .eq('feature_name', feature)
+                    .single();
 
-                if (!error) priorsUpdated++;
-            } else {
-                // Insert new
-                const { error } = await supabase
-                    .from('collective_priors')
-                    .insert({
-                        feature_name: feature,
-                        category: agg.category,
-                        weight_sum: agg.sum,
-                        contribution_count: agg.count,
-                        avg_weight: agg.sum / agg.count,
-                        confidence: Math.min(1, agg.count / 50),
-                        positive_outcomes: agg.positive,
-                        negative_outcomes: agg.negative,
-                        last_updated_at: new Date().toISOString(),
-                    });
+                // Check if table is missing
+                if (selectError && (selectError.message?.includes('collective_priors') ||
+                    selectError.message?.includes('schema cache') ||
+                    selectError.code === 'PGRST205')) {
+                    tablesMissing = true;
+                    break; // Stop trying if table doesn't exist
+                }
 
-                if (!error) priorsUpdated++;
+                if (existing) {
+                    // Update existing
+                    const newCount = existing.contribution_count + agg.count;
+                    const newSum = existing.weight_sum + agg.sum;
+                    const { error } = await supabase
+                        .from('collective_priors')
+                        .update({
+                            weight_sum: newSum,
+                            contribution_count: newCount,
+                            avg_weight: newSum / newCount,
+                            confidence: Math.min(1, newCount / 50), // Faster confidence buildup for demo
+                            positive_outcomes: existing.positive_outcomes + agg.positive,
+                            negative_outcomes: existing.negative_outcomes + agg.negative,
+                            last_updated_at: new Date().toISOString(),
+                        })
+                        .eq('id', existing.id);
+
+                    if (!error) priorsUpdated++;
+                } else {
+                    // Insert new
+                    const { error } = await supabase
+                        .from('collective_priors')
+                        .insert({
+                            feature_name: feature,
+                            category: agg.category,
+                            weight_sum: agg.sum,
+                            contribution_count: agg.count,
+                            avg_weight: agg.sum / agg.count,
+                            confidence: Math.min(1, agg.count / 50),
+                            positive_outcomes: agg.positive,
+                            negative_outcomes: agg.negative,
+                            last_updated_at: new Date().toISOString(),
+                        });
+
+                    if (!error) priorsUpdated++;
+                }
+            } catch (e) {
+                console.warn('[Seed] Error processing feature:', feature, e);
             }
+        }
+
+        // Return success with appropriate message
+        if (tablesMissing) {
+            console.warn('[Seed] collective_priors table not found - pool feature not configured');
+            return NextResponse.json({
+                success: true,
+                message: 'Pool tables not configured - ads processed locally only',
+                warning: 'Run the schema.sql to enable community patterns',
+                stats: {
+                    adsProcessed: ads.length,
+                    contributionsCreated: 0,
+                    patternsSeeded: 0,
+                }
+            });
         }
 
         return NextResponse.json({
