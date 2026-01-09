@@ -160,11 +160,11 @@ function createMindMapLayout(
         adsCount: tree.adsCount
     });
 
-    const branchCount = Math.min(tree.children.length, 6);
+    const branchCount = Math.min(tree.children.length, 10);
     const angleStep = (Math.PI * 2) / Math.max(branchCount, 1);
 
     // Main branches (platforms/categories)
-    tree.children.slice(0, 6).forEach((platform, i) => {
+    tree.children.slice(0, 10).forEach((platform, i) => {
         const baseAngle = angleStep * i - Math.PI / 2;
         const angle = baseAngle;
         const dist = 180;
@@ -187,8 +187,8 @@ function createMindMapLayout(
         });
 
         // Sub-branches extending outward
-        const subCount = Math.min(platform.children.length, 5);
-        platform.children.slice(0, 5).forEach((ctype, j) => {
+        const subCount = Math.min(platform.children.length, 8);
+        platform.children.slice(0, 8).forEach((ctype, j) => {
             const spreadAngle = 0.5;
             const subAngle = angle + (j - (subCount - 1) / 2) * spreadAngle;
             const subDist = 110;
@@ -209,9 +209,9 @@ function createMindMapLayout(
                 adsCount: ctype.adsCount
             });
 
-            // Leaf nodes (individual ads/items)
-            const leafCount = Math.min(ctype.children.length, 4);
-            ctype.children.slice(0, 4).forEach((ad, k) => {
+            // Leaf nodes (individual ads/items) - show ALL ads, no limit
+            const leafCount = ctype.children.length;
+            ctype.children.forEach((ad, k) => {
                 const leafSpread = 0.55;
                 const leafAngle = subAngle + (k - (leafCount - 1) / 2) * leafSpread;
                 const leafDist = 65;
@@ -864,6 +864,19 @@ export default function StrategyTreePage() {
 
     const suggestions = useMemo(() => {
         if (ads.length === 0) return [];
+        // Only show suggestions if we have enough real data
+        const adsWithScores = ads.filter(ad => {
+            const score = (ad as { successScore?: number }).successScore;
+            const insights = (ad as { adInsights?: { ctr?: number; roas?: number; spend?: number } }).adInsights;
+            const hasRealScore = typeof score === 'number' && score > 0;
+            const hasRealInsights = insights && (
+                (typeof insights.ctr === 'number' && insights.ctr > 0) ||
+                (typeof insights.roas === 'number' && insights.roas > 0) ||
+                (typeof insights.spend === 'number' && insights.spend > 0)
+            );
+            return hasRealScore || hasRealInsights;
+        });
+        if (adsWithScores.length < 3) return [];
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return generateSuggestions(ads as any);
     }, [ads]);
