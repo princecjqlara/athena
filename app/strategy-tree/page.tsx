@@ -1362,6 +1362,8 @@ export default function StrategyTreePage() {
                             <div className={styles.nodeTypeTag} style={{ backgroundColor: `${selected.color}20`, color: selected.color }}>
                                 {selected.type.toUpperCase()}
                             </div>
+
+                            {/* Show score for regular nodes */}
                             {selected.score !== undefined && (
                                 <div className={styles.scoreDisplay}>
                                     <span className={styles.scoreValue} style={{ color: selected.color }}>
@@ -1372,6 +1374,89 @@ export default function StrategyTreePage() {
                                     </span>
                                 </div>
                             )}
+
+                            {/* Show predicted score for suggestion nodes */}
+                            {selected.type === 'suggestion' && selected.predictedScore !== undefined && (
+                                <div className={styles.scoreDisplay}>
+                                    <span className={styles.scoreValue} style={{ color: selected.color }}>
+                                        {selected.predictedScore}%
+                                    </span>
+                                    <span className={styles.scoreLabel}>PREDICTED SUCCESS</span>
+                                </div>
+                            )}
+
+                            {/* Show traits for suggestion nodes */}
+                            {selected.type === 'suggestion' && selected.traits && selected.traits.length > 0 && (
+                                <div style={{ marginTop: '16px' }}>
+                                    <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        Recommended Traits
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                        {selected.traits.map((trait, idx) => (
+                                            <span
+                                                key={idx}
+                                                style={{
+                                                    padding: '4px 10px',
+                                                    backgroundColor: `${selected.color}20`,
+                                                    color: selected.color,
+                                                    borderRadius: '12px',
+                                                    fontSize: '11px',
+                                                    fontWeight: '600',
+                                                    textTransform: 'capitalize',
+                                                }}
+                                            >
+                                                {trait.replace(/_/g, ' ')}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Show implementation details for suggestion nodes */}
+                            {selected.type === 'suggestion' && selected.implementation && (
+                                <div style={{ marginTop: '16px' }}>
+                                    <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        Implementation Guide
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#e2e8f0', lineHeight: '1.5' }}>
+                                        {selected.implementation.hook && (
+                                            <div style={{ marginBottom: '6px' }}>
+                                                <strong style={{ color: selected.color }}>Hook:</strong> {selected.implementation.hook}
+                                            </div>
+                                        )}
+                                        {selected.implementation.format && (
+                                            <div style={{ marginBottom: '6px' }}>
+                                                <strong style={{ color: selected.color }}>Format:</strong> {selected.implementation.format}
+                                            </div>
+                                        )}
+                                        {selected.implementation.platform && (
+                                            <div style={{ marginBottom: '6px' }}>
+                                                <strong style={{ color: selected.color }}>Platform:</strong> {selected.implementation.platform}
+                                            </div>
+                                        )}
+                                        {selected.implementation.example && (
+                                            <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: '8px', fontStyle: 'italic', color: '#94a3b8' }}>
+                                                &quot;{selected.implementation.example}&quot;
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Show basedOn reasons for suggestions */}
+                            {selected.type === 'suggestion' && selected.basedOn && selected.basedOn.length > 0 && (
+                                <div style={{ marginTop: '16px' }}>
+                                    <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        Why This Is Suggested
+                                    </div>
+                                    <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', color: '#cbd5e1', lineHeight: '1.6' }}>
+                                        {selected.basedOn.slice(0, 4).map((reason, idx) => (
+                                            <li key={idx}>{reason}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
                             {selected.adsCount !== undefined && selected.adsCount > 0 && (
                                 <div className={styles.statRow}>
                                     <span>Connected Ads</span>
